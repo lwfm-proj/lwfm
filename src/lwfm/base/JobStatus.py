@@ -1,12 +1,11 @@
 
 from enum import Enum
-from abc import ABC, abstractmethod
 import logging
 import uuid
 
 from datetime import datetime
 
-from LwfmBase import LwfmBase
+from lwfm.base.LwfmBase import LwfmBase
 
 
 class _JobStatusFields(Enum):
@@ -39,7 +38,7 @@ class _IdGenerator:
         return str(uuid.uuid4())
 
 
-class JobStatus(LwfmBase, ABC):
+class JobStatus(LwfmBase):
 
     # status:           JobStatusValues
     # nativeStatus:     str

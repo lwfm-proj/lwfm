@@ -1,7 +1,7 @@
 
 import logging
 
-from JobStatus import JobStatus, JobStatusValues
+from lwfm.base.JobStatus import JobStatus, JobStatusValues
 
 
 class SlurmJobStatus(JobStatus):

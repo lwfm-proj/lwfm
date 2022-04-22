@@ -1,7 +1,7 @@
 
 import logging
 
-from JobStatus import JobStatus
+from lwfm.base.JobStatus import JobStatus
 
 
 class LocalJobStatus(JobStatus):

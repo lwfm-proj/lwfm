@@ -18,6 +18,9 @@ class LwfmBase(ABC):
     def _getArg(self, name: str) -> type:
         return self.args.get(name, None)
 
+    def getArgs(self) -> dict[str, type]:
+        return args
+
 
 # test
 if __name__ == '__main__':
