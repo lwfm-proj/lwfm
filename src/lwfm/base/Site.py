@@ -4,28 +4,40 @@ import logging
 from abc import ABC, abstractmethod
 
 
-from lwfm.base.LwfmBase import LwfmBase
+from lwfm.base.LwfmBase  import LwfmBase
+from lwfm.base.JobStatus import JobStatus
 
 
-class SiteLoginDriver(ABC):
+class SiteAuthDriver(ABC):
     @abstractmethod
-    def login(self) -> bool:
+    def login(self, force: bool=False) -> bool:
+        pass
+
+    @abstractmethod
+    def isAuthCurrent(self) -> bool:
+        pass
+
+    @abstractmethod
+    def writeToStore(self) -> bool:
+        pass
+
+    @abstractmethod
+    def readFromStore(self) -> bool:
         pass
 
 
 class SiteRunDriver(ABC):
+#    @abstractmethod
+#    def submitJob(self) -> bool:
+#        pass
+
     @abstractmethod
-    def submitJob(self) -> bool:
+    def getJobStatus(self, nativeJobId: str) -> JobStatus:
         pass
 
     @abstractmethod
-    def getJobStatus(self) -> bool:    # TODO
+    def cancelJob(self, nativeJobId: str) -> bool:
         pass
-
-    @abstractmethod
-    def cancelJob(self) -> bool:
-        pass
-
 
 
 
@@ -33,15 +45,16 @@ class _SiteFields(Enum):
     SITE_NAME = "siteName"
 
 
+
 class Site(LwfmBase):
 
-    _loginDriver: SiteLoginDriver
-    _runDriver:   SiteRunDriver
+    _authDriver: SiteAuthDriver = None
+    _runDriver:   SiteRunDriver = None
 
-    def __init__(self, name: str, loginDriver: SiteLoginDriver, runDriver: SiteRunDriver, args: dict[str, type]=None):
+    def __init__(self, name: str, authDriver: SiteAuthDriver, runDriver: SiteRunDriver, args: dict[str, type]=None):
         super(Site, self).__init__(args)
         self.setName(name)
-        self.setLoginDriver(loginDriver)
+        self.setAuthDriver(authDriver)
         self.setRunDriver(runDriver)
 
     def setName(self, name: str) -> None:
@@ -50,11 +63,11 @@ class Site(LwfmBase):
     def getName(self) -> str:
         return LwfmBase._getArg(self, _SiteFields.SITE_NAME.value)
 
-    def setLoginDriver(self, loginDriver: SiteLoginDriver) -> None:
-        self._loginDriver = loginDriver
+    def setAuthDriver(self, authDriver: SiteAuthDriver) -> None:
+        self._authDriver = authDriver
 
-    def getLoginDriver(self) -> SiteLoginDriver:
-        return self._loginDriver
+    def getAuthDriver(self) -> SiteAuthDriver:
+        return self._authDriver
 
     def setRunDriver(self, runDriver: SiteRunDriver) -> None:
         self._runDriver = runDriver

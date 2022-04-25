@@ -19,6 +19,7 @@ class _JobStatusFields(Enum):
     PARENT_JOB_ID = "parentJobId"
     ORIGIN_JOB_ID = "originJobId"
     NATIVE_INFO   = "nativeInfo"
+    SITE_NAME     = "siteName"
 
 
 class JobStatusValues(Enum):
@@ -52,6 +53,7 @@ class JobStatus(LwfmBase):
     # originJobId:      str                                     # this job's furthest ancestor, if not itself if seminal job
     statusHistory:      dict[datetime, LwfmBase] = None         # history of status messages, not copied by copy constructor
     # nativeInfo:       str                                     # arbitrary body of info passed in the native status message
+    # siteName          str                                     # the site source for this job status
 
     def __init__(self, args: dict[str, type] = None):
         super(JobStatus, self).__init__(args)
@@ -151,6 +153,12 @@ class JobStatus(LwfmBase):
 
     def getStatusHistory(self) -> dict[datetime, LwfmBase]:
         return self.statusHistory
+
+    def setSiteName(self, name: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.SITE_NAME.value, name)
+
+    def getSiteName(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.SITE_NAME.value)
 
 
 # test
