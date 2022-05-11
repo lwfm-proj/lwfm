@@ -6,7 +6,11 @@ from abc import ABC, abstractmethod
 
 from lwfm.base.LwfmBase  import LwfmBase
 from lwfm.base.JobStatus import JobStatus
+from lwfm.base.JobDefn import JobDefn
 
+
+
+#***********************************************************************************************************************************
 
 class SiteAuthDriver(ABC):
     @abstractmethod
@@ -26,10 +30,12 @@ class SiteAuthDriver(ABC):
         pass
 
 
+#***********************************************************************************************************************************
+
 class SiteRunDriver(ABC):
-#    @abstractmethod
-#    def submitJob(self) -> bool:
-#        pass
+    @abstractmethod
+    def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
+        pass
 
     @abstractmethod
     def getJobStatus(self, nativeJobId: str) -> JobStatus:
@@ -40,10 +46,10 @@ class SiteRunDriver(ABC):
         pass
 
 
+#***********************************************************************************************************************************
 
 class _SiteFields(Enum):
     SITE_NAME = "siteName"
-
 
 
 class Site(LwfmBase):
@@ -76,6 +82,7 @@ class Site(LwfmBase):
         return self._runDriver
 
 
+#***********************************************************************************************************************************
 
 # test
 if __name__ == '__main__':

@@ -8,9 +8,7 @@ class LwfmBase(ABC):
     args: dict[str, type] = None    # most class attributes backed by getters and setters are handled as values in this dict
 
     def __init__(self, args: dict[str, type] = None):
-        if args is None:
-            args = dict()
-        self.args = dict(args)
+        self.setArgs(args)
 
     def _setArg(self, name: str, value: type) -> None:
         self.args[name] = value
@@ -19,7 +17,12 @@ class LwfmBase(ABC):
         return self.args.get(name, None)
 
     def getArgs(self) -> dict[str, type]:
-        return args
+        return self.args
+
+    def setArgs(self, args: dict[str,type]=None):
+        if args is None:
+            args = dict()
+        self.args = dict(args)
 
 
 # test

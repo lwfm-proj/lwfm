@@ -4,8 +4,10 @@ import logging
 import uuid
 
 from datetime import datetime
+import json
 
 from lwfm.base.LwfmBase import LwfmBase
+from lwfm.base.JobDefn import JobDefn
 
 
 class _JobStatusFields(Enum):
@@ -70,6 +72,7 @@ class JobStatus(LwfmBase):
         self.setReceivedTime(datetime.utcnow())
         if self.getId() is None:
             self.setId(_IdGenerator.generateId())
+        self.setStatus(JobStatusValues.UNKNOWN)
 
     def setStatus(self, status: JobStatusValues) -> None:
         LwfmBase._setArg(self, _JobStatusFields.STATUS.value, status)
@@ -77,19 +80,24 @@ class JobStatus(LwfmBase):
     def getStatus(self) -> JobStatusValues:
         return LwfmBase._getArg(self, _JobStatusFields.STATUS.value)
 
+    def isTerminal(self) -> bool:
+        return ( (self.getStatus() == JobStatusValues.COMPLETE) or
+                 (self.getStatus() == JobStatusValues.FAILED)   or
+                 (self.getStatus() == JobStatusValues.CANCELLED) )
+
     def getStatusValue(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.STATUS.value).value
 
-    def setNativeStatusString(self, status: str) -> None:
+    def setNativeStatusStr(self, status: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.NATIVE_STATUS.value, status)
         self.mapNativeStatus()
 
-    def getNativeStatusString(self) -> str:
+    def getNativeStatusStr(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.NATIVE_STATUS.value)
 
     def mapNativeStatus(self) -> None:
         try:
-            self.setStatus(self.statusMap[self.getNativeStatusString()])
+            self.setStatus(self.statusMap[self.getNativeStatusStr()])
         except Exception as ex:
             logging.error("Unable to map the native status to canonical: {}".format(ex.message))
             self.setStatus(JobStatusValues.UNKNOWN)
@@ -160,6 +168,14 @@ class JobStatus(LwfmBase):
     def getSiteName(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.SITE_NAME.value)
 
+    def toJsonString(self) -> str:
+        return json.dumps(self.getArgs(), sort_keys=True, default=str)
+
+
+
+
+#************************************************************************************************************************************
+
 
 # test
 if __name__ == '__main__':
@@ -170,5 +186,6 @@ if __name__ == '__main__':
         "NODE_FAIL" : JobStatusValues.FAILED
         }
     status.setStatusMap(statusMap)
-    status.setNativeStatusString("NODE_FAIL")
-    logging.info(status.getId() + " " + status.getStatusValue())
+    status.setNativeStatusStr("NODE_FAIL")
+    status.setEmitTime(datetime.utcnow())
+    logging.info(status.toJsonString())

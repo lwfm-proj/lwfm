@@ -5,6 +5,17 @@ from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver
 from lwfm.base.JobStatus import JobStatus
 
 
+
+#************************************************************************************************************************************
+
+class LocalJobStatus(JobStatus):
+    def __init__(self):
+        super(LocalJobStatus, self).__init__()
+        # use default canonical status map
+
+
+#************************************************************************************************************************************
+
 class LocalSiteAuthDriver(SiteAuthDriver):
     def login(self, force: bool=False) -> bool:
         return True
@@ -26,6 +37,8 @@ class LocalSiteRunDriver(SiteRunDriver):
     def cancelJob(self, nativeJobId: str) -> bool:
         return True
 
+
+#************************************************************************************************************************************
 
 # test
 if __name__ == '__main__':
