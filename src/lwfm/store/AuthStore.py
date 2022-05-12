@@ -12,7 +12,14 @@ class AuthStore():
             return None
         myvars = {}
         with open(path) as myfile:
+            name = None
             for line in myfile:
-                name, var = line.partition("=")[::2]
-                myvars[name.strip()] = str(var.strip())
+                # We need to be able to have multiline vars for private keys
+                if "=" in line:
+                    name, var = line.split("=")
+                    name = name.strip()
+                    myvars[name] = var.strip()
+                else:
+                    var = line.strip()
+                    myvars[name] += "\n" + var
         return myvars
