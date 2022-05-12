@@ -1,4 +1,7 @@
 
+# A Job Definition is the abstract representation of a job, the non-instantiated description.
+# The JobDefn will be passed to the Site's Run driver which will use the args to instantiate a Job from the defn.
+
 from enum import Enum
 import logging
 import uuid
@@ -9,11 +12,11 @@ from lwfm.base.LwfmBase import LwfmBase
 
 
 class _JobDefnFields(Enum):
-    NAME               = "name"
-    COMPUTE_TYPE       = "computeType"
-    ENTRY_POINT_PATH   = "entryPointPath"
-    NOTIFICATION_EMAIL = "notificationEmail"
-
+    NAME               = "name"                        # for human convenience
+    COMPUTE_TYPE       = "computeType"                 # some sites define addressable compute resources within it
+    ENTRY_POINT_PATH   = "entryPointPath"              # defines the top-level "executable" command to pass to the site scheduler
+    NOTIFICATION_EMAIL = "notificationEmail"           # some site schedulers permit direct user notification
+    # EXTRA_ARGS                                       # site schedulers vary widely - this dict permits arbitrary args
 
 class JobDefn(LwfmBase):
 
