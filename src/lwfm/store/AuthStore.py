@@ -15,7 +15,8 @@ class AuthStore():
             name = None
             for line in myfile:
                 # We need to be able to have multiline vars for private keys
-                if "=" in line:
+                # TODO: This is a quick hack, we need to do something better
+                if line.count("=") == 1:
                     name, var = line.split("=")
                     name = name.strip()
                     myvars[name] = var.strip()
