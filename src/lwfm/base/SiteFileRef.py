@@ -86,25 +86,25 @@ class RemoteFSFileRef(SiteFileRef, LwfmBase):
         return LwfmBase._getArg(self, _RemoteFSFileRefFields.PATH.value)
 
     def _setPath(self, path: str) -> None:
-        LwfmBase._setArg(self, _RemoteFSFileRefFields.PATH.value, name)
+        LwfmBase._setArg(self, _RemoteFSFileRefFields.PATH.value, path)
 
     def getSize(self) -> int:
         return LwfmBase._getArg(self, _RemoteFSFileRefFields.SIZE.value)
 
     def _setSize(self, size: int) -> None:
-        LwfmBase._setArg(self, _RemoteFSFileRefFields.SIZE.value, name)
+        LwfmBase._setArg(self, _RemoteFSFileRefFields.SIZE.value, size)
 
     def getTimestamp(self) -> datetime:
         return LwfmBase._getArg(self, _RemoteFSFileRefFields.TIMESTAMP.value)
 
     def _setTimestamp(self, tstamp: datetime) -> None:
-        LwfmBase._setArg(self, _RemoteFSFileRefFields.TIMESTAMP.value, name)
+        LwfmBase._setArg(self, _RemoteFSFileRefFields.TIMESTAMP.value, tstamp)
 
     def getHost(self) -> str:
         return LwfmBase._getArg(self, _RemoteFSFileRefFields.HOST.value)
 
     def _setHost(self, host: str) -> None:
-        LwfmBase._setArg(self, _RemoteFSFileRefFields.HOST.value, name)
+        LwfmBase._setArg(self, _RemoteFSFileRefFields.HOST.value, host)
 
 
 #************************************************************************************************************************************
