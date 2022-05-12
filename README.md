@@ -7,6 +7,8 @@ TODO:
 
 - repo actions as jobs...
 
+- JobStatusSentinel with backing persistence
+
 - nersc run impl
 
 - nersc tokens are pinned to ip - test in advance for ip

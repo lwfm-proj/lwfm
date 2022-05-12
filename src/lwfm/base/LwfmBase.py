@@ -1,6 +1,13 @@
 
 from abc import ABC, abstractmethod
 import logging
+import uuid
+
+
+class _IdGenerator:
+    @staticmethod
+    def generateId():
+        return str(uuid.uuid4())
 
 
 class LwfmBase(ABC):

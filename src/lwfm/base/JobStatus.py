@@ -1,12 +1,11 @@
 
 from enum import Enum
 import logging
-import uuid
 
 from datetime import datetime
 import json
 
-from lwfm.base.LwfmBase import LwfmBase
+from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
 from lwfm.base.JobDefn import JobDefn
 
 
@@ -34,11 +33,6 @@ class JobStatusValues(Enum):
     FAILED    = "FAILED"
     CANCELLED = "CANCELLED"
 
-
-class _IdGenerator:
-    @staticmethod
-    def generateId():
-        return str(uuid.uuid4())
 
 
 class JobStatus(LwfmBase):
