@@ -2,12 +2,14 @@
 from enum import Enum
 import logging
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 
 from lwfm.base.LwfmBase  import LwfmBase
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobDefn import JobDefn
 
+from lwfm.base.SiteFileRef import SiteFileRef
 
 
 #***********************************************************************************************************************************
@@ -48,6 +50,25 @@ class SiteRunDriver(ABC):
 
 #***********************************************************************************************************************************
 
+class SiteRepoDriver(ABC):
+    # take the local file by path and put it to the remote site
+    @abstractmethod
+    def put(self, localRef: Path, siteRef: SiteFileRef) -> SiteFileRef:
+        pass
+
+    # get the file from the remote site and write it local, returning a path to the local
+    @abstractmethod
+    def get(self, siteRef: SiteFileRef, localRef: Path) -> Path:
+        pass
+
+    # get info about the file on the remote site
+    @abstractmethod
+    def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
+        pass
+
+
+#***********************************************************************************************************************************
+
 class _SiteFields(Enum):
     SITE_NAME = "siteName"
 
@@ -55,7 +76,8 @@ class _SiteFields(Enum):
 class Site(LwfmBase):
 
     _authDriver: SiteAuthDriver = None
-    _runDriver:   SiteRunDriver = None
+    _runDriver:  SiteRunDriver  = None
+    _repoDriver: SiteRepoDriver = None
 
     def __init__(self, name: str, authDriver: SiteAuthDriver, runDriver: SiteRunDriver, args: dict[str, type]=None):
         super(Site, self).__init__(args)
@@ -80,6 +102,12 @@ class Site(LwfmBase):
 
     def getRunDriver(self) -> SiteRunDriver:
         return self._runDriver
+
+    def setRepoDriver(self, repoDriver: SiteRepoDriver) -> None:
+        self._repoDriver = repoDriver
+
+    def getRepoDriver(self) -> SiteRepoDriver:
+        return self._repoDriver
 
 
 #***********************************************************************************************************************************
