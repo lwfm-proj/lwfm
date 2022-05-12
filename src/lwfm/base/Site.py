@@ -79,7 +79,7 @@ class Site(LwfmBase):
     _runDriver:  SiteRunDriver  = None
     _repoDriver: SiteRepoDriver = None
 
-    def __init__(self, name: str, authDriver: SiteAuthDriver, runDriver: SiteRunDriver, args: dict[str, type]=None):
+    def __init__(self, name: str, authDriver: SiteAuthDriver, runDriver: SiteRunDriver, args: dict=None):
         super(Site, self).__init__(args)
         self.setName(name)
         self.setAuthDriver(authDriver)

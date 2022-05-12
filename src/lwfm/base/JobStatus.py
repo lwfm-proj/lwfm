@@ -45,7 +45,7 @@ class JobStatus(LwfmBase):
 
     # status:           JobStatusValues
     # nativeStatus:     str
-    statusMap:          dict[str, JobStatusValues] = None       # maps native status to canonical status
+    statusMap:          dict = None                             # maps native status to canonical status
     # emitTime:         datetime
     # receivedTime:     datetime
     # id:               str                                     # its possible two native systems generated the same id
@@ -53,11 +53,11 @@ class JobStatus(LwfmBase):
     # name:             str                                     # optional
     # parentJobId:      str                                     # this job's direct parent, if not a seminal job
     # originJobId:      str                                     # this job's furthest ancestor, if not itself if seminal job
-    statusHistory:      dict[datetime, LwfmBase] = None         # history of status messages, not copied by copy constructor
+    statusHistory:      dict = None                             # history of status messages, not copied by copy constructor
     # nativeInfo:       str                                     # arbitrary body of info passed in the native status message
     # siteName          str                                     # the site source for this job status
 
-    def __init__(self, args: dict[str, type] = None):
+    def __init__(self, args: dict = None):
         super(JobStatus, self).__init__(args)
         # default map
         self.setStatusMap( {
@@ -102,10 +102,10 @@ class JobStatus(LwfmBase):
             logging.error("Unable to map the native status to canonical: {}".format(ex.message))
             self.setStatus(JobStatusValues.UNKNOWN)
 
-    def getStatusMap(self) -> dict[str, JobStatusValues]:
+    def getStatusMap(self) -> dict:
         return self.statusMap
 
-    def setStatusMap(self, statusMap: dict[str, JobStatusValues]) -> None:
+    def setStatusMap(self, statusMap: dict) -> None:
         self.statusMap = statusMap
 
     def setEmitTime(self, emitTime: datetime) -> None:
@@ -156,10 +156,10 @@ class JobStatus(LwfmBase):
     def getNativeInfo(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.NATIVE_INFO.value)
 
-    def setStatusHistory(self, history: dict[datetime, LwfmBase]) -> None:
+    def setStatusHistory(self, history: dict) -> None:
         self.statusHistory = history
 
-    def getStatusHistory(self) -> dict[datetime, LwfmBase]:
+    def getStatusHistory(self) -> dict:
         return self.statusHistory
 
     def setSiteName(self, name: str) -> None:

@@ -17,7 +17,7 @@ class _JobDefnFields(Enum):
 
 class JobDefn(LwfmBase):
 
-    def __init__(self, args: dict[str, type]=None):
+    def __init__(self, args: dict=None):
         super(JobDefn, self).__init__(args)
 
     def setName(self, name: str) -> None:
@@ -44,8 +44,8 @@ class JobDefn(LwfmBase):
     def getNotificationEmail(self) -> str:
         return LwfmBase._getArg(self, _JobDefnFields.NOTIFICATION_EMAIL.value)
 
-    def setExtraArgs(self, args: dict[str, type]=None) -> None:
+    def setExtraArgs(self, args: dict=None) -> None:
         LwfmBase.setArgs(self, args)
 
-    def getExtraArgs(self) -> dict[str,type]:
+    def getExtraArgs(self) -> dict:
         return LwfmBase.getArgs(self)

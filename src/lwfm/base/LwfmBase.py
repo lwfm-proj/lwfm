@@ -5,9 +5,9 @@ import logging
 
 class LwfmBase(ABC):
 
-    args: dict[str, type] = None    # most class attributes backed by getters and setters are handled as values in this dict
+    args: dict = None    # most class attributes backed by getters and setters are handled as values in this dict
 
-    def __init__(self, args: dict[str, type] = None):
+    def __init__(self, args: dict = None):
         self.setArgs(args)
 
     def _setArg(self, name: str, value: type) -> None:
@@ -16,10 +16,10 @@ class LwfmBase(ABC):
     def _getArg(self, name: str) -> type:
         return self.args.get(name, None)
 
-    def getArgs(self) -> dict[str, type]:
+    def getArgs(self) -> dict:
         return self.args
 
-    def setArgs(self, args: dict[str,type]=None):
+    def setArgs(self, args: dict=None):
         if args is None:
             args = dict()
         self.args = dict(args)
