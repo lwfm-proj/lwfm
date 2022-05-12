@@ -99,7 +99,7 @@ class JobStatus(LwfmBase):
         try:
             self.setStatus(self.statusMap[self.getNativeStatusStr()])
         except Exception as ex:
-            logging.error("Unable to map the native status to canonical: {}".format(ex.message))
+            logging.error("Unable to map the native status to canonical: {}".format(ex))
             self.setStatus(JobStatusValues.UNKNOWN)
 
     def getStatusMap(self) -> dict:
