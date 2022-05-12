@@ -66,7 +66,7 @@ class NerscSiteAuthDriver(SiteAuthDriver):
             self._expiresAt = self._authJson['expires_at']
             return True
         except Exception as ex:
-            logging.error("Error logging into Nersc: {}".format(ex.message))
+            logging.error("Error logging into Nersc: {}".format(ex))
             _authJson: str = None
             _accessToken: str = None
             _expiresAt: int = None
