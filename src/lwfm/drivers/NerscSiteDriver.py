@@ -6,11 +6,13 @@ import requests
 import json
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
 import logging
 
-from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver
-from lwfm.base.JobStatus import JobStatus
+from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
+from lwfm.base.SiteFileRef import SiteFileRef
+from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.store.AuthStore import AuthStore
 
 
@@ -97,16 +99,29 @@ class NerscSiteAuthDriver(SiteAuthDriver):
         logging.info("Stored auth does not exist or is no longer valid - logging in again")
         return self.login()
 
-
+#***********************************************************************************************************************************
 
 class NerscSiteRunDriver(SiteRunDriver):
+    def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
+        pass
+    
     def getJobStatus(self, nativeJobId: str) -> JobStatus:
         return JobStatus()
 
     def cancelJob(self, nativeJobId: str) -> bool:
         return True
 
+#***********************************************************************************************************************************
 
+class NerscSiteRepoDriver(SiteRepoDriver):
+    def put(self, localRef: Path, siteRef: SiteFileRef) -> SiteFileRef:
+        pass
+
+    def get(self, siteRef: SiteFileRef, localRef: Path) -> Path:
+        pass
+
+    def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
+        pass    
 
 # Force a login vs Nersc and store the token results.
 if __name__ == '__main__':
