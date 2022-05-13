@@ -90,8 +90,9 @@ class Site(LwfmBase):
         import importlib
         module = importlib.import_module(entry[0])
         class_ = getattr(module, entry[1])
-        return class_()
-
+        inst = class_()
+        inst.setName(site)
+        return inst
 
     def __init__(self, name: str, authDriver: SiteAuthDriver, runDriver: SiteRunDriver, repoDriver: SiteRepoDriver, args: dict=None):
         super(Site, self).__init__(args)

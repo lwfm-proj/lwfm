@@ -9,46 +9,44 @@
 
 from enum import Enum
 import logging
+from flask import Flask, request
+import requests
 
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.Site import Site
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
 
-from flask import Flask
-
 
 #************************************************************************************************************************************
 # tracks an event being waited upon, and the information to launch the responding job when it happens
 
 class _EventHandlerFields(Enum):
-    HANDLER_ID  = "id"
-    JOB_ID      = "jobId"
-    JOB_SITE    = "jobSite"
-    JOB_STATUS  = "jobStatus"
-    FIRE_DEFN   = "fireDefn"
-    TARGET_SITE = "targetSite"
+    JOB_ID           = "jobId"
+    JOB_SITE_NAME    = "jobSiteName"
+    JOB_STATUS       = "jobStatus"
+    FIRE_DEFN        = "fireDefn"
+    TARGET_SITE_NAME = "targetSiteName"
 
 
 class EventHandler(LwfmBase):
-    def __init__(self, handlerId: str, jobId: str, jobSite: Site, jobStatus: JobStatusValues, fireDefn: JobDefn, targetSite: Site):
+    def __init__(self, jobId: str, jobSiteName: str, jobStatus: str, fireDefn: str, targetSiteName: str):
         super(EventHandler, self).__init__()
-        LwfmBase._setArg(self, _EventHandlerFields.HANDLER_ID.value, handlerId)
         LwfmBase._setArg(self, _EventHandlerFields.JOB_ID.value, jobId)
-        LwfmBase._setArg(self, _EventHandlerFields.JOB_SITE.value, jobSite)
+        LwfmBase._setArg(self, _EventHandlerFields.JOB_SITE_NAME.value, jobSiteName)
         LwfmBase._setArg(self, _EventHandlerFields.JOB_STATUS.value, jobStatus)
         LwfmBase._setArg(self, _EventHandlerFields.FIRE_DEFN.value, fireDefn)
-        LwfmBase._setArg(self, _EventHandlerFields.TARGET_SITE.value, targetSite)
+        LwfmBase._setArg(self, _EventHandlerFields.TARGET_SITE_NAME.value, targetSiteName)
 
     def getHandlerId(self) -> str:
-        return LwfmBase._getArg(self, _EventHandlerFields.HANDLER_ID.value)
+        return getKey()
 
     def getKey(self):
         # We want to permit more than one event handler for the same job, but for now we'll limit it to one handler per
         # canonical job status name.
         return str(LwfmBase._getArg(self, _EventHandlerFields.JOB_ID.value) +
                    "." +
-                   LwfmBase._getArg(self, _EventHandlerFields.JOB_STATUS.value).value)
+                   LwfmBase._getArg(self, _EventHandlerFields.JOB_STATUS.value))
 
 
 #************************************************************************************************************************************
@@ -58,30 +56,76 @@ class JobStatusSentinel:
     _eventHandlerMap: dict[str,EventHandler] = dict()
 
     # Regsiter an event handler with the sentinel.  When a jobId running on a job Site emits a particular Job Status, fire
-    # the given JobDefn at the target Site.
-    def setEventHandler(self, jobId: str, jobSite: Site, jobStatus: JobStatusValues,
-                        fireDefn: JobDefn, targetSite: Site) -> str:
-        handlerId = _IdGenerator.generateId()
-        eventHandler = EventHandler(handlerId, jobId, jobSite, jobStatus, fireDefn, targetSite)
+    # the given JobDefn (serialized) at the target Site.  Return the hander id.
+    def setEventHandler(self, jobId: str, jobSiteName: str, jobStatus: str,
+                        fireDefn: str, targetSiteName: str) -> str:
+        eventHandler = EventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName)
         self._eventHandlerMap[eventHandler.getKey()] = eventHandler
-        return handlerId
+        return eventHandler.getKey()
 
     def unsetEventHandler(self, handlerId: str) -> bool:
-        # We are optimized to key off job id since this is the high traffic case.  So to delete an event handler we
-        # have to find it first.
-        for key in self._eventHandlerMap:
-            eventHandler = self._eventHandlerMap[key]
-            if (eventHandler.getHandlerId() == handlerId):
-                self._eventHandlerMap.pop(key)
-                return True
-        # must not have found it
-        return False
+        try:
+            self._eventHandlerMap.pop(handlerId)
+            return True
+        except:
+            return False
+
+    def unsetAllEventHandlers(self) -> None:
+        self._eventHandlerMap = dict()
 
     def listActiveHandlers(self) -> [str]:
         handlers = []
         for key in self._eventHandlerMap:
             handlers.append(key)
         return handlers
+
+
+#************************************************************************************************************************************
+
+class JobStatusSentinelClient:
+    # TODO - do the right thing...
+    _JSS_URL = "http://127.0.0.1:5000/"
+
+    def getUrl(self):
+        return self._JSS_URL
+
+    def setEventHandler(self, jobId: str, jobSiteName: str, jobStatus: str,
+                        fireDefn: str, targetSiteName: str) -> str:
+        payload = {}
+        payload["jobId"] = jobId
+        payload["jobSiteName"] = jobSiteName
+        payload["jobStatus"] = jobStatus
+        payload["fireDefn"] = fireDefn
+        payload["targetSiteName"] = targetSiteName
+        session = requests.session()
+        response = session.post(f'{self.getUrl()}/set', payload)
+        if response.ok:
+            return response.text
+        else:
+            logging.error(response)
+            return None
+
+    def unsetEventHandler(self, handlerId: str) -> bool:
+        response = requests.get(f'{self.getUrl()}/unset/{handlerId}')
+        if response.ok:
+            return True
+        else:
+            return False
+
+    def unsetAllEventHandlers(self) -> bool:
+        response = requests.get(f'{self.getUrl()}/unsetAll')
+        if response.ok:
+            return True
+        else:
+            return False
+
+    def listActiveHandlers(self) -> [str]:
+        response = requests.get(f'{self.getUrl()}/list')
+        if response.ok:
+            return eval(response.text)
+        else:
+            logger.error(response)
+            return None
 
 
 #************************************************************************************************************************************
@@ -93,17 +137,30 @@ jss = JobStatusSentinel()
 
 @app.route('/')
 def index():
-  return 'Server Works!'
+  return str(True)
 
-@app.route('/set')
+@app.route('/set', methods = ['POST'])
 def setHandler():
-    handlerId = jss.setEventHandler("123", None, JobStatusValues.INFO, None, None)
-    return 'set handler ' + handlerId
+    jobId = request.form['jobId']
+    jobSiteName = request.form['jobSiteName']
+    jobStatus = request.form['jobStatus']
+    fireDefn = request.form['fireDefn']
+    targetSiteName = request.form['targetSiteName']
+    handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName)
+    return handlerId
 
-@app.route('/unset')
-def unsetHandler():
-  return str(jss.unsetEventHandler("123"))
+# unset a given handler
+@app.route('/unset/<handlerId>')
+def unsetHandler(handlerId : str):
+    return str(jss.unsetEventHandler(handlerId))
 
+# unset all handers
+@app.route('/unsetAll')
+def unsetAllHandlers():
+    jss.unsetAllEventHandlers()
+    return str(True)
+
+# list the ids of all active handers
 @app.route('/list')
 def listHandlers():
   return str(jss.listActiveHandlers())
@@ -113,10 +170,21 @@ def listHandlers():
 
 # test
 if __name__ == '__main__':
+
+    # basic server list handling
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
     jss = JobStatusSentinel()
-    handlerId = jss.setEventHandler("123", None, JobStatusValues.INFO, None, None)
+    handlerId = jss.setEventHandler("123", None, JobStatusValues.INFO.value, None, None)
     print(str(jss.listActiveHandlers()))
     jss.unsetEventHandler(handlerId)
     print(str(jss.listActiveHandlers()))
+
+    # basic client test
+    jssClient = JobStatusSentinelClient()
+    print("*** " + str(jssClient.listActiveHandlers()))
+    print("*** " + str(jssClient.unsetAllEventHandlers()))
+    handlerId = jssClient.setEventHandler("123", "nersc", "INFO", "{jobDefn}", "nersc")
+    print("*** " + handlerId)
+    print("*** " + str(jssClient.listActiveHandlers()))
+    print("*** " + str(jssClient.unsetEventHandler(handlerId)))

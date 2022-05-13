@@ -3,7 +3,7 @@
 
 TODO:
 
-- triggers
+- triggers: listener thread
 
 - repo actions as jobs...
 
@@ -15,7 +15,7 @@ TODO:
 
 - logger - something messing it up?
 
-- Site factory
+- Site factory needs a way to load in custom site info
 
 - local native run
 
