@@ -17,6 +17,12 @@ from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.store.AuthStore import AuthStore
 
+
+class NerscSite(Site):
+    def __init__(self):
+        super(NerscSite, self).__init__("nersc", NerscSiteAuthDriver(), NerscSiteRunDriver(), NerscSiteRepoDriver(), None)
+
+
 NERSC_BASE_URL = "https://api.nersc.gov/api/v1.2"
 class NERSC_URLS(Enum):
     NERSC_SUBMIT_URL = NERSC_BASE_URL + "/compute/jobs/"
@@ -119,15 +125,15 @@ class NerscSiteAuthDriver(SiteAuthDriver):
 
 class NerscSiteRunDriver(SiteRunDriver):
     machine = None
-    
+
     def _getSession(self):
         authDriver = NerscSiteAuthDriver()
         authDriver.login()
         return authDriver._session
-    
+
     def setMachine(self, machine):
         self.machine = machine
-    
+
     def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
         # We can (should?) use the compute type from the JobDefn, but we should keep usage consistent with the other methods
         if self.machine is None:
@@ -136,7 +142,7 @@ class NerscSiteRunDriver(SiteRunDriver):
 
         # Construct our URL
         url = NERSC_URLS.NERSC_SUBMIT_URL.value + self.machine
-        
+
         # Submit the job
         session = self._getSession()
         data = {"isPath" : True,
@@ -146,7 +152,7 @@ class NerscSiteRunDriver(SiteRunDriver):
             logging.error("Error submitting job")
             return False
         task_id = r.json()['task_id']
-        
+
         # Given a task ID, we need to get the job ID
         # It takes time to process the task, so loop through and check every few seconds until we have a job id
         status = 'new'
@@ -159,22 +165,22 @@ class NerscSiteRunDriver(SiteRunDriver):
         if j['error'] is not None:
             logging.error("Error submitting job: " + j['error'])
             return False
-        
+
         # Construct our status message
         jstatus = NerscJobStatus()
         jstatus.setNativeStatusStr(j['status'].upper())
         jstatus.setNativeId(j['jobid'])
         jstatus.setEmitTime(datetime.utcnow())
         return jstatus
-    
+
     def getJobStatus(self, nativeJobId: str) -> JobStatus:
         if self.machine is None:
             logging.error("No machine found. Please use the setMachine() method before trying to check a NERSC job status.")
             return False
-        
+
         # Construct our URL
         url = NERSC_URLS.NERSC_STATUS_URL.value + self.machine + "/" + nativeJobId
-        
+
         # Check the status
         session = self._getSession()
         data = {"sacct" : True} # We can use either sacct or squeue for info, sacct seems to work a fail a bit less often
@@ -186,7 +192,7 @@ class NerscSiteRunDriver(SiteRunDriver):
             logging.error("Job not found.")
             return False
         j = r.json()['output'][0]
-        
+
         # Construct our status message
         jstatus = NerscJobStatus()
         jstatus.setNativeStatusStr(j['state'].split(' ')[0]) # Cancelled jobs appear in the form "CANCELLED by user123", so make sure to just grab the beginning
@@ -199,10 +205,10 @@ class NerscSiteRunDriver(SiteRunDriver):
         if self.machine is None:
             logging.error("No machine found. Please use the setMachine() method before trying to cancel a NERSC job.")
             return False
-        
+
         # Construct our URL
         url = NERSC_URLS.NERSC_SUBMIT_URL.value + self.machine +"/" + nativeJobId
-        
+
         # Cancel the job
         session = self._getSession()
         r = session.delete(url)
@@ -219,7 +225,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         authDriver = NerscSiteAuthDriver()
         authDriver.login()
         return authDriver._session
-    
+
     def put(self, localRef: Path, siteRef: SiteFileRef) -> SiteFileRef:
         # Construct our URL
         machine = siteRef.getHost()
@@ -252,7 +258,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
             logging.error("Error downloading file")
             return False
 
-        # Now we can write        
+        # Now we can write
         with localRef.open('w', newline='') as f: # Newline argument is needed or else all newlines are doubled
             f.write(r.json()['file'])
         return localRef
@@ -262,7 +268,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         machine = siteRef.getHost()
         path = siteRef.getPath()
         url = NERSC_URLS.NERSC_LS_URL.value + machine + path
-        
+
         # Write. Note that we want to pass back the full ls info
         session = self._getSession()
         r = session.get(url)
@@ -270,13 +276,13 @@ class NerscSiteRepoDriver(SiteRepoDriver):
             logging.error("Error performing ls")
             return False
         return r.json()
-        
+
 
 # Force a login vs Nersc and store the token results.
 if __name__ == '__main__':
     logging.basicConfig()
     logging.getLogger().setLevel(logging.INFO)
-    site = Site("nersc", NerscSiteAuthDriver(), None)
+    site = Site.getSiteInstanceFactory("nersc")
     logging.info("Forcing new login to NERSC...")
     site.getAuthDriver().login(True)
     logging.info("Is NERSC auth valid: " + str(site.getAuthDriver().isAuthCurrent()))

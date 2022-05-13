@@ -15,6 +15,7 @@ from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.Site import Site
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
 
+from flask import Flask
 
 
 #************************************************************************************************************************************
@@ -76,18 +77,46 @@ class JobStatusSentinel:
         # must not have found it
         return False
 
-    def listActiveHandlers(self):
+    def listActiveHandlers(self) -> [str]:
+        handlers = []
         for key in self._eventHandlerMap:
-            print(key + " " + str(self._eventHandlerMap[key]))
+            handlers.append(key)
+        return handlers
+
+
+#************************************************************************************************************************************
+# Flask app
+
+app = Flask(__name__)
+jss = JobStatusSentinel()
+
+
+@app.route('/')
+def index():
+  return 'Server Works!'
+
+@app.route('/set')
+def setHandler():
+    handlerId = jss.setEventHandler("123", None, JobStatusValues.INFO, None, None)
+    return 'set handler ' + handlerId
+
+@app.route('/unset')
+def unsetHandler():
+  return str(jss.unsetEventHandler("123"))
+
+@app.route('/list')
+def listHandlers():
+  return str(jss.listActiveHandlers())
 
 
 #************************************************************************************************************************************
 
+# test
 if __name__ == '__main__':
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
     jss = JobStatusSentinel()
     handlerId = jss.setEventHandler("123", None, JobStatusValues.INFO, None, None)
-    jss.listActiveHandlers()
+    print(str(jss.listActiveHandlers()))
     jss.unsetEventHandler(handlerId)
-    jss.listActiveHandlers()
+    print(str(jss.listActiveHandlers()))

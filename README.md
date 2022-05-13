@@ -24,3 +24,11 @@ TODO:
 - module and signature comments
 - TODO tags
 - wildcard job handlers
+
+
+
+
+************************************************************************************************************************************
+
+export FLASK_APP=lwfm/server/JobStatusSentinel
+flask run

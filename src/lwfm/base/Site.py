@@ -79,11 +79,26 @@ class Site(LwfmBase):
     _runDriver:  SiteRunDriver  = None
     _repoDriver: SiteRepoDriver = None
 
-    def __init__(self, name: str, authDriver: SiteAuthDriver, runDriver: SiteRunDriver, args: dict=None):
+
+    @staticmethod
+    def getSiteInstanceFactory(site = "nersc"):
+        # TODO: need a way to load custom sites into this map
+        sites = {
+            "nersc": [ "lwfm.drivers.NerscSiteDriver", "NerscSite" ]
+        }
+        entry = sites[site]
+        import importlib
+        module = importlib.import_module(entry[0])
+        class_ = getattr(module, entry[1])
+        return class_()
+
+
+    def __init__(self, name: str, authDriver: SiteAuthDriver, runDriver: SiteRunDriver, repoDriver: SiteRepoDriver, args: dict=None):
         super(Site, self).__init__(args)
         self.setName(name)
         self.setAuthDriver(authDriver)
         self.setRunDriver(runDriver)
+        self.setRepoDriver(repoDriver)
 
     def setName(self, name: str) -> None:
         LwfmBase._setArg(self, _SiteFields.SITE_NAME.value, name)
@@ -116,5 +131,5 @@ class Site(LwfmBase):
 if __name__ == '__main__':
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
-    siteFoo = Site("foo", None, None)
+    siteFoo = Site("foo", None, None, None)
     logging.info(siteFoo.getName())
