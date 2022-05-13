@@ -3,7 +3,7 @@
 
 TODO:
 
-- triggers
+- triggers: listener thread
 
 - repo actions as jobs...
 
