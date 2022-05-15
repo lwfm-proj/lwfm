@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
-from lwfm.base.SiteFileRef import SiteFileRef, RemoteFSFileRef
+from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 
@@ -49,6 +49,7 @@ class LocalSiteAuthDriver(SiteAuthDriver):
         return True
 
 #***********************************************************************************************************************************
+# TODO: provide mechanisms for threading
 
 class LocalSiteRunDriver(SiteRunDriver):
     def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
@@ -97,19 +98,18 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         toPath = siteRef.getPath()
         if not self._copyFile(fromPath, toPath):
             return False
-        return siteRef
+        return FSFileRef.siteFileRefFromPath(toPath + "/" + fromPath.name)
 
     def get(self, siteRef: SiteFileRef, localRef: Path) -> Path:
         fromPath = siteRef.getPath()
         toPath = localRef
         if not self._copyFile(fromPath, toPath):
             return False
-        return localRef
-
+        return Path(str(toPath) + "/" + Path(fromPath).name)
 
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
-        path = siteRef.getPath()
-        return os.listdir(path)
+        return FSFileRef.siteFileRefFromPath(siteRef.getPath())
+
 
 #************************************************************************************************************************************
 
@@ -123,15 +123,30 @@ if __name__ == '__main__':
     logging.info(site.getAuthDriver().isAuthCurrent())
 
     jdefn = JobDefn()
-    jdefn.setEntryPointPath("python C:/lwfm/foo.py")
-    runDriver = LocalSiteRunDriver()
-    job = runDriver.submitJob(jdefn)
+    jdefn.setEntryPointPath("pwd")
+    status = site.getRunDriver().submitJob(jdefn)
 
-    #siteRef = RemoteFSFileRef()
-    #siteRef._setPath('C:/lwfm')
-    #print(LocalSiteRepoDriver().ls(siteRef))
-    #path = Path('C:/lwfm/foo2.py')
-    #siteRef._setPath('C:/lwfm/foo3.py')
-    #LocalSiteRepoDriver().put(path, siteRef) # Copy foo2 to foo3
-    #path = Path('C:/lwfm/foo4.py')
-    #LocalSiteRepoDriver().get(siteRef, path) # Copy foo3 to foo4
+    # ls a file
+    fileRef = FSFileRef()
+    fileRef.setPath(os.path.realpath(__file__))
+    logging.info(site.getRepoDriver().ls(fileRef).getName())
+    logging.info(site.getRepoDriver().ls(fileRef).getSize())
+
+    # ls a directory
+    fileRef.setPath(os.path.expanduser('~'))
+    fileRef = site.getRepoDriver().ls(fileRef)
+    logging.info(fileRef.getSize())
+    logging.info(fileRef.getTimestamp())
+    logging.info(fileRef.getDirContents())
+
+    # put
+    localFile = os.path.realpath(__file__)
+    destFileRef = FSFileRef.siteFileRefFromPath(os.path.expanduser('~'))
+    copiedFileRef = site.getRepoDriver().put(Path(localFile), destFileRef)
+    logging.info(copiedFileRef.getName() + " " + str(copiedFileRef.getTimestamp()))
+
+    # get
+    fileRef = FSFileRef.siteFileRefFromPath(os.path.realpath(__file__))
+    destPath = Path(os.path.expanduser('~'))
+    copiedPath = site.getRepoDriver().get(fileRef, destPath)
+    logging.info(copiedPath)

@@ -80,7 +80,7 @@ class SiteRepoDriver(ABC):
     def get(self, siteRef: SiteFileRef, localRef: Path) -> Path:
         pass
 
-    # get info about the file on the remote site
+    # get info about the file/dir on the remote site
     @abstractmethod
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
         pass
