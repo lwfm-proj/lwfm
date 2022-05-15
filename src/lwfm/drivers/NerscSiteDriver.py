@@ -1,4 +1,7 @@
 
+# NerscSiteDriver: an implementation of Site and its constituent Auth, Run, Repo interfaces for the NERSC Superfacility API.
+# This national lab API provides an interface to interact with HPC resources such as Cori and Perlmutter.
+
 from authlib.integrations.requests_client import OAuth2Session
 from authlib.oauth2.rfc7523 import PrivateKeyJWT
 

@@ -1,4 +1,9 @@
 
+# SiteFileRef: an abstract representation of a data object (a "file") on a Site.  The Site's Repo subsystem might back that
+# with a normal filesystem, or it might back it with something fancier like an object store.  Its the role of the Site's Repo
+# subsystem to interpret the SiteFileRef in its own implementation-detail terms.
+
+
 from abc import ABC, abstractmethod
 import logging
 from datetime import datetime

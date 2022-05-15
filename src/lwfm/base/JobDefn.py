@@ -1,10 +1,12 @@
 
 # A Job Definition is the abstract representation of a job, the non-instantiated description.
-# The JobDefn will be passed to the Site's Run driver which will use the args to instantiate a Job from the defn.
+# The JobDefn will be passed to the Site's Run driver which will use the args to instantiate a job from the defn.
+# As time goes on, and the lwfm's refactoring of "sites" continues, additional arbitrary name=value pairs might get promoted
+# to be named explicitly at the class level.  Of note is "compute type" which is a mechanism to address jobs at specific computing
+# resources within the Site on which the job is run.  For example, an HPC site which has CPU and CPU+GPU nodes.
 
 from enum import Enum
 import logging
-import uuid
 
 from datetime import datetime
 

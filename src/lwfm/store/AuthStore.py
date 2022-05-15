@@ -1,4 +1,8 @@
 
+# Provides a quick and dirty way for a Site's Auth subsystem to squirrel away validated user information.  Its likely this
+# information has some time-to-live, and thus we can keep it around for a bit rather than force unnecessary logins.
+# Its provided here as a convenience, but Site implementations do  not need to use it.
+
 import logging
 import os
 

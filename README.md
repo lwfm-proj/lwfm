@@ -3,29 +3,29 @@
 
 TODO:
 
-- triggers: listener thread
+- code comments
+
+- triggers: listener thread & backing persistence
+
 
 - repo actions as jobs...
 
-- JobStatusSentinel with backing persistence
+- test: parent-child tracking
+- test: RunStore - was it used?
 
-- nersc run impl
-
-- nersc tokens are pinned to ip - test in advance for ip
-
-- logger - something messing it up?
-
-- Site factory needs a way to load in custom site info
-
-- local native run
-
-- use case: remote job spawns other jobs - how can we get them to report in?  polling for what...
-- visualize wf
-- module and signature comments
-- TODO tags
-- wildcard job handlers
++ DT4D
+    - DT4D run impl
+    - list of sites for factory - how to add new custom ones?
+    - logger - something messing it up?
+    - some stunt use case...
 
 
+later:
+    - nersc tokens are pinned to ip - test in advance for ip
+    - use case: remote job spawns other jobs - how can we get them to report in?  polling for what...
+    - visualize wf
+    - TODO tags
+    - wildcard job handlers
 
 
 ************************************************************************************************************************************

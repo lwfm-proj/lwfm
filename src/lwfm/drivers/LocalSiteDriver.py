@@ -1,4 +1,7 @@
 
+# LocalSiteDriver: an implementation of Site and its constituent Auth, Run, Repo interfaces for a local to the user runtime
+# environment.  Unsecure, as this is local and we assume the user is themselves already.
+
 import logging
 
 import os
@@ -13,6 +16,12 @@ from lwfm.base.SiteFileRef import SiteFileRef, RemoteFSFileRef
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 
+
+#************************************************************************************************************************************
+
+class LocalSite(Site):
+    def __init__(self):
+        super(LocalSite, self).__init__("local", LocalSiteAuthDriver(), LocalSiteRunDriver(), LocalSiteRepoDriver(), None)
 
 
 #************************************************************************************************************************************
@@ -74,7 +83,7 @@ class LocalSiteRunDriver(SiteRunDriver):
 #***********************************************************************************************************************************
 
 class LocalSiteRepoDriver(SiteRepoDriver):
-    
+
     def _copyFile(self, fromPath, toPath):
         try:
             shutil.copy(fromPath, toPath)
@@ -82,13 +91,13 @@ class LocalSiteRepoDriver(SiteRepoDriver):
             logging.error("Error copying file: " + str(ex))
             return False
         return True
-    
+
     def put(self, localRef: Path, siteRef: SiteFileRef) -> SiteFileRef:
         fromPath = localRef
         toPath = siteRef.getPath()
         if not self._copyFile(fromPath, toPath):
             return False
-        return siteRef        
+        return siteRef
 
     def get(self, siteRef: SiteFileRef, localRef: Path) -> Path:
         fromPath = siteRef.getPath()
@@ -96,7 +105,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         if not self._copyFile(fromPath, toPath):
             return False
         return localRef
-        
+
 
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
         path = siteRef.getPath()
@@ -108,7 +117,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
 if __name__ == '__main__':
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
-    site = Site("local", LocalSiteAuthDriver(), LocalSiteRunDriver(), LocalSiteRepoDriver())
+    site = Site.getSiteInstanceFactory("local")
     logging.info(site.getName())
     site.getAuthDriver().login()
     logging.info(site.getAuthDriver().isAuthCurrent())
@@ -125,4 +134,4 @@ if __name__ == '__main__':
     #siteRef._setPath('C:/lwfm/foo3.py')
     #LocalSiteRepoDriver().put(path, siteRef) # Copy foo2 to foo3
     #path = Path('C:/lwfm/foo4.py')
-    #LocalSiteRepoDriver().get(siteRef, path) # Copy foo3 to foo4   
+    #LocalSiteRepoDriver().get(siteRef, path) # Copy foo3 to foo4

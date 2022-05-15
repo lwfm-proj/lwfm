@@ -1,4 +1,13 @@
 
+# Job Status: a record of a state of the job's execution.  The job may go through many states in its lifetime - on the actual
+# runtime Site the job status will be expressed in terms of their native status codes.  In lwfm, we desire canonical status
+# messages so job chaining is permitted.  Its the role of the Site's Run subsystem to produce these datagrams in their
+# canonical form, though we leave room to express the native info too.  There is no firm state transition / state machine for
+# job status - while "PENDING" means "submitted to run but not yet running", and "COMPLETE" means "job is done done stick a fork
+# in it", in truth the Site is free to emit whateever status code it desires at any moment.  Some status codes might be emitted
+# more than once (e.g. "INFO").  We provide a mechanism to track the job's parent-child relationships.
+
+
 from enum import Enum
 import logging
 
