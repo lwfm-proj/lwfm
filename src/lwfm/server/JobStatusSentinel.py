@@ -11,6 +11,7 @@ from enum import Enum
 import logging
 from flask import Flask, request
 import requests
+import Thread
 
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
@@ -73,11 +74,32 @@ class JobStatusSentinel:
     def unsetAllEventHandlers(self) -> None:
         self._eventHandlerMap = dict()
 
+    def hasHandler(self, handlerId):
+        return handlerId in self._eventHandlerMap
+
     def listActiveHandlers(self) -> [str]:
         handlers = []
         for key in self._eventHandlerMap:
             handlers.append(key)
         return handlers
+
+    def runHandler(self, handlerId):
+        # unset the event handler ASAP to help prevent race conditions
+        if handlerId not in self._eventHandlerMap:
+            return False
+        handler = self._eventHandlerMap[handlerId]
+        self.unsetEventHandler(handlerId)
+
+        # Run in a thread instead of a subprocess so we don't have to make assumptions about the environment
+        site = Site.getSiteInstanceFactory(handler.targetSiteName)
+        runDriver = site.getRunDriver().submitJob
+        thread = Thread(target = runDriver, args = (handler.fireDefn))
+        try:
+            thread.start()
+        except Exception as ex:
+            logging.error("Could not run job: " + ex)
+            return False
+        return True
 
 
 #************************************************************************************************************************************
@@ -124,7 +146,7 @@ class JobStatusSentinelClient:
         if response.ok:
             return eval(response.text)
         else:
-            logger.error(response)
+            logging.error(response)
             return None
 
 
@@ -138,6 +160,14 @@ jss = JobStatusSentinel()
 @app.route('/')
 def index():
   return str(True)
+
+@app.route('/emit', methods=['POST'])
+def emitStatus():
+    jobId = request.form['jobId']
+    jobStatus = request.form['jobStatus']
+    key = EventHandler(jobId, None, jobStatus, None, None)
+
+
 
 @app.route('/set', methods = ['POST'])
 def setHandler():
