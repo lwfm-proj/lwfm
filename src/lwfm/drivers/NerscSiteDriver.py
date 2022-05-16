@@ -215,7 +215,6 @@ class NerscSiteRunDriver(SiteRunDriver):
         # Cancel the job
         session = self._getSession()
         r = session.delete(url)
-        print(r.json())
         if not r.status_code == requests.codes.ok:
             logging.error("Error cancelling job")
             return False
