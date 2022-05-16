@@ -44,6 +44,8 @@ class JobStatusValues(Enum):
 
 
 
+
+
 class JobStatus(LwfmBase):
 
     # status:           JobStatusValues
@@ -60,7 +62,7 @@ class JobStatus(LwfmBase):
     # nativeInfo:       str                                     # arbitrary body of info passed in the native status message
     # siteName          str                                     # the site source for this job status
 
-    def __init__(self, args: dict = None):
+    def __init__(self, jdefn: JobDefn = JobDefn(), args: dict = None):
         super(JobStatus, self).__init__(args)
         # default map
         self.setStatusMap( {
@@ -76,6 +78,8 @@ class JobStatus(LwfmBase):
         if self.getId() is None:
             self.setId(_IdGenerator.generateId())
         self.setStatus(JobStatusValues.UNKNOWN)
+        self.setParentJobId(jdefn.getParentJobId())
+        self.setOriginJobId(jdefn.getOriginJobId())
 
     def setStatus(self, status: JobStatusValues) -> None:
         LwfmBase._setArg(self, _JobStatusFields.STATUS.value, status)
@@ -175,6 +179,42 @@ class JobStatus(LwfmBase):
         return json.dumps(self.getArgs(), sort_keys=True, default=str)
 
 
+#************************************************************************************************************************************
+
+class JobContext(LwfmBase):
+    def setParentJobId(self, idValue: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.PARENT_JOB_ID.value, idValue)
+
+    def getParentJobId(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.PARENT_JOB_ID.value)
+
+    def setOriginJobId(self, idValue: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.ORIGIN_JOB_ID.value, idValue)
+
+    def getOriginJobId(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.ORIGIN_JOB_ID.value)
+
+    def setId(self, idValue: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.ID.value, idValue)
+
+    def getId(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.ID.value)
+
+    @staticmethod
+    def getInitialJobContext():
+        jobContext = JobContext()
+        jobContext.setId(_IdGenerator.generateId())
+        jobContext.setParentJobId(None)
+        jobContext.setOriginJobId(jobContext.getId())
+        return jobContext
+
+    @staticmethod
+    def getJobContext(status: JobStatus = JobStatus()):
+        jobContext = JobContext()
+        jobContext.setId(status.getId())
+        jobContext.setParentJobId(status.getParentJobId())
+        jobContext.setOriginJobId(status.getOriginJobId())
+        return jobContext
 
 
 #************************************************************************************************************************************

@@ -3,10 +3,7 @@
 
 TODO:
 
-- triggers: listener thread & backing persistence
-
-
-- repo actions as jobs...
+- triggers: listener thread & backing persistence; local endpoint to post status; local driver emit Repo job status to endpoint
 
 
 + test
@@ -23,7 +20,7 @@ TODO:
 
 
 later:
-    - Local driver with threaded run
+    - Local driver with threaded run, cancel emit cancel status
     - nersc tokens are pinned to ip - test in advance for ip
     - use case: remote job spawns other jobs - how can we get them to report in?  polling for what...
     - visualize wf

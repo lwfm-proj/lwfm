@@ -14,7 +14,7 @@ from pathlib import Path
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn
-from lwfm.base.JobStatus import JobStatus, JobStatusValues
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 
 
 #************************************************************************************************************************************
@@ -27,8 +27,8 @@ class LocalSite(Site):
 #************************************************************************************************************************************
 
 class LocalJobStatus(JobStatus):
-    def __init__(self):
-        super(LocalJobStatus, self).__init__()
+    def __init__(self, jdefn: JobDefn = JobDefn()):
+        super(LocalJobStatus, self).__init__(jdefn)
         # use default canonical status map
 
 
@@ -54,7 +54,7 @@ class LocalSiteAuthDriver(SiteAuthDriver):
 class LocalSiteRunDriver(SiteRunDriver):
     def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
         # In local jobs, we spawn the job in a new child process
-        jstatus = JobStatus()
+        jstatus = JobStatus(jdefn)
         # Construct our status message and bail out
         jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
         jstatus.setEmitTime(datetime.utcnow())
@@ -72,7 +72,7 @@ class LocalSiteRunDriver(SiteRunDriver):
         return jstatus
 
     def getJobStatus(self, nativeJobId: str) -> JobStatus:
-        return JobStatus()
+        return JobStatus()    # TODO: there is no async local, so getStatus is not useful, status returned will be "unknown"
 
     def cancelJob(self, nativeJobId: str) -> bool:
         try:
@@ -93,16 +93,18 @@ class LocalSiteRepoDriver(SiteRepoDriver):
             return False
         return True
 
-    def put(self, localRef: Path, siteRef: SiteFileRef) -> SiteFileRef:
+    def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
         fromPath = localRef
         toPath = siteRef.getPath()
+        # TODO: if jobContext is not None, emit job status
         if not self._copyFile(fromPath, toPath):
             return False
         return FSFileRef.siteFileRefFromPath(toPath + "/" + fromPath.name)
 
-    def get(self, siteRef: SiteFileRef, localRef: Path) -> Path:
+    def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
         fromPath = siteRef.getPath()
         toPath = localRef
+        # TODO: if jobContext is not None, emit job status
         if not self._copyFile(fromPath, toPath):
             return False
         return Path(str(toPath) + "/" + Path(fromPath).name)
@@ -125,19 +127,21 @@ if __name__ == '__main__':
     jdefn = JobDefn()
     jdefn.setEntryPointPath("pwd")
     status = site.getRunDriver().submitJob(jdefn)
+    logging.info("pwd job id = " + status.getId())
+    logging.info("pwd parent job id = " + str(status.getParentJobId()))
 
     # ls a file
     fileRef = FSFileRef()
     fileRef.setPath(os.path.realpath(__file__))
-    logging.info(site.getRepoDriver().ls(fileRef).getName())
-    logging.info(site.getRepoDriver().ls(fileRef).getSize())
+    logging.info("name of the file is " + site.getRepoDriver().ls(fileRef).getName())
+    logging.info("size of the file is " + str(site.getRepoDriver().ls(fileRef).getSize()))
 
     # ls a directory
     fileRef.setPath(os.path.expanduser('~'))
     fileRef = site.getRepoDriver().ls(fileRef)
-    logging.info(fileRef.getSize())
-    logging.info(fileRef.getTimestamp())
-    logging.info(fileRef.getDirContents())
+    logging.info("size of the dir is " + str(fileRef.getSize()))
+    logging.info("time of the dir is " + str(fileRef.getTimestamp()))
+    logging.info("contents of the dir is " + str(fileRef.getDirContents()))
 
     # put
     localFile = os.path.realpath(__file__)

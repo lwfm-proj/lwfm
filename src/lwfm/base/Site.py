@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 from lwfm.base.LwfmBase  import LwfmBase
-from lwfm.base.JobStatus import JobStatus
+from lwfm.base.JobStatus import JobStatus, JobContext
 from lwfm.base.JobDefn import JobDefn
 
 from lwfm.base.SiteFileRef import SiteFileRef
@@ -72,12 +72,12 @@ class SiteRunDriver(ABC):
 class SiteRepoDriver(ABC):
     # take the local file by path and put it to the remote site
     @abstractmethod
-    def put(self, localRef: Path, siteRef: SiteFileRef) -> SiteFileRef:
+    def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
         pass
 
     # get the file from the remote site and write it local, returning a path to the local
     @abstractmethod
-    def get(self, siteRef: SiteFileRef, localRef: Path) -> Path:
+    def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
         pass
 
     # get info about the file/dir on the remote site
