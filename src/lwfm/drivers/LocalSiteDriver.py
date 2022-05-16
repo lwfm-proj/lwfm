@@ -59,15 +59,20 @@ class LocalSiteRunDriver(SiteRunDriver):
         jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
         jstatus.setEmitTime(datetime.utcnow())
         process = jdefn.getEntryPointPath().split()
+        JobStatus.emitStatus(jstatus.getId(), JobStatusValues.PENDING.value)
         #Emit RUNNING status
+        JobStatus.emitStatus(jstatus.getId(), JobStatusValues.RUNNING.value)
         try:
             subprocess.run(process, check=True) # This is synchronous, so we wait here until the subprocess is over. Check=True raises an exception on non-zero return values
             #Emit FINISHING status
+            JobStatus.emitStatus(jstatus.getId(), JobStatusValues.FINISHING.value)
             #Emit COMPLETE status
+            JobStatus.emitStatus(jstatus.getId(), JobStatusValues.COMPLETE.value)
             jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
         except Exception as ex:
             logging.error("ERROR: Job failed %s" % (ex))
             #Emit FAILED status
+            JobStatus.emitStatus(jstatus.getId(), JobStatusValues.FAILED.value)
             jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
         return jstatus
 
