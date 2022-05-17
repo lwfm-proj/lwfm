@@ -179,15 +179,6 @@ class JobStatus(LwfmBase):
     def toJsonString(self) -> str:
         return json.dumps(self.getArgs(), sort_keys=True, default=str)
 
-    @staticmethod
-    def emitStatus(jobId, jobStatus):
-        # TODO: do the right thing
-        url = 'http://127.0.0.1:5000/
-        data = {'jobId' : jobId,
-                'jobStatus': jobStatus}
-        requests.post(url, data=data)
-
-
 
 #************************************************************************************************************************************
 

@@ -10,8 +10,9 @@
 from enum import Enum
 import logging
 from flask import Flask, request
+import pickle
 import requests
-import Thread
+import threading
 
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
@@ -40,7 +41,7 @@ class EventHandler(LwfmBase):
         LwfmBase._setArg(self, _EventHandlerFields.TARGET_SITE_NAME.value, targetSiteName)
 
     def getHandlerId(self) -> str:
-        return getKey()
+        return self.getKey()
 
     def getKey(self):
         # We want to permit more than one event handler for the same job, but for now we'll limit it to one handler per
@@ -54,7 +55,7 @@ class EventHandler(LwfmBase):
 
 class JobStatusSentinel:
 
-    _eventHandlerMap: dict[str,EventHandler] = dict()
+    _eventHandlerMap = dict()
 
     # Regsiter an event handler with the sentinel.  When a jobId running on a job Site emits a particular Job Status, fire
     # the given JobDefn (serialized) at the target Site.  Return the hander id.
@@ -91,9 +92,10 @@ class JobStatusSentinel:
         self.unsetEventHandler(handlerId)
 
         # Run in a thread instead of a subprocess so we don't have to make assumptions about the environment
-        site = Site.getSiteInstanceFactory(handler.targetSiteName)
-        runDriver = site.getRunDriver().submitJob
-        thread = Thread(target = runDriver, args = (handler.fireDefn))
+        site = Site.getSiteInstanceFactory(handler._getArg( _EventHandlerFields.TARGET_SITE_NAME.value))
+        runDriver = site.getRunDriver().__class__
+        # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
+        thread = threading.Thread(target = runDriver._submitJob, args = (handler._getArg( _EventHandlerFields.FIRE_DEFN.value),))
         try:
             thread.start()
         except Exception as ex:
@@ -106,7 +108,7 @@ class JobStatusSentinel:
 
 class JobStatusSentinelClient:
     # TODO - do the right thing...
-    _JSS_URL = "http://127.0.0.1:5000/"
+    _JSS_URL = "http://127.0.0.1:5000"
 
     def getUrl(self):
         return self._JSS_URL
@@ -117,10 +119,9 @@ class JobStatusSentinelClient:
         payload["jobId"] = jobId
         payload["jobSiteName"] = jobSiteName
         payload["jobStatus"] = jobStatus
-        payload["fireDefn"] = fireDefn
+        payload["fireDefn"] = pickle.dumps(fireDefn, 0).decode() # Use protocol 0 so we can easily convert to an ASCII string
         payload["targetSiteName"] = targetSiteName
-        session = requests.session()
-        response = session.post(f'{self.getUrl()}/set', payload)
+        response = requests.post(f'{self.getUrl()}/set', payload)
         if response.ok:
             return response.text
         else:
@@ -149,6 +150,17 @@ class JobStatusSentinelClient:
             logging.error(response)
             return None
 
+    def emitStatus(self, jobId, jobStatus):
+        data = {'jobId' : jobId,
+                'jobStatus': jobStatus}
+        response = requests.post(f'{self.getUrl()}/emit', data=data)
+        if response.ok:
+            return None
+        else:
+            logging.error(response)
+            return None
+
+
 
 #************************************************************************************************************************************
 # Flask app
@@ -165,7 +177,9 @@ def index():
 def emitStatus():
     jobId = request.form['jobId']
     jobStatus = request.form['jobStatus']
-    key = EventHandler(jobId, None, jobStatus, None, None)
+    key = EventHandler(jobId, None, jobStatus, None, None).getKey()
+    jss.runHandler(key) # This will check to see if the handler is in the JSS store, and run if so
+    return '', 200
 
 
 
@@ -174,8 +188,9 @@ def setHandler():
     jobId = request.form['jobId']
     jobSiteName = request.form['jobSiteName']
     jobStatus = request.form['jobStatus']
-    fireDefn = request.form['fireDefn']
+    fireDefn = pickle.loads(request.form['fireDefn'].encode())
     targetSiteName = request.form['targetSiteName']
+
     handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName)
     return handlerId
 

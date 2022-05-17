@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 import subprocess
+import threading
 
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +16,8 @@ from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+
+from lwfm.server.JobStatusSentinel import JobStatusSentinelClient
 
 
 #************************************************************************************************************************************
@@ -52,28 +55,50 @@ class LocalSiteAuthDriver(SiteAuthDriver):
 # TODO: provide mechanisms for threading
 
 class LocalSiteRunDriver(SiteRunDriver):
-    def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
-        # In local jobs, we spawn the job in a new child process
-        jstatus = JobStatus(jdefn)
-        # Construct our status message and bail out
-        jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
-        jstatus.setEmitTime(datetime.utcnow())
+
+    pendingJobs = []
+
+    @staticmethod
+    def _runJob(jdefn, jobId):
+        # Putting the job in a new thread means we can easily run it asynchronously while still emitting statuses before and after
         process = jdefn.getEntryPointPath().split()
-        JobStatus.emitStatus(jstatus.getId(), JobStatusValues.PENDING.value)
         #Emit RUNNING status
-        JobStatus.emitStatus(jstatus.getId(), JobStatusValues.RUNNING.value)
+        jssc = JobStatusSentinelClient()
+        jssc.emitStatus(jobId, JobStatusValues.RUNNING.value)
         try:
             subprocess.run(process, check=True) # This is synchronous, so we wait here until the subprocess is over. Check=True raises an exception on non-zero return values
             #Emit FINISHING status
-            JobStatus.emitStatus(jstatus.getId(), JobStatusValues.FINISHING.value)
+            jssc.emitStatus(jobId, JobStatusValues.FINISHING.value)
             #Emit COMPLETE status
-            JobStatus.emitStatus(jstatus.getId(), JobStatusValues.COMPLETE.value)
-            jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
+            jssc.emitStatus(jobId, JobStatusValues.COMPLETE.value)
         except Exception as ex:
             logging.error("ERROR: Job failed %s" % (ex))
             #Emit FAILED status
-            JobStatus.emitStatus(jstatus.getId(), JobStatusValues.FAILED.value)
-            jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
+            jssc.emitStatus(jobId, JobStatusValues.FAILED.value)
+
+    def waitForJobs(self):
+        # Let all in-process jobs finish
+        for job in self.pendingJobs:
+            job.join()
+
+    @staticmethod
+    def _submitJob(jdefn):
+        runDriver = LocalSiteRunDriver()
+        runDriver.submitJob(jdefn)
+
+    def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
+        # In local jobs, we spawn the job in a new child process
+        jstatus = JobStatus(jdefn)
+        # Let the sentinel know the job is ready
+        jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
+        jstatus.setEmitTime(datetime.utcnow())
+        JobStatusSentinelClient().emitStatus(jstatus.getId(), JobStatusValues.PENDING.value)
+
+        # Run the job in a new thread so we can wrap it in a bit more code
+        thread = threading.Thread(target = LocalSiteRunDriver._runJob, args = (jdefn, jstatus.getId()))
+        thread.start()
+        self.pendingJobs.append(thread)
+
         return jstatus
 
     def getJobStatus(self, nativeJobId: str) -> JobStatus:
