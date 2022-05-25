@@ -51,6 +51,13 @@ class SiteAuthDriver(ABC):
 # lwfm canonical name set by the implementation of the Site itself.
 
 class SiteRunDriver(ABC):
+
+    @classmethod
+    def _submitJob(cls, jdefn):
+        # This helper function lets threading instantiate a SiteRunDriver of the correct subtype on demand
+        runDriver = cls()
+        runDriver.submitJob(jdefn)
+
     @abstractmethod
     def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
         pass

@@ -81,11 +81,6 @@ class LocalSiteRunDriver(SiteRunDriver):
         for job in self.pendingJobs:
             job.join()
 
-    @staticmethod
-    def _submitJob(jdefn):
-        runDriver = LocalSiteRunDriver()
-        runDriver.submitJob(jdefn)
-
     def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
         # In local jobs, we spawn the job in a new child process
         jstatus = JobStatus(jdefn)
