@@ -56,6 +56,31 @@ class EventHandler(LwfmBase):
 class JobStatusSentinel:
 
     _eventHandlerMap = dict()
+    STATUS_CHECK_INTERVAL_SECONDS = 300 # We can make this adaptive later on, for now let's just wait five minutes between cycling through the list
+
+    def __init__(self):
+        timer = threading.Timer(self.STATUS_CHECK_INTERVAL_SECONDS, JobStatusSentinel.checkEvents, (self,))
+        timer.start()
+
+    def checkEvents(self):
+        # Run through each event, checking the status
+        for handler in self._eventHandlerMap:
+            site = handler._getArg( _EventHandlerFields.JOB_SITE_NAME.value)
+            # Local jobs can instantly emit their own statuses, on demand
+            if site != "local":
+                # Get the job's status
+                jobId = handler._getArg( _EventHandlerFields.JOB_ID.value)
+                runDriver = Site.getSiteInstanceFactory(site).getRunDriver()
+                jobStatus = runDriver.getJobStatus(jobId)
+
+                # We don't need to go through the Flask API to emit a status, just run directly
+                key = EventHandler(jobId, None, jobStatus, None, None).getKey()
+                self.runHandler(key)
+
+
+        # Timers only run once, so retrigger it
+        timer = threading.Timer(self.STATUS_CHECK_INTERVAL_SECONDS, JobStatusSentinel.checkEvents, (self,))
+        timer.start()
 
     # Regsiter an event handler with the sentinel.  When a jobId running on a job Site emits a particular Job Status, fire
     # the given JobDefn (serialized) at the target Site.  Return the hander id.
