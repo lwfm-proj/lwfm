@@ -32,14 +32,6 @@ class SiteAuthDriver(ABC):
     def isAuthCurrent(self) -> bool:
         pass
 
-    @abstractmethod
-    def writeToStore(self) -> bool:
-        pass
-
-    @abstractmethod
-    def readFromStore(self) -> bool:
-        pass
-
 
 #***********************************************************************************************************************************
 # Run: in its most basic "MVP-0" form, the Run subsystem provides a mechanism to submit a job, cancel the job, and interrogate

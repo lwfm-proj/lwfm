@@ -118,14 +118,6 @@ class NerscSiteAuthDriver(SiteAuthDriver):
         else:
             return False
 
-    def writeToStore(self) -> bool:
-        # the token is only valid for 5 minutes - if this process exits, we'll just login again
-        return True
-
-    def readFromStore(self) -> bool:
-        # a read from store would test the validity of the stored auth - since we don't store, we'll force a login
-        logging.info("Stored auth does not exist or is no longer valid - logging in again")
-        return self.login()
 
 #***********************************************************************************************************************************
 

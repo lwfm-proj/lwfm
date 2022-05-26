@@ -3,7 +3,8 @@
 
 TODO:
 
-- triggers: listener thread & backing persistence; local endpoint to post status; local driver emit Repo job status to endpoint
+- triggers: listener thread & backing persistence; local endpoint to post status; local driver emit Repo job status to endpoint; fix
+  Nersc driver
 
 
 + test
@@ -26,6 +27,7 @@ later:
     - visualize wf
     - TODO tags
     - wildcard job handlers
+    - Local site driver subclass with ssh as run, scp as repo, with auth credentials
 
 
 ************************************************************************************************************************************

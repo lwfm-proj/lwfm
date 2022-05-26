@@ -22,7 +22,9 @@ from lwfm.server.JobStatusSentinel import JobStatusSentinelClient
 
 #************************************************************************************************************************************
 
+
 class LocalSite(Site):
+    # There are no required args to instantiate a local site.
     def __init__(self):
         super(LocalSite, self).__init__("local", LocalSiteAuthDriver(), LocalSiteRunDriver(), LocalSiteRepoDriver(), None)
 
@@ -45,14 +47,8 @@ class LocalSiteAuthDriver(SiteAuthDriver):
     def isAuthCurrent(self) -> bool:
         return True
 
-    def writeToStore(self) -> bool:
-        return True
-
-    def readFromStore(self) -> bool:
-        return True
 
 #***********************************************************************************************************************************
-# TODO: provide mechanisms for threading
 
 class LocalSiteRunDriver(SiteRunDriver):
 
@@ -179,3 +175,5 @@ if __name__ == '__main__':
     destPath = Path(os.path.expanduser('~'))
     copiedPath = site.getRepoDriver().get(fileRef, destPath)
     logging.info(copiedPath)
+
+    logging.info("done")
