@@ -25,8 +25,10 @@ class RunJobStatusStore(RunStore):
         super(RunJobStatusStore, self).__init__()
 
     def write(self, datum: JobStatus) -> bool:
-        s = datum.toJsonString()                # TODO: write to a file somewhere configurable
-        print(s)
+        s = datum.toJsonString()
+        file_object = open(os.path.expanduser('~') + '/.lwfm/run_job_status_store.txt', 'a+')
+        file_object.write(s + '\n')
+        file_object.close()
 
 
 #************************************************************************************************************************************
@@ -56,11 +58,6 @@ class RunJobStatusStore(RunStore):
 # Conceptually, the key str to this handler dict could be a wildcard: "handler map for all jobs", "handler map for all jobs for a
 # given site".
 #
-
-
-
-
-
 
 class RunEventStore(RunStore):
     # maintain an in-memory map of event listeners

@@ -8,11 +8,13 @@ TODO:
 
 
 + test
-    - parent-child tracking, originator
-    - RunStore - was it used?
+    - all status to Run Store - in getJobStatus(), or in JobStatus itself?
     - data movement as jobs
+    - parent-child tracking, originator
     - put file with a new dest name
     - fire & wait?
+    - local driver cancel job
+    - handler persistence
 
 
 + MxN
@@ -27,12 +29,11 @@ TODO:
 
 
 later:
-    - Local driver with threaded run, cancel emit cancel status
     - nersc tokens are pinned to ip - test in advance for ip
     - use case: remote job spawns other jobs - how can we get them to report in?  polling for what...
     - visualize wf
     - TODO tags
-    - wildcard job handlers
+    - wildcard job handlers, full handler impl
     - Local site driver subclass with ssh as run, scp as repo, with auth credentials
 
 
