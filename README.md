@@ -12,7 +12,7 @@ TODO:
     - RunStore - was it used?
     - data movement as jobs
     - put file with a new dest name
-    - how to tell a local job is done locally?  fire & wait?
+    - fire & wait?
 
 
 + MxN

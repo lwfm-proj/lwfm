@@ -77,11 +77,11 @@ class LocalSiteRunDriver(SiteRunDriver):
             jssc.emitStatus(jobId, JobStatusValues.FAILED.value)
             self.jobStatuses[jobId].setNativeStatusStr(JobStatusValues.FAILED.value)
 
-    def waitForJobs(self):
-        # Let all in-process jobs finish
-        for job in self.pendingJobs:
-            job.join()
-        self.pendingJobs = []
+    #def waitForJobs(self):
+    #    # Let all in-process jobs finish
+    #    for job in self.pendingJobs:
+    #        job.join()
+    #    self.pendingJobs = []
 
     def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
         # In local jobs, we spawn the job in a new child process
