@@ -161,6 +161,7 @@ if __name__ == '__main__':
     jdefn.setEntryPointPath("pwd")
     status = site.getRunDriver().submitJob(jdefn)
     logging.info("pwd job id = " + status.getId())
+    logging.info("pwd job status = " + str(status.getStatus()))   # initial status will be pending - its async
     logging.info("pwd parent job id = " + str(status.getParentJobId()))
 
     # ls a file
@@ -187,5 +188,11 @@ if __name__ == '__main__':
     destPath = Path(os.path.expanduser('~'))
     copiedPath = site.getRepoDriver().get(fileRef, destPath)
     logging.info(copiedPath)
+
+    while (True):
+        status = site.getRunDriver().getJobStatus(status.getId())
+        if (status.isTerminal()):             # should have a terminal status by now...
+            logging.info("pwd job status = " + str(status.getStatus()))
+            break
 
     logging.info("done")

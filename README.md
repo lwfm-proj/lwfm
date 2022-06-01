@@ -10,9 +10,13 @@ TODO:
 + test
     - parent-child tracking, originator
     - RunStore - was it used?
-    - MxN: use case - rollup report Genesis on Perlmutter & HAL (how impl HAL?)
     - data movement as jobs
     - put file with a new dest name
+    - how to tell a local job is done locally?  fire & wait?
+
+
++ MxN
+    - what part is open source?
 
 
 + DT4D
