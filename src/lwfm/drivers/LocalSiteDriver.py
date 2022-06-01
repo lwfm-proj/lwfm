@@ -77,6 +77,7 @@ class LocalSiteRunDriver(SiteRunDriver):
         # Let all in-process jobs finish
         for job in self.pendingJobs:
             job.join()
+        self.pendingJobs = []
 
     def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
         # In local jobs, we spawn the job in a new child process
