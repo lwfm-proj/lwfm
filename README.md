@@ -8,9 +8,11 @@ TODO:
 
 
 + test
-    - parent-child tracking
+    - parent-child tracking, originator
     - RunStore - was it used?
     - MxN: use case - rollup report Genesis on Perlmutter & HAL (how impl HAL?)
+    - data movement as jobs
+    - put file with a new dest name
 
 
 + DT4D
@@ -32,5 +34,5 @@ later:
 
 ************************************************************************************************************************************
 
-export FLASK_APP=lwfm/server/JobStatusSentinel
+export FLASK_APP=lwfm/server/JobStatusSentinelSvc
 flask run

@@ -9,10 +9,10 @@
 
 from enum import Enum
 import logging
-from flask import Flask, request
-import pickle
 import requests
 import threading
+import sys
+import pickle
 
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
@@ -55,12 +55,14 @@ class EventHandler(LwfmBase):
 
 class JobStatusSentinel:
 
+    _timer = None
     _eventHandlerMap = dict()
-    STATUS_CHECK_INTERVAL_SECONDS = 300 # We can make this adaptive later on, for now let's just wait five minutes between cycling through the list
+    # We can make this adaptive later on, for now let's just wait five minutes between cycling through the list
+    STATUS_CHECK_INTERVAL_SECONDS = 300
 
     def __init__(self):
-        timer = threading.Timer(self.STATUS_CHECK_INTERVAL_SECONDS, JobStatusSentinel.checkEvents, (self,))
-        timer.start()
+        self._timer = threading.Timer(self.STATUS_CHECK_INTERVAL_SECONDS, JobStatusSentinel.checkEvents, (self,))
+        self._timer.start()
 
     def checkEvents(self):
         # Run through each event, checking the status
@@ -79,8 +81,8 @@ class JobStatusSentinel:
 
 
         # Timers only run once, so retrigger it
-        timer = threading.Timer(self.STATUS_CHECK_INTERVAL_SECONDS, JobStatusSentinel.checkEvents, (self,))
-        timer.start()
+        self._timer = threading.Timer(self.STATUS_CHECK_INTERVAL_SECONDS, JobStatusSentinel.checkEvents, (self,))
+        self._timer.start()
 
     # Regsiter an event handler with the sentinel.  When a jobId running on a job Site emits a particular Job Status, fire
     # the given JobDefn (serialized) at the target Site.  Return the hander id.
@@ -127,6 +129,9 @@ class JobStatusSentinel:
             logging.error("Could not run job: " + ex)
             return False
         return True
+
+    def exit(self):
+        self._timer.cancel()
 
 
 #************************************************************************************************************************************
@@ -186,56 +191,6 @@ class JobStatusSentinelClient:
             return None
 
 
-
-#************************************************************************************************************************************
-# Flask app
-
-app = Flask(__name__)
-jss = JobStatusSentinel()
-
-
-@app.route('/')
-def index():
-  return str(True)
-
-@app.route('/emit', methods=['POST'])
-def emitStatus():
-    jobId = request.form['jobId']
-    jobStatus = request.form['jobStatus']
-    key = EventHandler(jobId, None, jobStatus, None, None).getKey()
-    jss.runHandler(key) # This will check to see if the handler is in the JSS store, and run if so
-    return '', 200
-
-
-
-@app.route('/set', methods = ['POST'])
-def setHandler():
-    jobId = request.form['jobId']
-    jobSiteName = request.form['jobSiteName']
-    jobStatus = request.form['jobStatus']
-    fireDefn = pickle.loads(request.form['fireDefn'].encode())
-    targetSiteName = request.form['targetSiteName']
-
-    handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName)
-    return handlerId
-
-# unset a given handler
-@app.route('/unset/<handlerId>')
-def unsetHandler(handlerId : str):
-    return str(jss.unsetEventHandler(handlerId))
-
-# unset all handers
-@app.route('/unsetAll')
-def unsetAllHandlers():
-    jss.unsetAllEventHandlers()
-    return str(True)
-
-# list the ids of all active handers
-@app.route('/list')
-def listHandlers():
-  return str(jss.listActiveHandlers())
-
-
 #************************************************************************************************************************************
 
 # test
@@ -243,14 +198,15 @@ if __name__ == '__main__':
 
     # basic server list handling
     logging.basicConfig()
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.INFO)
     jss = JobStatusSentinel()
     handlerId = jss.setEventHandler("123", None, JobStatusValues.INFO.value, None, None)
     print(str(jss.listActiveHandlers()))
     jss.unsetEventHandler(handlerId)
     print(str(jss.listActiveHandlers()))
+    jss.exit()
 
-    # basic client test
+    # basic client test - assumes the JSS Svc is running and exposing an HTTP API
     jssClient = JobStatusSentinelClient()
     print("*** " + str(jssClient.listActiveHandlers()))
     print("*** " + str(jssClient.unsetAllEventHandlers()))

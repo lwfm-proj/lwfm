@@ -62,7 +62,8 @@ class LocalSiteRunDriver(SiteRunDriver):
         jssc = JobStatusSentinelClient()
         jssc.emitStatus(jobId, JobStatusValues.RUNNING.value)
         try:
-            subprocess.run(process, check=True) # This is synchronous, so we wait here until the subprocess is over. Check=True raises an exception on non-zero return values
+            # This is synchronous, so we wait here until the subprocess is over. Check=True raises an exception on non-zero returns
+            subprocess.run(process, check=True)
             #Emit FINISHING status
             jssc.emitStatus(jobId, JobStatusValues.FINISHING.value)
             #Emit COMPLETE status
@@ -138,13 +139,18 @@ class LocalSiteRepoDriver(SiteRepoDriver):
 
 # test
 if __name__ == '__main__':
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.DEBUG)
-    site = Site.getSiteInstanceFactory("local")
-    logging.info(site.getName())
-    site.getAuthDriver().login()
-    logging.info(site.getAuthDriver().isAuthCurrent())
+    # assumes the lwfm job status service is running
 
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.INFO)
+
+    # on local sites, login is a no-op
+    site = Site.getSiteInstanceFactory("local")
+    logging.info("site is " + site.getName())
+    site.getAuthDriver().login()
+    logging.info("auth is current = " + str(site.getAuthDriver().isAuthCurrent()))
+
+    # run a local 'pwd' as a job
     jdefn = JobDefn()
     jdefn.setEntryPointPath("pwd")
     status = site.getRunDriver().submitJob(jdefn)
