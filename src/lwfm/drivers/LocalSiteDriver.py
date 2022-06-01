@@ -53,25 +53,29 @@ class LocalSiteAuthDriver(SiteAuthDriver):
 class LocalSiteRunDriver(SiteRunDriver):
 
     pendingJobs = []
+    jobStatuses = {}
 
-    @staticmethod
-    def _runJob(jdefn, jobId):
+    def _runJob(self, jdefn, jobId):
         # Putting the job in a new thread means we can easily run it asynchronously while still emitting statuses before and after
         process = jdefn.getEntryPointPath().split()
         #Emit RUNNING status
         jssc = JobStatusSentinelClient()
         jssc.emitStatus(jobId, JobStatusValues.RUNNING.value)
+        self.jobStatuses[jobId].setNativeStatusStr(JobStatusValues.RUNNING.value)
         try:
             # This is synchronous, so we wait here until the subprocess is over. Check=True raises an exception on non-zero returns
             subprocess.run(process, check=True)
             #Emit FINISHING status
             jssc.emitStatus(jobId, JobStatusValues.FINISHING.value)
+            self.jobStatuses[jobId].setNativeStatusStr(JobStatusValues.FINISHING.value)
             #Emit COMPLETE status
             jssc.emitStatus(jobId, JobStatusValues.COMPLETE.value)
+            self.jobStatuses[jobId].setNativeStatusStr(JobStatusValues.COMPLETE.value)
         except Exception as ex:
             logging.error("ERROR: Job failed %s" % (ex))
             #Emit FAILED status
             jssc.emitStatus(jobId, JobStatusValues.FAILED.value)
+            self.jobStatuses[jobId].setNativeStatusStr(JobStatusValues.FAILED.value)
 
     def waitForJobs(self):
         # Let all in-process jobs finish
@@ -86,16 +90,17 @@ class LocalSiteRunDriver(SiteRunDriver):
         jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
         jstatus.setEmitTime(datetime.utcnow())
         JobStatusSentinelClient().emitStatus(jstatus.getId(), JobStatusValues.PENDING.value)
+        self.jobStatuses[jstatus.getId()] = jstatus
 
         # Run the job in a new thread so we can wrap it in a bit more code
-        thread = threading.Thread(target = LocalSiteRunDriver._runJob, args = (jdefn, jstatus.getId()))
+        thread = threading.Thread(target = LocalSiteRunDriver._runJob, args = (self, jdefn, jstatus.getId()))
         thread.start()
         self.pendingJobs.append(thread)
 
         return jstatus
 
     def getJobStatus(self, nativeJobId: str) -> JobStatus:
-        return JobStatus()    # TODO: there is no async local, so getStatus is not useful, status returned will be "unknown"
+        return self.jobStatuses[nativeJobId]
 
     def cancelJob(self, nativeJobId: str) -> bool:
         try:
