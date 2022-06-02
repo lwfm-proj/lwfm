@@ -19,8 +19,6 @@ class _JobDefnFields(Enum):
     ENTRY_POINT_PATH   = "entryPointPath"              # defines the top-level "executable" command to pass to the site scheduler
     NOTIFICATION_EMAIL = "notificationEmail"           # some site schedulers permit direct user notification
     # EXTRA_ARGS                                       # site schedulers vary widely - this dict permits arbitrary args
-    PARENT_JOB_ID      = "parentJobId"                 # the lwfm job id which is launching this job, to permit tracing
-    ORIGIN_JOB_ID      = "originJobId"                 # the lwfm job id which is the source of an entire chain of jobs
 
 
 class JobDefn(LwfmBase):
@@ -57,15 +55,3 @@ class JobDefn(LwfmBase):
 
     def getExtraArgs(self) -> dict:
         return LwfmBase.getArgs(self)
-
-    def setParentJobId(self, parentJobId: str) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.PARENT_JOB_ID.value, name)
-
-    def getParentJobId(self) -> str:
-        return LwfmBase._getArg(self, _JobDefnFields.PARENT_JOB_ID.value)
-
-    def setOriginJobId(self, originJobId: str) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.ORIGIN_JOB_ID.value, name)
-
-    def getOriginJobId(self) -> str:
-        return LwfmBase._getArg(self, _JobDefnFields.ORIGIN_JOB_ID.value)

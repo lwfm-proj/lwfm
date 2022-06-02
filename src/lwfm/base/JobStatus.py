@@ -17,6 +17,7 @@ import requests
 
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
 from lwfm.base.JobDefn import JobDefn
+from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 
 
 class _JobStatusFields(Enum):
@@ -44,7 +45,44 @@ class JobStatusValues(Enum):
     CANCELLED = "CANCELLED"
 
 
+#************************************************************************************************************************************
+# A job runs in the context of a runtime id (two ids - one which is canonical to lwfm, and one which is native to the site), and
+# references to upstream job which spawned it, to permit later navigation of the digital thread.
 
+class JobContext(LwfmBase):
+    def __init__(self):
+        super(JobContext, self).__init__()
+        self.setId(_IdGenerator.generateId())
+        self.setNativeId(self.getId())
+        self.setParentJobId(None)                       # a seminal job has no parent
+        self.setOriginJobId(self.getId())         # a seminal job is its own originator
+
+    def setId(self, idValue: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.ID.value, idValue)
+
+    def getId(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.ID.value)
+
+    def setNativeId(self, idValue: str) -> None:
+            LwfmBase._setArg(self, _JobStatusFields.NATIVE_ID.value, idValue)
+
+    def getNativeId(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.NATIVE_ID.value)
+
+    def setParentJobId(self, idValue: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.PARENT_JOB_ID.value, idValue)
+
+    def getParentJobId(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.PARENT_JOB_ID.value)
+
+    def setOriginJobId(self, idValue: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.ORIGIN_JOB_ID.value, idValue)
+
+    def getOriginJobId(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.ORIGIN_JOB_ID.value)
+
+
+#************************************************************************************************************************************
 
 
 class JobStatus(LwfmBase):
@@ -63,7 +101,7 @@ class JobStatus(LwfmBase):
     # nativeInfo:       str                                     # arbitrary body of info passed in the native status message
     # siteName          str                                     # the site source for this job status
 
-    def __init__(self, jdefn: JobDefn = JobDefn(), args: dict = None):
+    def __init__(self, jobContext: JobContext = JobContext(), args: dict = None):
         super(JobStatus, self).__init__(args)
         # default map
         self.setStatusMap( {
@@ -78,9 +116,29 @@ class JobStatus(LwfmBase):
         self.setReceivedTime(datetime.utcnow())
         if self.getId() is None:
             self.setId(_IdGenerator.generateId())
+        if self.getNativeId() is None:
+            self.setNativeId(self.getId())
         self.setStatus(JobStatusValues.UNKNOWN)
-        self.setParentJobId(jdefn.getParentJobId())
-        self.setOriginJobId(jdefn.getOriginJobId())
+        self.setParentJobId(jobContext.getParentJobId())
+        self.setOriginJobId(jobContext.getOriginJobId())
+
+    def emit(self) -> bool:
+        try:
+            jssc = JobStatusSentinelClient()
+            jssc.emitStatus(self.getId(), self.getStatus().value)
+            return True
+        except Exception as ex:
+            logging.error(str(ex))
+            return False
+
+
+    def getJobContext(self) -> JobContext:
+        jobContext = JobContext()
+        jobContext.setId(self.getId())
+        jobContext.setNativeId(self.getNativeId())
+        jobContext.setParentJobId(self.getParentJobId())
+        jobContext.setOriginJobId(self.getOriginJobId())
+        return jobContext
 
     def setStatus(self, status: JobStatusValues) -> None:
         LwfmBase._setArg(self, _JobStatusFields.STATUS.value, status)
@@ -179,43 +237,6 @@ class JobStatus(LwfmBase):
     def toJsonString(self) -> str:
         return json.dumps(self.getArgs(), sort_keys=True, default=str)
 
-
-#************************************************************************************************************************************
-
-class JobContext(LwfmBase):
-    def setParentJobId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.PARENT_JOB_ID.value, idValue)
-
-    def getParentJobId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.PARENT_JOB_ID.value)
-
-    def setOriginJobId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.ORIGIN_JOB_ID.value, idValue)
-
-    def getOriginJobId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.ORIGIN_JOB_ID.value)
-
-    def setId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.ID.value, idValue)
-
-    def getId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.ID.value)
-
-    @staticmethod
-    def getInitialJobContext():
-        jobContext = JobContext()
-        jobContext.setId(_IdGenerator.generateId())
-        jobContext.setParentJobId(None)
-        jobContext.setOriginJobId(jobContext.getId())
-        return jobContext
-
-    @staticmethod
-    def getJobContext(status: JobStatus = JobStatus()):
-        jobContext = JobContext()
-        jobContext.setId(status.getId())
-        jobContext.setParentJobId(status.getParentJobId())
-        jobContext.setOriginJobId(status.getOriginJobId())
-        return jobContext
 
 
 #************************************************************************************************************************************

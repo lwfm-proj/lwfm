@@ -7,13 +7,16 @@ TODO:
   Nersc driver
 
 
-+ test
-    - all status to Run Store - in getJobStatus(), or in JobStatus itself?
-    - data movement as jobs
++ code / test
+    - local driver cancel job
+    - local driver repo as job
+    - JobDefn should not have the ids - use a context
+    - nersc driver with jobcontext
+    - all status to Run Store - in getJobStatus(), or in JobStatus itself? - can the framework auto-handle the emit?
     - parent-child tracking, originator
+    - data movement as jobs
     - put file with a new dest name
     - fire & wait?
-    - local driver cancel job
     - handler persistence
 
 

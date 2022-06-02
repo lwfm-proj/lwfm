@@ -51,15 +51,15 @@ class SiteRunDriver(ABC):
         runDriver.submitJob(jdefn)
 
     @abstractmethod
-    def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
+    def submitJob(self, jdefn: JobDefn=None, parentContext: JobContext = JobContext()) -> JobStatus:
         pass
 
     @abstractmethod
-    def getJobStatus(self, nativeJobId: str) -> JobStatus:
+    def getJobStatus(self, jobContext: JobContext) -> JobStatus:
         pass
 
     @abstractmethod
-    def cancelJob(self, nativeJobId: str) -> bool:
+    def cancelJob(self, jobContext: JobContext) -> bool:
         pass
 
 
