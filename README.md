@@ -13,7 +13,6 @@ TODO:
 
     - triggers
 
-    - all status to Run Store - in getJobStatus(), or in JobStatus itself? - can the framework auto-handle the emit?
     - put file with a new dest name
 
 
@@ -29,7 +28,9 @@ TODO:
 
 
 later:
+    - local driver repo put & get as async
     - trigger/handler persistence
+    - run repo persistence to real db?
     - fire & wait?
     - nersc tokens are pinned to ip - test in advance for ip
     - use case: remote job spawns other jobs - how can we get them to report in?  polling for what...

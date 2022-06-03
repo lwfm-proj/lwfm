@@ -142,17 +142,57 @@ class LocalSiteRepoDriver(SiteRepoDriver):
     def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
         fromPath = localRef
         toPath = siteRef.getPath()
-        # TODO: if jobContext is not None, emit job status
+        if (jobContext is not None):
+            jstatus = JobStatus(jobContext)
+            jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+            jstatus.setNativeStatusStr(JobStatusValues.RUNNING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
         if not self._copyFile(fromPath, toPath):
+            if (jobContext is not None):
+                jstatus = JobStatus(jobContext)
+                jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
+                jstatus.setEmitTime(datetime.utcnow())
+                jstatus.emit()
             return False
+        if (jobContext is not None):
+            jstatus = JobStatus(jobContext)
+            jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+            jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
         return FSFileRef.siteFileRefFromPath(toPath + "/" + fromPath.name)
 
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
         fromPath = siteRef.getPath()
         toPath = localRef
-        # TODO: if jobContext is not None, emit job status
+        if (jobContext is not None):
+            jstatus = JobStatus(jobContext)
+            jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+            jstatus.setNativeStatusStr(JobStatusValues.RUNNING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
         if not self._copyFile(fromPath, toPath):
+            if (jobContext is not None):
+                jstatus = JobStatus(jobContext)
+                jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
+                jstatus.setEmitTime(datetime.utcnow())
+                jstatus.emit()
             return False
+        if (jobContext is not None):
+            jstatus = JobStatus(jobContext)
+            jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+            jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
         return Path(str(toPath) + "/" + Path(fromPath).name)
 
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
@@ -184,34 +224,34 @@ if __name__ == '__main__':
     logging.info("pwd job id = " + status.getId())
     logging.info("pwd job status = " + str(status.getStatus()))   # initial status will be pending - its async
 
-    #logging.info("***** repo tests")
+    logging.info("***** repo tests")
 
     # ls a file
-    #fileRef = FSFileRef()
-    #fileRef.setPath(os.path.realpath(__file__))
-    #logging.info("name of the file is " + site.getRepoDriver().ls(fileRef).getName())
-    #logging.info("size of the file is " + str(site.getRepoDriver().ls(fileRef).getSize()))
+    fileRef = FSFileRef()
+    fileRef.setPath(os.path.realpath(__file__))
+    logging.info("name of the file is " + site.getRepoDriver().ls(fileRef).getName())
+    logging.info("size of the file is " + str(site.getRepoDriver().ls(fileRef).getSize()))
 
     # ls a directory
-    #fileRef.setPath(os.path.expanduser('~'))
-    #fileRef = site.getRepoDriver().ls(fileRef)
-    #logging.info("size of the dir is " + str(fileRef.getSize()))
-    #logging.info("time of the dir is " + str(fileRef.getTimestamp()))
-    #logging.info("contents of the dir is " + str(fileRef.getDirContents()))
+    fileRef.setPath(os.path.expanduser('~'))
+    fileRef = site.getRepoDriver().ls(fileRef)
+    logging.info("size of the dir is " + str(fileRef.getSize()))
+    logging.info("time of the dir is " + str(fileRef.getTimestamp()))
+    logging.info("contents of the dir is " + str(fileRef.getDirContents()))
 
     # put
-    #localFile = os.path.realpath(__file__)
-    #destFileRef = FSFileRef.siteFileRefFromPath(os.path.expanduser('~'))
-    #copiedFileRef = site.getRepoDriver().put(Path(localFile), destFileRef)
-    #logging.info(copiedFileRef.getName() + " " + str(copiedFileRef.getTimestamp()))
+    localFile = os.path.realpath(__file__)
+    destFileRef = FSFileRef.siteFileRefFromPath(os.path.expanduser('~'))
+    copiedFileRef = site.getRepoDriver().put(Path(localFile), destFileRef, JobContext())
+    logging.info(copiedFileRef.getName() + " " + str(copiedFileRef.getTimestamp()))
 
     # get
-    #fileRef = FSFileRef.siteFileRefFromPath(os.path.realpath(__file__))
-    #destPath = Path(os.path.expanduser('~'))
-    #copiedPath = site.getRepoDriver().get(fileRef, destPath)
-    #logging.info(copiedPath)
+    fileRef = FSFileRef.siteFileRefFromPath(os.path.realpath(__file__))
+    destPath = Path(os.path.expanduser('~'))
+    copiedPath = site.getRepoDriver().get(fileRef, destPath, JobContext())
+    logging.info(copiedPath)
 
-    #logging.info("***** check status of async job")
+    logging.info("***** check status of async job")
 
     # the above job was async... check its status
     while (True):
