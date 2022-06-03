@@ -4,16 +4,13 @@
 TODO:
 
 + code / test
-    - local driver repo as job
-
     - David: fix nersc driver to new signatures, repo as jobs
     - David: jss emit take full job status object
     - jss.getStatus() should return rich object with history
+
+
     - parent-child tracking, originator
-
     - triggers
-
-    - put file with a new dest name
 
 
 + MxN
@@ -38,6 +35,7 @@ later:
     - TODO tags
     - wildcard job handlers, full handler impl
     - Local site driver subclass with ssh as run, scp as repo, with auth credentials
+    - repo put/get file with a new dest name
 
 
 ************************************************************************************************************************************

@@ -249,7 +249,7 @@ if __name__ == '__main__':
     fileRef = FSFileRef.siteFileRefFromPath(os.path.realpath(__file__))
     destPath = Path(os.path.expanduser('~'))
     copiedPath = site.getRepoDriver().get(fileRef, destPath, JobContext())
-    logging.info(copiedPath)
+    logging.info("get test: copied to: " + str(copiedPath))
 
     logging.info("***** check status of async job")
 
