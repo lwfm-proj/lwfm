@@ -46,9 +46,10 @@ class JobStatusSentinelClient:
             logging.error(response)
             return None
 
-    def emitStatus(self, jobId, jobStatus):
+    def emitStatus(self, jobId, jobStatus, statusBlob):
         data = {'jobId' : jobId,
-                'jobStatus': jobStatus}
+                'jobStatus': jobStatus,
+                'statusBlob': statusBlob}
         response = requests.post(f'{self.getUrl()}/emit', data=data)
         if response.ok:
             return None
@@ -56,7 +57,7 @@ class JobStatusSentinelClient:
             logging.error(response)
             return None
 
-    def getStatus(self, jobId) -> str:
+    def getStatusBlob(self, jobId) -> str:
         response = requests.get(f'{self.getUrl()}/status/{jobId}')
         if response.ok:
             return response.text

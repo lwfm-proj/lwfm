@@ -5,16 +5,14 @@ TODO:
 
 + code / test
     - David: fix nersc driver to new signatures, repo as jobs
-    - David: jss emit take full job status object
-    - jss.getStatus() should return rich object with history
 
-
-    - parent-child tracking, originator
     - triggers
+    - parent-child tracking
 
 
 + MxN
     - what part is open source?
+    - what is SFAPI file transfer limit?
 
 
 + DT4D
@@ -25,6 +23,7 @@ TODO:
 
 
 later:
+    - job status site name, history
     - local driver repo put & get as async
     - trigger/handler persistence
     - run repo persistence to real db?

@@ -23,11 +23,12 @@ from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 
 #************************************************************************************************************************************
 
+SITE_NAME = "local"
 
 class LocalSite(Site):
     # There are no required args to instantiate a local site.
     def __init__(self):
-        super(LocalSite, self).__init__("local", LocalSiteAuthDriver(), LocalSiteRunDriver(), LocalSiteRepoDriver(), None)
+        super(LocalSite, self).__init__(SITE_NAME, LocalSiteAuthDriver(), LocalSiteRunDriver(), LocalSiteRepoDriver(), None)
 
 
 #************************************************************************************************************************************
@@ -36,6 +37,7 @@ class LocalJobStatus(JobStatus):
     def __init__(self, jdefn: JobDefn = JobDefn()):
         super(LocalJobStatus, self).__init__(jdefn)
         # use default canonical status map
+        self.setSiteName(SITE_NAME)
 
 
 #************************************************************************************************************************************
@@ -103,10 +105,8 @@ class LocalSiteRunDriver(SiteRunDriver):
         return jstatus
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
-        statStr = JobStatusSentinelClient().getStatus(jobContext.getId())
-        stat = JobStatus(jobContext)
-        stat.setNativeStatusStr(statStr)
-        return stat
+        status = JobStatus.deserialize(JobStatusSentinelClient().getStatusBlob(jobContext.getId()))
+        return status
 
     def cancelJob(self, jobContext: JobContext) -> bool:
         # Find the locally running thread and kill it

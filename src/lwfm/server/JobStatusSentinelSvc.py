@@ -22,11 +22,12 @@ def index():
 def emitStatus():
     jobId = request.form['jobId']
     jobStatus = request.form['jobStatus']
-    statObj = JobStatus()
-    statObj.setId(jobId)
-    statObj.setStatus(jobStatus)
-    RunJobStatusStore().write(statObj)
-    _jobStatusCache[jobId] = statObj
+    statusBlob = request.form['statusBlob']
+    statusObj = JobStatus.deserialize(statusBlob)
+    # persist it for posterity
+    RunJobStatusStore().write(statusObj)
+    # store it locally for convenience
+    _jobStatusCache[jobId] = statusObj
     key = EventHandler(jobId, None, jobStatus, None, None).getKey()
     jss.runHandler(key) # This will check to see if the handler is in the JSS store, and run if so
     return '', 200
@@ -34,7 +35,7 @@ def emitStatus():
 @app.route('/status/<jobId>')
 def getStatus(jobId : str):
     stat = _jobStatusCache[jobId]
-    return stat.getStatusValue()
+    return stat.serialize()
 
 @app.route('/set', methods = ['POST'])
 def setHandler():

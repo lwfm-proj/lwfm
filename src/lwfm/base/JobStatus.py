@@ -10,10 +10,12 @@
 
 from enum import Enum
 import logging
+from types import SimpleNamespace
+
 
 from datetime import datetime
-import json
 import requests
+import pickle
 
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
 from lwfm.base.JobDefn import JobDefn
@@ -21,19 +23,20 @@ from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 
 
 class _JobStatusFields(Enum):
-    STATUS        = "status"
-    NATIVE_STATUS = "nativeStatus"
+    STATUS        = "status"                         # canonical status
+    NATIVE_STATUS = "nativeStatus"                   # the status code for the specific Run implementation
     EMIT_TIME     = "emitTime"
     RECEIVED_TIME = "receivedTime"
-    ID            = "id"
-    NATIVE_ID     = "nativeId"
-    NAME          = "name"
-    PARENT_JOB_ID = "parentJobId"
-    ORIGIN_JOB_ID = "originJobId"
-    NATIVE_INFO   = "nativeInfo"
-    SITE_NAME     = "siteName"
+    ID            = "id"                             # canonical job id
+    NATIVE_ID     = "nativeId"                       # Run implementation native job id
+    NAME          = "name"                           # optional human-readable job name
+    PARENT_JOB_ID = "parentJobId"                    # immediate predecessor of this job, if any - seminal job has no parent
+    ORIGIN_JOB_ID = "originJobId"                    # oldest ancestor - a seminal job is its own originator
+    NATIVE_INFO   = "nativeInfo"                     # any additional info the native Run wants to put in the status message
+    SITE_NAME     = "siteName"                       # name of the Site which emitted the message
 
 
+# The canonical set of status codes.  Run implementations will have their own sets, and they must provide a mapping into these.
 class JobStatusValues(Enum):
     UNKNOWN   = "UNKNOWN"
     PENDING   = "PENDING"
@@ -58,6 +61,7 @@ class JobContext(LwfmBase):
         self.setNativeId(self.getId())
         self.setParentJobId(None)                       # a seminal job has no parent
         self.setOriginJobId(self.getId())               # a seminal job is its own originator
+        self.setName(self.getId())
 
     def setId(self, idValue: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.ID.value, idValue)
@@ -83,25 +87,21 @@ class JobContext(LwfmBase):
     def getOriginJobId(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.ORIGIN_JOB_ID.value)
 
+    def setName(self, name: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.NAME.value, name)
+
+    def getName(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.NAME.value)
+
 
 #************************************************************************************************************************************
 
 
 class JobStatus(LwfmBase):
 
-    # status:           JobStatusValues
-    # nativeStatus:     str
     statusMap:          dict = None                             # maps native status to canonical status
-    # emitTime:         datetime
-    # receivedTime:     datetime
-    # id:               str                                     # its possible two native systems generated the same id
-    # nativeId:         str
-    # name:             str                                     # optional
-    # parentJobId:      str                                     # this job's direct parent, if not a seminal job
-    # originJobId:      str                                     # this job's furthest ancestor, if not itself if seminal job
     statusHistory:      dict = None                             # history of status messages, not copied by copy constructor
-    # nativeInfo:       str                                     # arbitrary body of info passed in the native status message
-    # siteName          str                                     # the site source for this job status
+    jobContext:         JobContext = None                       # job id tracking info
 
     def __init__(self, jobContext: JobContext = None, args: dict = None):
         super(JobStatus, self).__init__(args)
@@ -118,17 +118,17 @@ class JobStatus(LwfmBase):
             "FAILED"    : JobStatusValues.FAILED,
             "CANCELLED" : JobStatusValues.CANCELLED
         })
+        self.jobContext = jobContext
+        if jobContext is None:
+            self.jobContext = JobContext()
         self.setReceivedTime(datetime.utcnow())
-        self.setId(jobContext.getId())
-        self.setNativeId(jobContext.getNativeId())
         self.setStatus(JobStatusValues.UNKNOWN)
-        self.setParentJobId(jobContext.getParentJobId())
-        self.setOriginJobId(jobContext.getOriginJobId())
+
 
     def emit(self) -> bool:
         try:
             jssc = JobStatusSentinelClient()
-            jssc.emitStatus(self.getId(), self.getStatus().value)
+            jssc.emitStatus(self.getId(), self.getStatus().value, self.serialize())
             return True
         except Exception as ex:
             logging.error(str(ex))
@@ -136,12 +136,10 @@ class JobStatus(LwfmBase):
 
 
     def getJobContext(self) -> JobContext:
-        jobContext = JobContext()
-        jobContext.setId(self.getId())
-        jobContext.setNativeId(self.getNativeId())
-        jobContext.setParentJobId(self.getParentJobId())
-        jobContext.setOriginJobId(self.getOriginJobId())
-        return jobContext
+        return self.jobContext
+
+    def setJobContext(self, jobContext: JobContext) -> None:
+        self.jobContext = jobContext
 
     def setStatus(self, status: JobStatusValues) -> None:
         LwfmBase._setArg(self, _JobStatusFields.STATUS.value, status)
@@ -155,7 +153,7 @@ class JobStatus(LwfmBase):
                  (self.getStatus() == JobStatusValues.CANCELLED) )
 
     def getStatusValue(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.STATUS.value)
+        return LwfmBase._getArg(self, _JobStatusFields.STATUS.value).value
 
     def setNativeStatusStr(self, status: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.NATIVE_STATUS.value, status)
@@ -178,46 +176,48 @@ class JobStatus(LwfmBase):
         self.statusMap = statusMap
 
     def setEmitTime(self, emitTime: datetime) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.EMIT_TIME.value, emitTime)
+        LwfmBase._setArg(self, _JobStatusFields.EMIT_TIME.value, emitTime.timestamp() * 1000)
 
     def getEmitTime(self) -> datetime:
-        return LwfmBase._getArg(self, _JobStatusFields.EMIT_TIME.value)
+        ms = int(LwfmBase._getArg(self, _JobStatusFields.EMIT_TIME.value))
+        return datetime.utcfromtimestamp(ms//1000).replace(microsecond=ms%1000*1000)
 
     def setReceivedTime(self, receivedTime: datetime) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.RECEIVED_TIME.value, receivedTime)
+        LwfmBase._setArg(self, _JobStatusFields.RECEIVED_TIME.value, receivedTime.timestamp() * 1000)
 
     def getReceivedTime(self) -> datetime:
-        return LwfmBase._getArg(self, _JobStatusFields.RECEIVED_TIME.value)
+        ms = LwfmBase._getArg(self, _JobStatusFields.RECEIVED_TIME.value)
+        return datetime.utcfromtimestamp(ms//1000).replace(microsecond=ms%1000*1000)
 
     def setId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.ID.value, idValue)
+        self.jobContext.setId(idValue)
 
     def getId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.ID.value)
+        return self.jobContext.getId()
 
     def setNativeId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.NATIVE_ID.value, idValue)
+        self.jobContext.setNativeId(idValue)
 
     def getNativeId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.NATIVE_ID.value)
+        return self.jobContext.getNativeId()
 
     def setName(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.NAME.value, name)
+        self.jobContext.setName(name)
 
     def getName(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.NAME.value)
+        return self.jobContext.getName()
 
     def setParentJobId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.PARENT_JOB_ID.value, idValue)
+        self.jobContext.setParentJobId(idValue)
 
     def getParentJobId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.PARENT_JOB_ID.value)
+        return self.jobContext.getParentJobId()
 
     def setOriginJobId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.ORIGIN_JOB_ID.value, idValue)
+        self.jobContext.setOriginJobId(idValue)
 
     def getOriginJobId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.ORIGIN_JOB_ID.value)
+        return self.jobContext.getOriginJobId()
 
     def setNativeInfo(self, info: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.NATIVE_INFO.value, idValue)
@@ -226,10 +226,10 @@ class JobStatus(LwfmBase):
         return LwfmBase._getArg(self, _JobStatusFields.NATIVE_INFO.value)
 
     def setStatusHistory(self, history: dict) -> None:
-        self.statusHistory = history
+        self._statusHistory = history
 
     def getStatusHistory(self) -> dict:
-        return self.statusHistory
+        return self._statusHistory
 
     def setSiteName(self, name: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.SITE_NAME.value, name)
@@ -237,9 +237,17 @@ class JobStatus(LwfmBase):
     def getSiteName(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.SITE_NAME.value)
 
-    def toJsonString(self) -> str:
-        return json.dumps(self.getArgs(), sort_keys=True, default=str)
+    def serialize(self):
+        return pickle.dumps(self, 0)
 
+    @staticmethod
+    def deserialize(s: str):
+        arr = bytes(s, 'ascii')
+        return pickle.loads(arr)
+
+    def toString(self) -> str:
+        return ("" + str(self.getId()) + "," + str(self.getParentJobId()) + "," + str(self.getOriginJobId()) + "," +
+                str(self.getEmitTime()) + "," + str(self.getStatusValue()) + "," + str(self.getSiteName()))
 
 
 #************************************************************************************************************************************
@@ -256,4 +264,5 @@ if __name__ == '__main__':
     status.setStatusMap(statusMap)
     status.setNativeStatusStr("NODE_FAIL")
     status.setEmitTime(datetime.utcnow())
-    logging.info(status.toJsonString())
+
+    logging.info(status.serialize())
