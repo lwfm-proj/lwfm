@@ -3,21 +3,18 @@
 
 TODO:
 
-- triggers: listener thread & backing persistence; local endpoint to post status; local driver emit Repo job status to endpoint; fix
-  Nersc driver
-
-
 + code / test
-    - local driver cancel job
     - local driver repo as job
-    - JobDefn should not have the ids - use a context
-    - nersc driver with jobcontext
-    - all status to Run Store - in getJobStatus(), or in JobStatus itself? - can the framework auto-handle the emit?
+
+    - David: fix nersc driver to new signatures, repo as jobs
+    - David: jss emit take full job status object
+    - jss.getStatus() should return rich object with history
     - parent-child tracking, originator
-    - data movement as jobs
+
+    - triggers
+
+    - all status to Run Store - in getJobStatus(), or in JobStatus itself? - can the framework auto-handle the emit?
     - put file with a new dest name
-    - fire & wait?
-    - handler persistence
 
 
 + MxN
@@ -32,6 +29,8 @@ TODO:
 
 
 later:
+    - trigger/handler persistence
+    - fire & wait?
     - nersc tokens are pinned to ip - test in advance for ip
     - use case: remote job spawns other jobs - how can we get them to report in?  polling for what...
     - visualize wf

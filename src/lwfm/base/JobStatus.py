@@ -49,13 +49,15 @@ class JobStatusValues(Enum):
 # A job runs in the context of a runtime id (two ids - one which is canonical to lwfm, and one which is native to the site), and
 # references to upstream job which spawned it, to permit later navigation of the digital thread.
 
+import traceback
+
 class JobContext(LwfmBase):
     def __init__(self):
         super(JobContext, self).__init__()
         self.setId(_IdGenerator.generateId())
         self.setNativeId(self.getId())
         self.setParentJobId(None)                       # a seminal job has no parent
-        self.setOriginJobId(self.getId())         # a seminal job is its own originator
+        self.setOriginJobId(self.getId())               # a seminal job is its own originator
 
     def setId(self, idValue: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.ID.value, idValue)
@@ -101,8 +103,10 @@ class JobStatus(LwfmBase):
     # nativeInfo:       str                                     # arbitrary body of info passed in the native status message
     # siteName          str                                     # the site source for this job status
 
-    def __init__(self, jobContext: JobContext = JobContext(), args: dict = None):
+    def __init__(self, jobContext: JobContext = None, args: dict = None):
         super(JobStatus, self).__init__(args)
+        if (jobContext is None):
+            jobContext = JobContext()
         # default map
         self.setStatusMap( {
             "UNKNOWN"   : JobStatusValues.UNKNOWN,
@@ -112,12 +116,11 @@ class JobStatus(LwfmBase):
             "FINISHING" : JobStatusValues.FINISHING,
             "COMPLETE"  : JobStatusValues.COMPLETE,
             "FAILED"    : JobStatusValues.FAILED,
+            "CANCELLED" : JobStatusValues.CANCELLED
         })
         self.setReceivedTime(datetime.utcnow())
-        if self.getId() is None:
-            self.setId(_IdGenerator.generateId())
-        if self.getNativeId() is None:
-            self.setNativeId(self.getId())
+        self.setId(jobContext.getId())
+        self.setNativeId(jobContext.getNativeId())
         self.setStatus(JobStatusValues.UNKNOWN)
         self.setParentJobId(jobContext.getParentJobId())
         self.setOriginJobId(jobContext.getOriginJobId())
@@ -152,7 +155,7 @@ class JobStatus(LwfmBase):
                  (self.getStatus() == JobStatusValues.CANCELLED) )
 
     def getStatusValue(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.STATUS.value).value
+        return LwfmBase._getArg(self, _JobStatusFields.STATUS.value)
 
     def setNativeStatusStr(self, status: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.NATIVE_STATUS.value, status)

@@ -11,6 +11,9 @@ app = Flask(__name__)
 jss = JobStatusSentinel()
 
 
+# TODO: store this sensibly
+_jobStatusCache = {}
+
 @app.route('/')
 def index():
   return str(True)
@@ -23,9 +26,15 @@ def emitStatus():
     statObj.setId(jobId)
     statObj.setStatus(jobStatus)
     RunJobStatusStore().write(statObj)
+    _jobStatusCache[jobId] = statObj
     key = EventHandler(jobId, None, jobStatus, None, None).getKey()
     jss.runHandler(key) # This will check to see if the handler is in the JSS store, and run if so
     return '', 200
+
+@app.route('/status/<jobId>')
+def getStatus(jobId : str):
+    stat = _jobStatusCache[jobId]
+    return stat.getStatusValue()
 
 @app.route('/set', methods = ['POST'])
 def setHandler():

@@ -1,5 +1,6 @@
 import pickle
 import requests
+import logging
 
 class JobStatusSentinelClient:
     # TODO - do the right thing...
@@ -55,6 +56,14 @@ class JobStatusSentinelClient:
             logging.error(response)
             return None
 
+    def getStatus(self, jobId) -> str:
+        response = requests.get(f'{self.getUrl()}/status/{jobId}')
+        if response.ok:
+            return response.text
+        else:
+            return None
+
+
 #************************************************************************************************************************************
 
 # test
@@ -62,9 +71,9 @@ if __name__ == '__main__':
 
     # basic client test - assumes the JSS Svc is running and exposing an HTTP API
     jssClient = JobStatusSentinelClient()
-    print("*** " + str(jssClient.listActiveHandlers()))
-    print("*** " + str(jssClient.unsetAllEventHandlers()))
+    logging.info("*** " + str(jssClient.listActiveHandlers()))
+    logging.info("*** " + str(jssClient.unsetAllEventHandlers()))
     handlerId = jssClient.setEventHandler("123", "nersc", "INFO", "{jobDefn}", "nersc")
-    print("*** " + handlerId)
-    print("*** " + str(jssClient.listActiveHandlers()))
-    print("*** " + str(jssClient.unsetEventHandler(handlerId)))
+    logging.info("*** " + handlerId)
+    logging.info("*** " + str(jssClient.listActiveHandlers()))
+    logging.info("*** " + str(jssClient.unsetEventHandler(handlerId)))

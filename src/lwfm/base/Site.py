@@ -51,7 +51,7 @@ class SiteRunDriver(ABC):
         runDriver.submitJob(jdefn)
 
     @abstractmethod
-    def submitJob(self, jdefn: JobDefn=None, parentContext: JobContext = JobContext()) -> JobStatus:
+    def submitJob(self, jdefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
         pass
 
     @abstractmethod
