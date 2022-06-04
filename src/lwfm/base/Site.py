@@ -45,10 +45,10 @@ class SiteAuthDriver(ABC):
 class SiteRunDriver(ABC):
 
     @classmethod
-    def _submitJob(cls, jdefn):
+    def _submitJob(cls, jdefn, jobContext = None):
         # This helper function lets threading instantiate a SiteRunDriver of the correct subtype on demand
         runDriver = cls()
-        runDriver.submitJob(jdefn)
+        runDriver.submitJob(jdefn, jobContext)
 
     @abstractmethod
     def submitJob(self, jdefn: JobDefn, parentContext: JobContext = None) -> JobStatus:

@@ -44,7 +44,8 @@ def setHandler():
     jobStatus = request.form['jobStatus']
     fireDefn = pickle.loads(request.form['fireDefn'].encode())
     targetSiteName = request.form['targetSiteName']
-    handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName)
+    targetId = request.form['targetId']
+    handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetId)
     return handlerId
 
 # unset a given handler

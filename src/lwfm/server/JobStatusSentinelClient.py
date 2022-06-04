@@ -2,6 +2,8 @@ import pickle
 import requests
 import logging
 
+from lwfm.base.JobDefn import JobDefn
+
 class JobStatusSentinelClient:
     # TODO - do the right thing...
     _JSS_URL = "http://127.0.0.1:5000"
@@ -9,14 +11,16 @@ class JobStatusSentinelClient:
     def getUrl(self):
         return self._JSS_URL
 
+    # returns the "key" for the trigger, a compound of the job id, status, etc.
     def setEventHandler(self, jobId: str, jobSiteName: str, jobStatus: str,
-                        fireDefn: str, targetSiteName: str) -> str:
+                        fireDefn: JobDefn, targetSiteName: str, targetId: str = "") -> str:
         payload = {}
         payload["jobId"] = jobId
         payload["jobSiteName"] = jobSiteName
         payload["jobStatus"] = jobStatus
         payload["fireDefn"] = pickle.dumps(fireDefn, 0).decode() # Use protocol 0 so we can easily convert to an ASCII string
         payload["targetSiteName"] = targetSiteName
+        payload["targetId"] = targetId
         response = requests.post(f'{self.getUrl()}/set', payload)
         if response.ok:
             return response.text
