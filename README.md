@@ -6,8 +6,8 @@ TODO:
 + code / test
     - David: fix nersc driver to new signatures, repo as jobs
 
-    - triggers
-    - parent-child tracking
+    - parent-child tracking - originator
+    - triggering a data movement
 
 
 + MxN
@@ -23,9 +23,10 @@ TODO:
 
 
 later:
-    - job status site name, history
+    - job status site name, history in persistence log
     - local driver repo put & get as async
     - trigger/handler persistence
+    - "full" trigger model
     - run repo persistence to real db?
     - fire & wait?
     - nersc tokens are pinned to ip - test in advance for ip

@@ -122,10 +122,12 @@ class JobStatusSentinel:
         site = Site.getSiteInstanceFactory(handler._getArg( _EventHandlerFields.TARGET_SITE_NAME.value))
         runDriver = site.getRunDriver().__class__
         jobId = handler._getArg(_EventHandlerFields.TARGET_ID.value)
+        jobContext = JobContext()
+        jobContext.setParentJobId(handler._getArg(_EventHandlerFields.JOB_ID.value))
         if ( (jobId is None) or (jobId == "") ):
-            jobContext = None
+            # jobContext.setParentId(handler._getArg(_EventHandlerFields.TARGET_ID.value))
+            pass
         else:
-            jobContext = JobContext()
             jobContext.setId(jobId)
         # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
         thread = threading.Thread(target = runDriver._submitJob,
