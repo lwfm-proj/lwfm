@@ -139,61 +139,95 @@ class LocalSiteRepoDriver(SiteRepoDriver):
             return False
         return True
 
+    # If we're given a context, we use it, if not, we consider ourselves our own job.
     def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
         fromPath = localRef
         toPath = siteRef.getPath()
-        if (jobContext is not None):
-            jstatus = JobStatus(jobContext)
+        iAmAJob = False
+        if (jobContext is None):
+            iAmAJob = True
+            jobContext = JobContext()
+
+        jstatus = JobStatus(jobContext)
+        if (iAmAJob):
+            # emit the starting job status sequence
             jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
             jstatus.setEmitTime(datetime.utcnow())
             jstatus.emit()
             jstatus.setNativeStatusStr(JobStatusValues.RUNNING.value)
             jstatus.setEmitTime(datetime.utcnow())
             jstatus.emit()
+
         if not self._copyFile(fromPath, toPath):
-            if (jobContext is not None):
-                jstatus = JobStatus(jobContext)
+            jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
+            jstatus.setNativeInfo(JobStatus.makeRepoInfo("put", False, str(fromPath), str(toPath)))
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+            if (iAmAJob):
                 jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
                 jstatus.setEmitTime(datetime.utcnow())
                 jstatus.emit()
             return False
-        if (jobContext is not None):
-            jstatus = JobStatus(jobContext)
-            jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
+        else:
+            jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
+            jstatus.setNativeInfo(JobStatus.makeRepoInfo("put", True, str(fromPath), str(toPath)))
             jstatus.setEmitTime(datetime.utcnow())
             jstatus.emit()
-            jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
+            if (iAmAJob):
+                # emit the successful job ending sequence
+                jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
+                jstatus.setEmitTime(datetime.utcnow())
+                jstatus.emit()
+                jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
+                jstatus.setEmitTime(datetime.utcnow())
+                jstatus.emit()
+        # return success result
         return FSFileRef.siteFileRefFromPath(toPath + "/" + fromPath.name)
 
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
         fromPath = siteRef.getPath()
         toPath = localRef
-        if (jobContext is not None):
-            jstatus = JobStatus(jobContext)
+        iAmAJob = False
+        if (jobContext is None):
+            iAmAJob = True
+            jobContext = JobContext()
+
+        jstatus = JobStatus(jobContext)
+        if (iAmAJob):
+            # emit the starting job status sequence
             jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
             jstatus.setEmitTime(datetime.utcnow())
             jstatus.emit()
             jstatus.setNativeStatusStr(JobStatusValues.RUNNING.value)
             jstatus.setEmitTime(datetime.utcnow())
             jstatus.emit()
+
         if not self._copyFile(fromPath, toPath):
-            if (jobContext is not None):
-                jstatus = JobStatus(jobContext)
+            jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
+            jstatus.setNativeInfo(JobStatus.makeRepoInfo("get", False, str(fromPath), str(toPath)))
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+            if (iAmAJob):
                 jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
                 jstatus.setEmitTime(datetime.utcnow())
                 jstatus.emit()
             return False
-        if (jobContext is not None):
-            jstatus = JobStatus(jobContext)
-            jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
+        else:
+            jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
+            jstatus.setNativeInfo(JobStatus.makeRepoInfo("get", True, str(fromPath), str(toPath)))
             jstatus.setEmitTime(datetime.utcnow())
             jstatus.emit()
-            jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
+            if (iAmAJob):
+                # emit the successful job ending sequence
+                jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
+                jstatus.setEmitTime(datetime.utcnow())
+                jstatus.emit()
+                jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
+                jstatus.setEmitTime(datetime.utcnow())
+                jstatus.emit()
+        # return success result
         return Path(str(toPath) + "/" + Path(fromPath).name)
+
 
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
         return FSFileRef.siteFileRefFromPath(siteRef.getPath())
@@ -239,13 +273,14 @@ if __name__ == '__main__':
     logging.info("time of the dir is " + str(fileRef.getTimestamp()))
     logging.info("contents of the dir is " + str(fileRef.getDirContents()))
 
-    # put
+    # put - run as a brand new job (note: this script itself is *not* a job, its just a script, so the job we
+    # run here is a seminal job
     localFile = os.path.realpath(__file__)
     destFileRef = FSFileRef.siteFileRefFromPath(os.path.expanduser('~'))
-    copiedFileRef = site.getRepoDriver().put(Path(localFile), destFileRef, JobContext())
+    copiedFileRef = site.getRepoDriver().put(Path(localFile), destFileRef)
     logging.info(copiedFileRef.getName() + " " + str(copiedFileRef.getTimestamp()))
 
-    # get
+    # get - run as a brand new job, but this time, pre-generate the job context
     fileRef = FSFileRef.siteFileRefFromPath(os.path.realpath(__file__))
     destPath = Path(os.path.expanduser('~'))
     copiedPath = site.getRepoDriver().get(fileRef, destPath, JobContext())

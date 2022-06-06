@@ -69,12 +69,14 @@ class SiteRunDriver(ABC):
 # complete the transaction.
 
 class SiteRepoDriver(ABC):
-    # take the local file by path and put it to the remote site
+    # Take the local file by path and put it to the remote site.
+    # If we're given a context, we use it, if not, we consider ourselves our own job.
     @abstractmethod
     def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
         pass
 
-    # get the file from the remote site and write it local, returning a path to the local
+    # Get the file from the remote site and write it local, returning a path to the local.
+    # If we're given a context, we use it, if not, we consider ourselves our own job.
     @abstractmethod
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
         pass

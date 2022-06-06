@@ -232,7 +232,7 @@ class JobStatus(LwfmBase):
         return self.jobContext.getOriginJobId()
 
     def setNativeInfo(self, info: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.NATIVE_INFO.value, idValue)
+        LwfmBase._setArg(self, _JobStatusFields.NATIVE_INFO.value, info)
 
     def getNativeInfo(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.NATIVE_INFO.value)
@@ -257,9 +257,17 @@ class JobStatus(LwfmBase):
         arr = bytes(s, 'ascii')
         return pickle.loads(arr)
 
+
+    @staticmethod
+    def makeRepoInfo(verb: str, success: bool, fromPath: str, toPath: str) -> str:
+        return ("[" + verb + "," + str(success) + "," + fromPath + "," + toPath + "]")
+
     def toString(self) -> str:
-        return ("" + str(self.getId()) + "," + str(self.getParentJobId()) + "," + str(self.getOriginJobId()) + "," +
-                str(self.getEmitTime()) + "," + str(self.getStatusValue()) + "," + str(self.getSiteName()))
+        s = ("" + str(self.getId()) + "," + str(self.getParentJobId()) + "," + str(self.getOriginJobId()) + "," +
+            str(self.getEmitTime()) + "," + str(self.getStatusValue()) + "," + str(self.getSiteName()))
+        if (self.getStatus() == JobStatusValues.INFO):
+            s += "," + self.getNativeInfo()
+        return s
 
 
 #************************************************************************************************************************************
