@@ -5,8 +5,10 @@
 from flask import Flask, request
 import pickle
 from lwfm.server.JobStatusSentinel import JobStatusSentinel, EventHandler
-from lwfm.base.JobStatus import JobStatus
+from lwfm.base.JobStatus import JobStatus, JobContext
 from lwfm.store.RunStore import RunJobStatusStore
+import logging
+
 app = Flask(__name__)
 jss = JobStatusSentinel()
 
@@ -28,8 +30,8 @@ def emitStatus():
     RunJobStatusStore().write(statusObj)
     # store it locally for convenience
     _jobStatusCache[jobId] = statusObj
-    key = EventHandler(jobId, None, jobStatus, None, None).getKey()
-    jss.runHandler(key) # This will check to see if the handler is in the JSS store, and run if so
+    key = EventHandler(jobId, None, jobStatus, None, None, None).getKey()
+    jss.runHandler(key, statusObj) # This will check to see if the handler is in the JSS store, and run if so
     return '', 200
 
 @app.route('/status/<jobId>')
@@ -44,8 +46,14 @@ def setHandler():
     jobStatus = request.form['jobStatus']
     fireDefn = pickle.loads(request.form['fireDefn'].encode())
     targetSiteName = request.form['targetSiteName']
-    targetId = request.form['targetId']
-    handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetId)
+    targetContextStr = request.form['targetContext']
+    if (targetContextStr == ""):
+        targetContext = JobContext()
+    else:
+        targetContext = JobContext.deserialize(targetContextStr)
+    targetContext.setParentJobId(jobId)
+    # set the origin
+    handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetContext)
     return handlerId
 
 # unset a given handler

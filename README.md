@@ -6,7 +6,6 @@ TODO:
 + code / test
     - David: fix nersc driver to new signatures, repo as jobs
 
-    - parent-child tracking - originator
     - triggering a data movement
 
 
@@ -23,6 +22,9 @@ TODO:
 
 
 later:
+    - triggers running other than locally?
+    - David suggests: get MPI into local script
+    - job extra args - is it dict or a list (see David email)
     - job status site name, history in persistence log
     - local driver repo put & get as async
     - trigger/handler persistence

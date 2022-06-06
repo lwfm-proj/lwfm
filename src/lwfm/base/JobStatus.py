@@ -55,12 +55,16 @@ class JobStatusValues(Enum):
 import traceback
 
 class JobContext(LwfmBase):
-    def __init__(self):
+    def __init__(self, parentContext = None):
         super(JobContext, self).__init__()
         self.setId(_IdGenerator.generateId())
         self.setNativeId(self.getId())
-        self.setParentJobId(None)                       # a seminal job has no parent
-        self.setOriginJobId(self.getId())               # a seminal job is its own originator
+        if (parentContext is not None):
+            self.setParentJobId(parentContext.getParentJobId())
+            self.setOriginJobId(parentContext.getOriginJobId())
+        else:
+            self.setParentJobId(None)                   # a seminal job has no parent
+            self.setOriginJobId(self.getId())           # a seminal job is its own originator
         self.setName(self.getId())
 
     def setId(self, idValue: str) -> None:
@@ -92,6 +96,14 @@ class JobContext(LwfmBase):
 
     def getName(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.NAME.value)
+
+    def serialize(self):
+        return pickle.dumps(self, 0)
+
+    @staticmethod
+    def deserialize(s: str):
+        arr = bytes(s, 'ascii')
+        return pickle.loads(arr)
 
 
 #************************************************************************************************************************************

@@ -13,19 +13,26 @@ class JobStatusSentinelClient:
 
     # returns the "key" for the trigger, a compound of the job id, status, etc.
     def setEventHandler(self, jobId: str, jobSiteName: str, jobStatus: str,
-                        fireDefn: JobDefn, targetSiteName: str, targetId: str = "") -> str:
+                        fireDefn: JobDefn, targetSiteName: str, targetContext = None) -> str:
         payload = {}
         payload["jobId"] = jobId
         payload["jobSiteName"] = jobSiteName
         payload["jobStatus"] = jobStatus
         payload["fireDefn"] = pickle.dumps(fireDefn, 0).decode() # Use protocol 0 so we can easily convert to an ASCII string
         payload["targetSiteName"] = targetSiteName
-        payload["targetId"] = targetId
+        if (targetContext is not None):
+            try:
+                payload["targetContext"] = targetContext.serialize()
+            except Exception as ex:
+                logging.error(ex)
+                return None
+        else:
+            payload["targetContext"] = ""
         response = requests.post(f'{self.getUrl()}/set', payload)
         if response.ok:
             return response.text
         else:
-            logging.error(response)
+            logging.error(response.text)
             return None
 
     def unsetEventHandler(self, handlerId: str) -> bool:
