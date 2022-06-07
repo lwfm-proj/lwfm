@@ -9,8 +9,10 @@ from enum import Enum
 import logging
 
 from datetime import datetime
+from pathlib import Path
 
 from lwfm.base.LwfmBase import LwfmBase
+from lwfm.base.SiteFileRef import SiteFileRef
 
 
 class _JobDefnFields(Enum):
@@ -18,6 +20,9 @@ class _JobDefnFields(Enum):
     COMPUTE_TYPE       = "computeType"                 # some sites define addressable compute resources within it
     ENTRY_POINT_PATH   = "entryPointPath"              # defines the top-level "executable" command to pass to the site scheduler
     NOTIFICATION_EMAIL = "notificationEmail"           # some site schedulers permit direct user notification
+    REPO_OP            = "repoOp"                      # put, get
+    REPO_LOCAL_REF     = "repoLocalRef"                # local file reference
+    REPO_SITE_REF      = "repoSiteRef"                 # site file reference
     # EXTRA_ARGS                                       # site schedulers vary widely - this dict permits arbitrary args
 
 
@@ -50,8 +55,41 @@ class JobDefn(LwfmBase):
     def getNotificationEmail(self) -> str:
         return LwfmBase._getArg(self, _JobDefnFields.NOTIFICATION_EMAIL.value)
 
-    def setExtraArgs(self, args: dict=None) -> None:
-        LwfmBase.setArgs(self, args)
+    #def setExtraArgs(self, args: dict=None) -> None:
+    #    LwfmBase.setArgs(self, args)
 
-    def getExtraArgs(self) -> dict:
-        return LwfmBase.getArgs(self)
+    #def getExtraArgs(self) -> dict:
+    #    return LwfmBase.getArgs(self)
+
+
+#************************************************************************************************************************************
+
+class RepoOp(Enum):
+    PUT = "put"
+    GET = "get"
+
+
+class RepoJobDefn(JobDefn):
+    def __init__(self, args: dict=None):
+        super(RepoJobDefn, self).__init__(args)
+
+    def setRepoOp(self, repoOp: RepoOp) -> None:
+        LwfmBase._setArg(self, _JobDefnFields.REPO_OP.value, repoOp)
+
+    def getRepoOp(self) -> RepoOp:
+        return LwfmBase._getArg(self, _JobDefnFields.REPO_OP.value)
+
+    def setLocalRef(self, localRef: Path) -> None:
+        LwfmBase._setArg(self, _JobDefnFields.REPO_LOCAL_REF.value, str(localRef))
+
+    def getLocalRef(self) -> Path:
+        return Path(LwfmBase._getArg(self, _JobDefnFields.REPO_LOCAL_REF.value))
+
+    def setSiteRef(self, siteRef: SiteFileRef) -> None:
+        LwfmBase._setArg(self, _JobDefnFields.REPO_SITE_REF.value, siteRef)
+
+    def getSiteRef(self) -> SiteFileRef:
+        return LwfmBase._getArg(self, _JobDefnFields.REPO_SITE_REF.value)
+
+
+#************************************************************************************************************************************

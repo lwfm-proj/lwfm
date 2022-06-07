@@ -4,9 +4,7 @@
 TODO:
 
 + code / test
-    - David: fix nersc driver to new signatures, repo as jobs
-
-    - triggering a data movement
+    - David: fix nersc driver to new signatures, repo jobs
 
 
 + MxN

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
-from lwfm.base.JobDefn import JobDefn
+from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 
@@ -24,12 +24,6 @@ from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 #************************************************************************************************************************************
 
 SITE_NAME = "local"
-
-class LocalSite(Site):
-    # There are no required args to instantiate a local site.
-    def __init__(self):
-        super(LocalSite, self).__init__(SITE_NAME, LocalSiteAuthDriver(), LocalSiteRunDriver(), LocalSiteRepoDriver(), None)
-
 
 #************************************************************************************************************************************
 
@@ -65,9 +59,18 @@ class LocalSiteRunDriver(SiteRunDriver):
         jobStatus.emit()
         try:
             # This is synchronous, so we wait here until the subprocess is over. Check=True raises an exception on non-zero returns
-            cmd = jdefn.getEntryPointPath()
-            logging.info("Running local command " + cmd)
-            os.system(cmd)
+            if (isinstance(jdefn, RepoJobDefn)):
+                # run the repo job
+                if (jdefn.getRepoOp() == RepoOp.PUT):
+                    _repoDriver.put(jdefn.getLocalRef(), jdefn.getSiteRef(), jobStatus.getJobContext())
+                elif (jdefn.getRepo() == RepoOp.GET):
+                    _repoDriver.get(jdefn.getSiteRef(), jdefn.getLocalRef(), jobStatus.getJobContext())
+                else:
+                    logging.error("Unknown repo operation")
+            else:
+                # run a command line job
+                cmd = jdefn.getEntryPointPath()
+                os.system(cmd)
             #Emit FINISHING status
             jobStatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
             jobStatus.emit()
@@ -160,7 +163,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
 
         if not self._copyFile(fromPath, toPath):
             jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
-            jstatus.setNativeInfo(JobStatus.makeRepoInfo("put", False, str(fromPath), str(toPath)))
+            jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(fromPath), str(toPath)))
             jstatus.setEmitTime(datetime.utcnow())
             jstatus.emit()
             if (iAmAJob):
@@ -170,7 +173,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
             return False
         else:
             jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
-            jstatus.setNativeInfo(JobStatus.makeRepoInfo("put", True, str(fromPath), str(toPath)))
+            jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, True, str(fromPath), str(toPath)))
             jstatus.setEmitTime(datetime.utcnow())
             jstatus.emit()
             if (iAmAJob):
@@ -185,6 +188,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         return FSFileRef.siteFileRefFromPath(toPath + "/" + fromPath.name)
 
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
+        print("**** here in get")
         fromPath = siteRef.getPath()
         toPath = localRef
         iAmAJob = False
@@ -204,7 +208,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
 
         if not self._copyFile(fromPath, toPath):
             jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
-            jstatus.setNativeInfo(JobStatus.makeRepoInfo("get", False, str(fromPath), str(toPath)))
+            jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.GET, False, str(fromPath), str(toPath)))
             jstatus.setEmitTime(datetime.utcnow())
             jstatus.emit()
             if (iAmAJob):
@@ -214,7 +218,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
             return False
         else:
             jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
-            jstatus.setNativeInfo(JobStatus.makeRepoInfo("get", True, str(fromPath), str(toPath)))
+            jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.GET, True, str(fromPath), str(toPath)))
             jstatus.setEmitTime(datetime.utcnow())
             jstatus.emit()
             if (iAmAJob):
@@ -231,6 +235,18 @@ class LocalSiteRepoDriver(SiteRepoDriver):
 
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
         return FSFileRef.siteFileRefFromPath(siteRef.getPath())
+
+
+
+#************************************************************************************************************************************
+
+_repoDriver = LocalSiteRepoDriver()
+
+class LocalSite(Site):
+    # There are no required args to instantiate a local site.
+    def __init__(self):
+        super(LocalSite, self).__init__(SITE_NAME, LocalSiteAuthDriver(), LocalSiteRunDriver(), _repoDriver, None)
+
 
 
 #************************************************************************************************************************************

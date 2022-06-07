@@ -106,7 +106,8 @@ class FSFileRef(SiteFileRef):
         fileRef.setId(path)
         fileRef.setName(path)
         fileRef.setPath(path)
-        fileRef.setTimestamp(datetime.fromtimestamp(os.path.getmtime(path)))
+        # TODO - messes up serialization
+        #fileRef.setTimestamp(datetime.fromtimestamp(os.path.getmtime(path)))
         if (os.path.isfile(path)):
             fileRef.setIsFile(True)
             fileRef.setSize(os.path.getsize(path))

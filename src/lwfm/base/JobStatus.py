@@ -18,7 +18,7 @@ import requests
 import pickle
 
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
-from lwfm.base.JobDefn import JobDefn
+from lwfm.base.JobDefn import JobDefn, RepoOp
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 
 
@@ -259,8 +259,8 @@ class JobStatus(LwfmBase):
 
 
     @staticmethod
-    def makeRepoInfo(verb: str, success: bool, fromPath: str, toPath: str) -> str:
-        return ("[" + verb + "," + str(success) + "," + fromPath + "," + toPath + "]")
+    def makeRepoInfo(verb: RepoOp, success: bool, fromPath: str, toPath: str) -> str:
+        return ("[" + verb.value + "," + str(success) + "," + fromPath + "," + toPath + "]")
 
     def toString(self) -> str:
         s = ("" + str(self.getId()) + "," + str(self.getParentJobId()) + "," + str(self.getOriginJobId()) + "," +
