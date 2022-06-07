@@ -240,12 +240,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         jstatus = JobStatus(jobContext)
         if (iAmAJob):
             # emit the starting job status sequence
-            jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-            jstatus.setNativeStatusStr(JobStatusValues.RUNNING.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
+            jstatus.emit(JobStatusValues.PENDING.value)
+            jstatus.emit(JobStatusValues.RUNNING.value)
 
         # Construct our URL
         machine = siteRef.getHost()
@@ -253,10 +249,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         url = NERSC_URLS.NERSC_PUT_URL.value + machine + remotePath
 
         # Emit our info status before hitting the API
-        jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
         jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(localRef), str(remotePath)))
-        jstatus.setEmitTime(datetime.utcnow())
-        jstatus.emit()
+        jstatus.emit(JobStatusValues.INFO.value)
 
         # Convert the file into a binary form we can send over
         with localRef.open('rb') as f:
@@ -269,18 +263,12 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         if not r.status_code == requests.codes.ok:
             logging.error("Error uploading file")
             if (iAmAJob):
-                jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
-                jstatus.setEmitTime(datetime.utcnow())
-                jstatus.emit()
+                jstatus.emit(JobStatusValues.FAILED.value)
             return False
         if (iAmAJob):
             # emit the successful job ending sequence
-            jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-            jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
+            jstatus.emit(JobStatusValues.FINISHING.value)
+            jstatus.emit(JobStatusValues.COMPLETE.value)
         return SiteFileRef
 
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
@@ -292,12 +280,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         jstatus = JobStatus(jobContext)
         if (iAmAJob):
             # emit the starting job status sequence
-            jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-            jstatus.setNativeStatusStr(JobStatusValues.RUNNING.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
+            jstatus.emit(JobStatusValues.PENDING.value)
+            jstatus.emit(JobStatusValues.RUNNING.value)
 
         # Construct our URL
         machine = siteRef.getHost()
@@ -305,10 +289,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         url = NERSC_URLS.NERSC_GET_URL.value + machine + remotePath
 
         # Emit our info status before hitting the API
-        jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
         jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, remotePath, str(localRef)))
-        jstatus.setEmitTime(datetime.utcnow())
-        jstatus.emit()
+        jstatus.emit(JobStatusValues.INFO.value)
 
         # Make the connection and grab the file
         session = self._getSession()
@@ -316,9 +298,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         if not r.status_code == requests.codes.ok:
             logging.error("Error downloading file")
             if (iAmAJob):
-                jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
-                jstatus.setEmitTime(datetime.utcnow())
-                jstatus.emit()
+                jstatus.emit(JobStatusValues.FAILED.value)
             return False
 
         # Now we can write
@@ -326,12 +306,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
             f.write(r.json()['file'])
         if (iAmAJob):
             # emit the successful job ending sequence
-            jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-            jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
+            jstatus.emit(JobStatusValues.FINISHING.value)
+            jstatus.emit(JobStatusValues.COMPLETE.value)
         return localRef
 
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:

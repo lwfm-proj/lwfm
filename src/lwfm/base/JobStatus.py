@@ -137,7 +137,10 @@ class JobStatus(LwfmBase):
         self.setStatus(JobStatusValues.UNKNOWN)
 
 
-    def emit(self) -> bool:
+    def emit(self, status: str = None) -> bool:
+        if status:
+            self.setNativeStatusStr(status)
+            self.setEmitTime(datetime.utcnow())
         try:
             jssc = JobStatusSentinelClient()
             jssc.emitStatus(self.getId(), self.getStatus().value, self.serialize())
