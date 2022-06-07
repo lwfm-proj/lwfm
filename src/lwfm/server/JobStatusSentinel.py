@@ -13,7 +13,7 @@ import threading
 import sys
 
 from lwfm.base.JobDefn import JobDefn
-from lwfm.base.JobStatus import JobStatus, JobStatusValues
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.base.Site import Site
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
 
@@ -27,16 +27,18 @@ class _EventHandlerFields(Enum):
     JOB_STATUS       = "jobStatus"
     FIRE_DEFN        = "fireDefn"
     TARGET_SITE_NAME = "targetSiteName"
+    TARGET_CONTEXT   = "targetContext"
 
 
 class EventHandler(LwfmBase):
-    def __init__(self, jobId: str, jobSiteName: str, jobStatus: str, fireDefn: str, targetSiteName: str):
+    def __init__(self, jobId: str, jobSiteName: str, jobStatus: str, fireDefn: str, targetSiteName: str, targetContext: JobContext):
         super(EventHandler, self).__init__()
         LwfmBase._setArg(self, _EventHandlerFields.JOB_ID.value, jobId)
         LwfmBase._setArg(self, _EventHandlerFields.JOB_SITE_NAME.value, jobSiteName)
         LwfmBase._setArg(self, _EventHandlerFields.JOB_STATUS.value, jobStatus)
         LwfmBase._setArg(self, _EventHandlerFields.FIRE_DEFN.value, fireDefn)
         LwfmBase._setArg(self, _EventHandlerFields.TARGET_SITE_NAME.value, targetSiteName)
+        LwfmBase._setArg(self, _EventHandlerFields.TARGET_CONTEXT.value, targetContext)
 
     def getHandlerId(self) -> str:
         return self.getKey()
@@ -74,8 +76,8 @@ class JobStatusSentinel:
                 jobStatus = runDriver.getJobStatus(jobId)
 
                 # We don't need to go through the Flask API to emit a status, just run directly
-                key = EventHandler(jobId, None, jobStatus, None, None).getKey()
-                self.runHandler(key)
+                key = EventHandler(jobId, None, jobStatus, None, None, None).getKey()
+                self.runHandler(key, jobStatus)
 
 
         # Timers only run once, so retrigger it
@@ -85,8 +87,8 @@ class JobStatusSentinel:
     # Regsiter an event handler with the sentinel.  When a jobId running on a job Site emits a particular Job Status, fire
     # the given JobDefn (serialized) at the target Site.  Return the hander id.
     def setEventHandler(self, jobId: str, jobSiteName: str, jobStatus: str,
-                        fireDefn: str, targetSiteName: str) -> str:
-        eventHandler = EventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName)
+                        fireDefn: str, targetSiteName: str, targetContext: JobContext) -> str:
+        eventHandler = EventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetContext)
         self._eventHandlerMap[eventHandler.getKey()] = eventHandler
         return eventHandler.getKey()
 
@@ -109,7 +111,7 @@ class JobStatusSentinel:
             handlers.append(key)
         return handlers
 
-    def runHandler(self, handlerId):
+    def runHandler(self, handlerId, jobStatus):
         # unset the event handler ASAP to help prevent race conditions
         if handlerId not in self._eventHandlerMap:
             return False
@@ -119,8 +121,11 @@ class JobStatusSentinel:
         # Run in a thread instead of a subprocess so we don't have to make assumptions about the environment
         site = Site.getSiteInstanceFactory(handler._getArg( _EventHandlerFields.TARGET_SITE_NAME.value))
         runDriver = site.getRunDriver().__class__
+        jobContext = handler._getArg(_EventHandlerFields.TARGET_CONTEXT.value)
+        jobContext.setOriginJobId(jobStatus.getOriginJobId())
         # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
-        thread = threading.Thread(target = runDriver._submitJob, args = (handler._getArg( _EventHandlerFields.FIRE_DEFN.value),))
+        thread = threading.Thread(target = runDriver._submitJob,
+                                  args = (handler._getArg( _EventHandlerFields.FIRE_DEFN.value),jobContext,) )
         try:
             thread.start()
         except Exception as ex:
@@ -142,7 +147,7 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     jss = JobStatusSentinel()
     handlerId = jss.setEventHandler("123", None, JobStatusValues.INFO.value, None, None)
-    print(str(jss.listActiveHandlers()))
+    logging.info(str(jss.listActiveHandlers()))
     jss.unsetEventHandler(handlerId)
-    print(str(jss.listActiveHandlers()))
+    logging.info(str(jss.listActiveHandlers()))
     jss.exit()

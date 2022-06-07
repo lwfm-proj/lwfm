@@ -5,11 +5,16 @@
 from flask import Flask, request
 import pickle
 from lwfm.server.JobStatusSentinel import JobStatusSentinel, EventHandler
-from lwfm.base.JobStatus import JobStatus
+from lwfm.base.JobStatus import JobStatus, JobContext
 from lwfm.store.RunStore import RunJobStatusStore
+import logging
+
 app = Flask(__name__)
 jss = JobStatusSentinel()
 
+
+# TODO: store this sensibly
+_jobStatusCache = {}
 
 @app.route('/')
 def index():
@@ -19,13 +24,20 @@ def index():
 def emitStatus():
     jobId = request.form['jobId']
     jobStatus = request.form['jobStatus']
-    statObj = JobStatus()
-    statObj.setId(jobId)
-    statObj.setStatus(jobStatus)
-    RunJobStatusStore().write(statObj)
-    key = EventHandler(jobId, None, jobStatus, None, None).getKey()
-    jss.runHandler(key) # This will check to see if the handler is in the JSS store, and run if so
+    statusBlob = request.form['statusBlob']
+    statusObj = JobStatus.deserialize(statusBlob)
+    # persist it for posterity
+    RunJobStatusStore().write(statusObj)
+    # store it locally for convenience
+    _jobStatusCache[jobId] = statusObj
+    key = EventHandler(jobId, None, jobStatus, None, None, None).getKey()
+    jss.runHandler(key, statusObj) # This will check to see if the handler is in the JSS store, and run if so
     return '', 200
+
+@app.route('/status/<jobId>')
+def getStatus(jobId : str):
+    stat = _jobStatusCache[jobId]
+    return stat.serialize()
 
 @app.route('/set', methods = ['POST'])
 def setHandler():
@@ -34,7 +46,14 @@ def setHandler():
     jobStatus = request.form['jobStatus']
     fireDefn = pickle.loads(request.form['fireDefn'].encode())
     targetSiteName = request.form['targetSiteName']
-    handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName)
+    targetContextStr = request.form['targetContext']
+    if (targetContextStr == ""):
+        targetContext = JobContext()
+    else:
+        targetContext = JobContext.deserialize(targetContextStr)
+    targetContext.setParentJobId(jobId)
+    # set the origin
+    handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetContext)
     return handlerId
 
 # unset a given handler

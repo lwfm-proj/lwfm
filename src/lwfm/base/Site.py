@@ -45,13 +45,13 @@ class SiteAuthDriver(ABC):
 class SiteRunDriver(ABC):
 
     @classmethod
-    def _submitJob(cls, jdefn):
+    def _submitJob(cls, jdefn, jobContext = None):
         # This helper function lets threading instantiate a SiteRunDriver of the correct subtype on demand
         runDriver = cls()
-        runDriver.submitJob(jdefn)
+        runDriver.submitJob(jdefn, jobContext)
 
     @abstractmethod
-    def submitJob(self, jdefn: JobDefn=None, parentContext: JobContext = JobContext()) -> JobStatus:
+    def submitJob(self, jdefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
         pass
 
     @abstractmethod
@@ -69,12 +69,14 @@ class SiteRunDriver(ABC):
 # complete the transaction.
 
 class SiteRepoDriver(ABC):
-    # take the local file by path and put it to the remote site
+    # Take the local file by path and put it to the remote site.
+    # If we're given a context, we use it, if not, we consider ourselves our own job.
     @abstractmethod
     def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
         pass
 
-    # get the file from the remote site and write it local, returning a path to the local
+    # Get the file from the remote site and write it local, returning a path to the local.
+    # If we're given a context, we use it, if not, we consider ourselves our own job.
     @abstractmethod
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
         pass

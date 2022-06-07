@@ -3,25 +3,15 @@
 
 TODO:
 
-- triggers: listener thread & backing persistence; local endpoint to post status; local driver emit Repo job status to endpoint; fix
-  Nersc driver
-
-
 + code / test
-    - local driver cancel job
-    - local driver repo as job
-    - JobDefn should not have the ids - use a context
-    - nersc driver with jobcontext
-    - all status to Run Store - in getJobStatus(), or in JobStatus itself? - can the framework auto-handle the emit?
-    - parent-child tracking, originator
-    - data movement as jobs
-    - put file with a new dest name
-    - fire & wait?
-    - handler persistence
+    - David: fix nersc driver to new signatures, repo as jobs
+
+    - triggering a data movement
 
 
 + MxN
     - what part is open source?
+    - what is SFAPI file transfer limit?
 
 
 + DT4D
@@ -32,12 +22,22 @@ TODO:
 
 
 later:
+    - triggers running other than locally?
+    - David suggests: get MPI into local script
+    - job extra args - is it dict or a list (see David email)
+    - job status site name, history in persistence log
+    - local driver repo put & get as async
+    - trigger/handler persistence
+    - "full" trigger model
+    - run repo persistence to real db?
+    - fire & wait?
     - nersc tokens are pinned to ip - test in advance for ip
     - use case: remote job spawns other jobs - how can we get them to report in?  polling for what...
     - visualize wf
     - TODO tags
     - wildcard job handlers, full handler impl
     - Local site driver subclass with ssh as run, scp as repo, with auth credentials
+    - repo put/get file with a new dest name
 
 
 ************************************************************************************************************************************
