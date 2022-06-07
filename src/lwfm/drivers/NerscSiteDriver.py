@@ -15,9 +15,9 @@ from pathlib import Path
 import logging
 
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
-from lwfm.base.SiteFileRef import SiteFileRef, RemoteFSFileRef
-from lwfm.base.JobDefn import JobDefn
-from lwfm.base.JobStatus import JobStatus, JobStatusValues
+from lwfm.base.SiteFileRef import FSFileRef, SiteFileRef, RemoteFSFileRef
+from lwfm.base.JobDefn import JobDefn, RepoOp
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.store.AuthStore import AuthStore
 
 
@@ -41,8 +41,8 @@ class NERSC_URLS(Enum):
     NERSC_CMD_URL = NERSC_BASE_URL + "/utilities/command/"
 
 class NerscJobStatus(JobStatus):
-    def __init__(self):
-        super(NerscJobStatus, self).__init__()
+    def __init__(self, jdefn: JobDefn = JobDefn()):
+        super(NerscJobStatus, self).__init__(jdefn)
         self.setStatusMap({
             "OK"            : JobStatusValues.PENDING    ,
             "NEW"           : JobStatusValues.PENDING    ,
@@ -132,11 +132,15 @@ class NerscSiteRunDriver(SiteRunDriver):
     def setMachine(self, machine):
         self.machine = machine
 
-    def submitJob(self, jdefn: JobDefn=None) -> JobStatus:
+    def submitJob(self, jdefn: JobDefn=None, parentContext: JobContext = None) -> JobStatus:
         # We can (should?) use the compute type from the JobDefn, but we should keep usage consistent with the other methods
         if self.machine is None:
             logging.error("No machine found. Please use the setMachine() method before trying to submit a NERSC job.")
             return False
+
+        # Make sure we have a parent context
+        if (parentContext is None):
+            parentContext = JobContext()
 
         # Construct our URL
         url = NERSC_URLS.NERSC_SUBMIT_URL.value + self.machine
@@ -150,6 +154,7 @@ class NerscSiteRunDriver(SiteRunDriver):
             logging.error("Error submitting job")
             return False
         task_id = r.json()['task_id']
+
 
         # Given a task ID, we need to get the job ID
         # It takes time to process the task, so loop through and check every few seconds until we have a job id
@@ -165,19 +170,19 @@ class NerscSiteRunDriver(SiteRunDriver):
             return False
 
         # Construct our status message
-        jstatus = NerscJobStatus()
+        jstatus = NerscJobStatus(parentContext)
         jstatus.setNativeStatusStr(j['status'].upper())
         jstatus.setNativeId(j['jobid'])
         jstatus.setEmitTime(datetime.utcnow())
         return jstatus
 
-    def getJobStatus(self, nativeJobId: str) -> JobStatus:
+    def getJobStatus(self, jobContext: JobContext) -> JobStatus:
         if self.machine is None:
             logging.error("No machine found. Please use the setMachine() method before trying to check a NERSC job status.")
             return False
 
         # Construct our URL
-        url = NERSC_URLS.NERSC_STATUS_URL.value + self.machine + "/" + nativeJobId
+        url = NERSC_URLS.NERSC_STATUS_URL.value + self.machine + "/" + jobContext.getNativeId()
 
         # Check the status
         session = self._getSession()
@@ -194,18 +199,18 @@ class NerscSiteRunDriver(SiteRunDriver):
         # Construct our status message
         jstatus = NerscJobStatus()
         jstatus.setNativeStatusStr(j['state'].split(' ')[0]) # Cancelled jobs appear in the form "CANCELLED by user123", so make sure to just grab the beginning
-        jstatus.setNativeId(nativeJobId)
+        jstatus.setNativeId(jobContext.getNativeId())
         jstatus.setEmitTime(datetime.utcnow())
         jstatus.setSiteName(self.machine)
         return jstatus
 
-    def cancelJob(self, nativeJobId: str) -> bool:
+    def cancelJob(self, jobContext: JobContext) -> bool:
         if self.machine is None:
             logging.error("No machine found. Please use the setMachine() method before trying to cancel a NERSC job.")
             return False
 
         # Construct our URL
-        url = NERSC_URLS.NERSC_SUBMIT_URL.value + self.machine +"/" + nativeJobId
+        url = NERSC_URLS.NERSC_SUBMIT_URL.value + self.machine +"/" + jobContext.getNativeId()
 
         # Cancel the job
         session = self._getSession()
@@ -226,11 +231,32 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         authDriver.login()
         return authDriver._session
 
-    def put(self, localRef: Path, siteRef: SiteFileRef) -> SiteFileRef:
+    def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
+        # Book keeping for status emissions
+        iAmAJob = False
+        if (jobContext is None):
+            iAmAJob = True
+            jobContext = JobContext()
+        jstatus = JobStatus(jobContext)
+        if (iAmAJob):
+            # emit the starting job status sequence
+            jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+            jstatus.setNativeStatusStr(JobStatusValues.RUNNING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+
         # Construct our URL
         machine = siteRef.getHost()
         remotePath = siteRef.getPath()
         url = NERSC_URLS.NERSC_PUT_URL.value + machine + remotePath
+
+        # Emit our info status before hitting the API
+        jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
+        jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(localRef), str(remotePath)))
+        jstatus.setEmitTime(datetime.utcnow())
+        jstatus.emit()
 
         # Convert the file into a binary form we can send over
         with localRef.open('rb') as f:
@@ -242,25 +268,70 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         r = session.put(url, data=data)
         if not r.status_code == requests.codes.ok:
             logging.error("Error uploading file")
+            if (iAmAJob):
+                jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
+                jstatus.setEmitTime(datetime.utcnow())
+                jstatus.emit()
             return False
+        if (iAmAJob):
+            # emit the successful job ending sequence
+            jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+            jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
         return SiteFileRef
 
-    def get(self, siteRef: SiteFileRef, localRef: Path) -> Path:
+    def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
+        # Book keeping for status emissions
+        iAmAJob = False
+        if (jobContext is None):
+            iAmAJob = True
+            jobContext = JobContext()
+        jstatus = JobStatus(jobContext)
+        if (iAmAJob):
+            # emit the starting job status sequence
+            jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+            jstatus.setNativeStatusStr(JobStatusValues.RUNNING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+
         # Construct our URL
         machine = siteRef.getHost()
         remotePath = siteRef.getPath()
         url = NERSC_URLS.NERSC_GET_URL.value + machine + remotePath
+
+        # Emit our info status before hitting the API
+        jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
+        jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, remotePath, str(localRef)))
+        jstatus.setEmitTime(datetime.utcnow())
+        jstatus.emit()
 
         # Make the connection and grab the file
         session = self._getSession()
         r = session.get(url)
         if not r.status_code == requests.codes.ok:
             logging.error("Error downloading file")
+            if (iAmAJob):
+                jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
+                jstatus.setEmitTime(datetime.utcnow())
+                jstatus.emit()
             return False
 
         # Now we can write
         with localRef.open('w', newline='') as f: # Newline argument is needed or else all newlines are doubled
             f.write(r.json()['file'])
+        if (iAmAJob):
+            # emit the successful job ending sequence
+            jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
+            jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
+            jstatus.setEmitTime(datetime.utcnow())
+            jstatus.emit()
         return localRef
 
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
@@ -275,7 +346,14 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         if not r.status_code == requests.codes.ok:
             logging.error("Error performing ls")
             return False
-        return r.json()
+
+        # Superfacility returns a json object. The "entries" field is a list of dicts, where each dict
+        # corresponds to a file, with name, size, and other bits of info. We only want the name.
+        fileList = r.json()["entries"]
+        fileList = [f["name"] for f in fileList]
+        remoteRef = FSFileRef()
+        remoteRef.setDirContents(r.json().)
+        return remoteRef
 
 class PerlmutterSiteRepoDriver(NerscSiteRepoDriver):
     machine = 'perlmutter'
