@@ -27,7 +27,7 @@ class NerscSite(Site):
 
 class PerlmutterSite(Site):
     def __init__(self):
-        super(NerscSite, self).__init__("nersc", NerscSiteAuthDriver(), PerlmutterSiteRunDriver(), PerlmutterSiteRepoDriver(), None)
+        super(PerlmutterSite, self).__init__("nersc", NerscSiteAuthDriver(), PerlmutterSiteRunDriver(), PerlmutterSiteRepoDriver(), None)
 
 NERSC_BASE_URL = "https://api.nersc.gov/api/v1.2"
 class NERSC_URLS(Enum):
@@ -307,7 +307,7 @@ if __name__ == '__main__':
     #localRef = Path("C:/lwfm/foo.py")
     #localRef2 = Path("C:/lwfm/foo2.py")
     #siteRef = RemoteFSFileRef()
-    #siteRef._setHost("perlmutter")
-    #siteRef._setPath("/global/homes/a/agallojr/tmp.py")
+    #siteRef.setHost("perlmutter")
+    #siteRef.setPath("/global/homes/a/agallojr/tmp.py")
     #NerscSiteRepoDriver().put(localRef, siteRef)
     #NerscSiteRepoDriver().get(siteRef, localRef2)
