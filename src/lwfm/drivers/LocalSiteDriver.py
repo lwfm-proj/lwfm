@@ -53,8 +53,7 @@ class LocalSiteRunDriver(SiteRunDriver):
     def _runJob(self, jdefn, jobStatus):
         # Putting the job in a new thread means we can easily run it asynchronously while still emitting statuses before and after
         #Emit RUNNING status
-        jobStatus.setNativeStatusStr(JobStatusValues.RUNNING.value)
-        jobStatus.emit()
+        jobStatus.emit(JobStatusValues.RUNNING.value)
         try:
             # This is synchronous, so we wait here until the subprocess is over. Check=True raises an exception on non-zero returns
             if (isinstance(jdefn, RepoJobDefn)):
@@ -69,23 +68,13 @@ class LocalSiteRunDriver(SiteRunDriver):
                 # run a command line job
                 cmd = jdefn.getEntryPointPath()
                 os.system(cmd)
-            #Emit FINISHING status
-            jobStatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
-            jobStatus.emit()
-            #Emit COMPLETE status
-            jobStatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
-            jobStatus.emit()
+            #Emit success statuses
+            jobStatus.emit(JobStatusValues.FINISHING.value)
+            jobStatus.emit(JobStatusValues.COMPLETE.value)
         except Exception as ex:
             logging.error("ERROR: Job failed %s" % (ex))
             #Emit FAILED status
-            jobStatus.setNativeStatusStr(JobStatusValues.FAILED.value)
-            jobStatus.emit()
-
-    #def waitForJobs(self):
-    #    # Let all in-process jobs finish
-    #    for job in self.pendingJobs:
-    #        job.join()
-    #    self.pendingJobs = []
+            jobStatus.emit(JobStatusValues.FAILED.value)
 
     def submitJob(self, jdefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
         if (parentContext is None):
@@ -94,9 +83,7 @@ class LocalSiteRunDriver(SiteRunDriver):
         jstatus = JobStatus(parentContext)
 
         # Let the sentinel know the job is ready
-        jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
-        jstatus.setEmitTime(datetime.utcnow())
-        jstatus.emit()
+        jstatus.emit(JobStatusValues.PENDING.value)
 
         # Run the job in a new thread so we can wrap it in a bit more code
         thread = multiprocessing.Process(target=self._runJob, args=[jdefn, jstatus])
@@ -118,9 +105,7 @@ class LocalSiteRunDriver(SiteRunDriver):
             logging.info("LocalSiteDriver.cancelJob(): calling terminate on job " + jobContext.getId())
             thread.terminate()
             jstatus = JobStatus(jobContext)
-            jstatus.setNativeStatusStr(JobStatusValues.CANCELLED.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
+            jstatus.emit(JobStatusValues.CANCELLED.value)
             self._pendingJobs[jobContext.getId()] = None
             return True
         except Exception as ex:
@@ -144,10 +129,8 @@ class LocalSiteRepoDriver(SiteRepoDriver):
             jstatus.emit(JobStatusValues.PENDING.value)
             jstatus.emit(JobStatusValues.RUNNING.value)
 
-        jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
         jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(fromPath), str(toPath)))
-        jstatus.setEmitTime(datetime.utcnow())
-        jstatus.emit()
+        jstatus.emit(JobStatusValues.INFO.value)
 
         try:
             shutil.copy(fromPath, toPath)
