@@ -10,7 +10,6 @@
 from enum import Enum
 import logging
 import threading
-import sys
 
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext

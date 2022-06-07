@@ -6,9 +6,7 @@
 # resources within the Site on which the job is run.  For example, an HPC site which has CPU and CPU+GPU nodes.
 
 from enum import Enum
-import logging
 
-from datetime import datetime
 from pathlib import Path
 
 from lwfm.base.LwfmBase import LwfmBase

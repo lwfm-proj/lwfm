@@ -14,11 +14,10 @@ from types import SimpleNamespace
 
 
 from datetime import datetime
-import requests
 import pickle
 
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
-from lwfm.base.JobDefn import JobDefn, RepoOp
+from lwfm.base.JobDefn import RepoOp
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 
 
@@ -51,8 +50,6 @@ class JobStatusValues(Enum):
 #************************************************************************************************************************************
 # A job runs in the context of a runtime id (two ids - one which is canonical to lwfm, and one which is native to the site), and
 # references to upstream job which spawned it, to permit later navigation of the digital thread.
-
-import traceback
 
 class JobContext(LwfmBase):
     def __init__(self, parentContext = None):
