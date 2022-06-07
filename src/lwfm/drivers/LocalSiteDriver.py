@@ -132,101 +132,51 @@ class LocalSiteRunDriver(SiteRunDriver):
 
 class LocalSiteRepoDriver(SiteRepoDriver):
 
-    def _copyFile(self, fromPath, toPath):
+    def _copyFile(self, fromPath, toPath, jobContext):
+        iAmAJob = False
+        if (jobContext is None):
+            iAmAJob = True
+            jobContext = JobContext()
+
+        jstatus = JobStatus(jobContext)
+        if (iAmAJob):
+            # emit the starting job status sequence
+            jstatus.emit(JobStatusValues.PENDING.value)
+            jstatus.emit(JobStatusValues.RUNNING.value)
+
+        jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
+        jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(fromPath), str(toPath)))
+        jstatus.setEmitTime(datetime.utcnow())
+        jstatus.emit()
+
         try:
             shutil.copy(fromPath, toPath)
         except Exception as ex:
             logging.error("Error copying file: " + str(ex))
+            if iAmAJob:
+                jstatus.emit(JobStatusValues.FAILED.value)
             return False
+
+        jstatus.emit(JobStatusValues.FINISHING.value)
+        jstatus.emit(JobStatusValues.COMPLETE.value)
         return True
 
     # If we're given a context, we use it, if not, we consider ourselves our own job.
     def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
         fromPath = localRef
         toPath = siteRef.getPath()
-        iAmAJob = False
-        if (jobContext is None):
-            iAmAJob = True
-            jobContext = JobContext()
+        if not self._copyFile(fromPath, toPath, jobContext):
+           return False
 
-        jstatus = JobStatus(jobContext)
-        if (iAmAJob):
-            # emit the starting job status sequence
-            jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-            jstatus.setNativeStatusStr(JobStatusValues.RUNNING.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-
-        if not self._copyFile(fromPath, toPath):
-            jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
-            jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(fromPath), str(toPath)))
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-            if (iAmAJob):
-                jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
-                jstatus.setEmitTime(datetime.utcnow())
-                jstatus.emit()
-            return False
-        else:
-            jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
-            jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, True, str(fromPath), str(toPath)))
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-            if (iAmAJob):
-                # emit the successful job ending sequence
-                jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
-                jstatus.setEmitTime(datetime.utcnow())
-                jstatus.emit()
-                jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
-                jstatus.setEmitTime(datetime.utcnow())
-                jstatus.emit()
         # return success result
         return FSFileRef.siteFileRefFromPath(toPath + "/" + fromPath.name)
 
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
-        print("**** here in get")
         fromPath = siteRef.getPath()
         toPath = localRef
-        iAmAJob = False
-        if (jobContext is None):
-            iAmAJob = True
-            jobContext = JobContext()
+        if not self._copyFile(fromPath, toPath, jobContext):
+           return False
 
-        jstatus = JobStatus(jobContext)
-        if (iAmAJob):
-            # emit the starting job status sequence
-            jstatus.setNativeStatusStr(JobStatusValues.PENDING.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-            jstatus.setNativeStatusStr(JobStatusValues.RUNNING.value)
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-
-        if not self._copyFile(fromPath, toPath):
-            jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
-            jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.GET, False, str(fromPath), str(toPath)))
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-            if (iAmAJob):
-                jstatus.setNativeStatusStr(JobStatusValues.FAILED.value)
-                jstatus.setEmitTime(datetime.utcnow())
-                jstatus.emit()
-            return False
-        else:
-            jstatus.setNativeStatusStr(JobStatusValues.INFO.value)
-            jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.GET, True, str(fromPath), str(toPath)))
-            jstatus.setEmitTime(datetime.utcnow())
-            jstatus.emit()
-            if (iAmAJob):
-                # emit the successful job ending sequence
-                jstatus.setNativeStatusStr(JobStatusValues.FINISHING.value)
-                jstatus.setEmitTime(datetime.utcnow())
-                jstatus.emit()
-                jstatus.setNativeStatusStr(JobStatusValues.COMPLETE.value)
-                jstatus.setEmitTime(datetime.utcnow())
-                jstatus.emit()
         # return success result
         return Path(str(toPath) + "/" + Path(fromPath).name)
 
