@@ -29,6 +29,10 @@ class PerlmutterSite(Site):
     def __init__(self):
         super(PerlmutterSite, self).__init__("nersc", NerscSiteAuthDriver(), PerlmutterSiteRunDriver(), PerlmutterSiteRepoDriver(), None)
 
+class CoriSite(Site):
+    def __init__(self):
+        super(CoriSite, self).__init__("nersc", NerscSiteAuthDriver(), CoriSiteRunDriver(), CoriSiteRepoDriver(), None)
+
 NERSC_BASE_URL = "https://api.nersc.gov/api/v1.2"
 class NERSC_URLS(Enum):
     NERSC_SUBMIT_URL = NERSC_BASE_URL + "/compute/jobs/"
@@ -223,9 +227,14 @@ class NerscSiteRunDriver(SiteRunDriver):
 class PerlmutterSiteRunDriver(NerscSiteRunDriver):
     machine = 'perlmutter'
 
+class CoriSiteRunDriver(NerscSiteRunDriver):
+    machine = 'cori'
+
 #***********************************************************************************************************************************
 
 class NerscSiteRepoDriver(SiteRepoDriver):
+    machine = None
+
     def _getSession(self):
         authDriver = NerscSiteAuthDriver()
         authDriver.login()
@@ -244,9 +253,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
             jstatus.emit(JobStatusValues.RUNNING.value)
 
         # Construct our URL
-        machine = siteRef.getHost()
         remotePath = siteRef.getPath()
-        url = NERSC_URLS.NERSC_PUT_URL.value + machine + remotePath
+        url = NERSC_URLS.NERSC_PUT_URL.value + self.machine + remotePath
 
         # Emit our info status before hitting the API
         jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(localRef), str(remotePath)))
@@ -284,9 +292,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
             jstatus.emit(JobStatusValues.RUNNING.value)
 
         # Construct our URL
-        machine = siteRef.getHost()
         remotePath = siteRef.getPath()
-        url = NERSC_URLS.NERSC_GET_URL.value + machine + remotePath
+        url = NERSC_URLS.NERSC_GET_URL.value + self.machine + remotePath
 
         # Emit our info status before hitting the API
         jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, remotePath, str(localRef)))
@@ -331,6 +338,9 @@ class NerscSiteRepoDriver(SiteRepoDriver):
 
 class PerlmutterSiteRepoDriver(NerscSiteRepoDriver):
     machine = 'perlmutter'
+
+class CoriSiteRepoDriver(NerscSiteRepoDriver):
+    machine = 'cori'
 
 #***********************************************************************************************************************************
 

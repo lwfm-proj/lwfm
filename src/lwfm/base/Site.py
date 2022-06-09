@@ -110,6 +110,7 @@ class Site(LwfmBase):
 
     _SITES = {
         "nersc": [ "lwfm.drivers.NerscSiteDriver", "NerscSite" ],
+        "cori": [ "lwfm.drivers.NerscSiteDriver", "CoriSite" ],
         "perlmutter": [ "lwfm.drivers.NerscSiteDriver", "PerlmutterSite" ],
         "local": [ "lwfm.drivers.LocalSiteDriver", "LocalSite" ]
     }
