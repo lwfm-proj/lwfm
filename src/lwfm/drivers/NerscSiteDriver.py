@@ -311,10 +311,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         return localRef
 
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
-        # Construct our URL
-        machine = siteRef.getHost()
         path = siteRef.getPath()
-        url = NERSC_URLS.NERSC_LS_URL.value + machine + path
+        url = NERSC_URLS.NERSC_LS_URL.value + self.machine + path
 
         # Write. Note that we want to pass back the full ls info
         session = self._getSession()
@@ -328,7 +326,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         fileList = r.json()["entries"]
         fileList = [f["name"] for f in fileList]
         remoteRef = FSFileRef()
-        remoteRef.setDirContents(r.json().)
+        remoteRef.setDirContents(fileList)
         return remoteRef
 
 class PerlmutterSiteRepoDriver(NerscSiteRepoDriver):
