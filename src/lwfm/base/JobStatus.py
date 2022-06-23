@@ -88,11 +88,20 @@ class JobContext(LwfmBase):
     def getOriginJobId(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.ORIGIN_JOB_ID.value)
 
+    # job name
     def setName(self, name: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.NAME.value, name)
 
+    # job name
     def getName(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.NAME.value)
+
+    def setSiteName(self, name: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.SITE_NAME.value, name)
+
+    def getSiteName(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.SITE_NAME.value)
+
 
     def serialize(self):
         return pickle.dumps(self, 0)
@@ -132,19 +141,6 @@ class JobStatus(LwfmBase):
             self.jobContext = JobContext()
         self.setReceivedTime(datetime.utcnow())
         self.setStatus(JobStatusValues.UNKNOWN)
-
-
-    def emit(self, status: str = None) -> bool:
-        if status:
-            self.setNativeStatusStr(status)
-            self.setEmitTime(datetime.utcnow())
-        try:
-            jssc = JobStatusSentinelClient()
-            jssc.emitStatus(self.getId(), self.getStatus().value, self.serialize())
-            return True
-        except Exception as ex:
-            logging.error(str(ex))
-            return False
 
 
     def getJobContext(self) -> JobContext:
@@ -244,13 +240,38 @@ class JobStatus(LwfmBase):
         return self._statusHistory
 
     def setSiteName(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.SITE_NAME.value, name)
+        self.jobContext.setSiteName(name)
 
     def getSiteName(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.SITE_NAME.value)
+        return self.jobContext.getSiteName()
 
     def serialize(self):
         return pickle.dumps(self, 0)
+
+
+    # zero out state-sensative fields
+    def clear(self):
+        self.setReceivedTime(datetime.fromtimestamp(0))
+        self.setEmitTime(datetime.fromtimestamp(0))
+        self.setNativeInfo("")
+
+
+    # Send the status message to the lwfm service.
+    def emit(self, status: str = None) -> bool:
+        if status:
+            self.setNativeStatusStr(status)
+            self.setEmitTime(datetime.utcnow())
+        try:
+            jssc = JobStatusSentinelClient()
+            jssc.emitStatus(self.getId(), self.getStatus().value, self.serialize())
+            self.clear()
+            return True
+        except Exception as ex:
+            logging.error(str(ex))
+            return False
+
+
+
 
     @staticmethod
     def deserialize(s: str):

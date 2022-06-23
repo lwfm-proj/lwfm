@@ -80,7 +80,7 @@ class LocalSiteRunDriver(SiteRunDriver):
         if (parentContext is None):
             parentContext = JobContext()
         # In local jobs, we spawn the job in a new child process
-        jstatus = JobStatus(parentContext)
+        jstatus = LocalJobStatus(parentContext)
 
         # Let the sentinel know the job is ready
         jstatus.emit(JobStatusValues.PENDING.value)
@@ -104,7 +104,7 @@ class LocalSiteRunDriver(SiteRunDriver):
                 return False
             logging.info("LocalSiteDriver.cancelJob(): calling terminate on job " + jobContext.getId())
             thread.terminate()
-            jstatus = JobStatus(jobContext)
+            jstatus = LocalJobStatus(jobContext)
             jstatus.emit(JobStatusValues.CANCELLED.value)
             self._pendingJobs[jobContext.getId()] = None
             return True

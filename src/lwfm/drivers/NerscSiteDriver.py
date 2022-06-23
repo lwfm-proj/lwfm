@@ -24,14 +24,18 @@ from lwfm.store.AuthStore import AuthStore
 class NerscSite(Site):
     def __init__(self):
         super(NerscSite, self).__init__("nersc", NerscSiteAuthDriver(), NerscSiteRunDriver(), NerscSiteRepoDriver(), None)
+        _runDriver.setMachine(None)
 
 class PerlmutterSite(Site):
     def __init__(self):
-        super(PerlmutterSite, self).__init__("nersc", NerscSiteAuthDriver(), PerlmutterSiteRunDriver(), PerlmutterSiteRepoDriver(), None)
+        super(PerlmutterSite, self).__init__("nersc", NerscSiteAuthDriver(), PerlmutterSiteRunDriver(), PerlmutterSiteRepoDriver(),
+                                             None)
+        _runDriver.setMachine("perlmutter")
 
 class CoriSite(Site):
     def __init__(self):
         super(CoriSite, self).__init__("nersc", NerscSiteAuthDriver(), CoriSiteRunDriver(), CoriSiteRepoDriver(), None)
+        _runDriver.setMachine("cori")
 
 NERSC_BASE_URL = "https://api.nersc.gov/api/v1.2"
 class NERSC_URLS(Enum):
@@ -47,6 +51,7 @@ class NERSC_URLS(Enum):
 class NerscJobStatus(JobStatus):
     def __init__(self, jdefn: JobDefn = JobDefn()):
         super(NerscJobStatus, self).__init__(jdefn)
+        self.setSiteName("nersc")
         self.setStatusMap({
             "OK"            : JobStatusValues.PENDING    ,
             "NEW"           : JobStatusValues.PENDING    ,
@@ -178,6 +183,7 @@ class NerscSiteRunDriver(SiteRunDriver):
         jstatus.setNativeStatusStr(j['status'].upper())
         jstatus.setNativeId(j['jobid'])
         jstatus.setEmitTime(datetime.utcnow())
+        jstatus.setSiteName(self.machine)
         return jstatus
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
@@ -246,7 +252,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         if (jobContext is None):
             iAmAJob = True
             jobContext = JobContext()
-        jstatus = JobStatus(jobContext)
+        jstatus = NerscJobStatus(jobContext)
+        jstatus.setSiteName(machine)
         if (iAmAJob):
             # emit the starting job status sequence
             jstatus.emit(JobStatusValues.PENDING.value)
@@ -285,7 +292,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         if (jobContext is None):
             iAmAJob = True
             jobContext = JobContext()
-        jstatus = JobStatus(jobContext)
+        jstatus = NerscJobStatus(jobContext)
+        jstatus.setSiteName(machine)
         if (iAmAJob):
             # emit the starting job status sequence
             jstatus.emit(JobStatusValues.PENDING.value)

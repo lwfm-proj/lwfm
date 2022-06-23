@@ -9,10 +9,8 @@ TODO:
 
 
 + code 0
-    - JobStatus clean info fields on emit
     - JobStatus history
     - job extra args - is it dict or a list (see David email)
-    - job status site name in persistence log
 
 
 + code 1
@@ -22,6 +20,7 @@ TODO:
     - Multi-Site Job status panel -> similar to DT4D's, but multi-Site
     - Showing trigger futures in workflow / digital thread graph view
     - run repo persistence to real db
+    - should Nersc driver be abstract?
 
 
 + code 2
