@@ -7,6 +7,7 @@ from enum import Enum
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
+import os
 
 
 from lwfm.base.LwfmBase  import LwfmBase
@@ -95,6 +96,10 @@ class SiteRepoDriver(ABC):
 
 #***********************************************************************************************************************************
 # Site: the Site is simply a name and the getters and setters for its Auth, Run, Repo subsystems.
+#
+# The Site factory utility method returns the Python class which implements the interfaces for the named Site.
+# ~/.lwfm/sites.txt can be used to augment the list of sites provided here with a user's own custom Site implementations.
+# In the event of a name collision between the user's sites.txt and those hardcoded here, the user's sites.txt config trumps.
 
 
 # LwfmBase field list
@@ -109,21 +114,47 @@ class Site(LwfmBase):
     _repoDriver: SiteRepoDriver = None
 
     _SITES = {
-        "nersc": [ "lwfm.drivers.NerscSiteDriver", "NerscSite" ],
-        "cori": [ "lwfm.drivers.NerscSiteDriver", "CoriSite" ],
-        "perlmutter": [ "lwfm.drivers.NerscSiteDriver", "PerlmutterSite" ],
-        "local": [ "lwfm.drivers.LocalSiteDriver", "LocalSite" ]
+        "local":      "lwfm.drivers.LocalSiteDriver.LocalSite",
+        "nersc":      "lwfm.drivers.NerscSiteDriver.NerscSite",
+        "cori":       "lwfm.drivers.NerscSiteDriver.CoriSite",
+        "perlmutter": "lwfm.drivers.NerscSiteDriver.PerlmutterSite",
     }
 
     @staticmethod
-    def getSiteInstanceFactory(site = "local"):
-        entry = Site._SITES[site]
-        import importlib
-        module = importlib.import_module(entry[0])
-        class_ = getattr(module, entry[1])
-        inst = class_()
-        inst.setName(site)
-        return inst
+    def _getSiteEntry(site: str):
+        siteSet = Site._SITES
+        # is there a local site config?
+        path = os.path.expanduser('~') + "/.lwfm/sites.txt"
+        # Check whether the specified path exists or not
+        if os.path.exists(path):
+            with open(path) as f:
+                for line in f:
+                    name, var = line.split("=")
+                    name = name.strip()
+                    var = var.strip()
+                    siteSet[name] = var
+        fullPath = siteSet[site]
+        if fullPath is not None:
+            # parse the path into package and class parts for convenience
+            xpackage = fullPath.rsplit('.', 1)[0]
+            xclass = fullPath.rsplit('.', 1)[1]
+            return [ xpackage, xclass ]
+        else:
+            return None
+
+    @staticmethod
+    def getSiteInstanceFactory(site: str = "local"):
+        try:
+            entry = Site._getSiteEntry(site)
+            import importlib
+            module = importlib.import_module(entry[0])
+            class_ = getattr(module, entry[1])
+            inst = class_()
+            inst.setName(site)
+            return inst
+        except Exception as ex:
+            logging.error("Cannot instantiate Site for " + site + " {}".format(ex))
+
 
     def __init__(self, name: str, authDriver: SiteAuthDriver, runDriver: SiteRunDriver, repoDriver: SiteRepoDriver, args: dict=None):
         super(Site, self).__init__(args)
@@ -165,3 +196,8 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
     siteFoo = Site.getSiteInstanceFactory()
     logging.info(siteFoo.getName())
+    siteFoo = Site.getSiteInstanceFactory("dt4d")  # a custom user site, defined in ~/.lwfm/sites.txt
+    if (siteFoo is None):
+        logging.info("dt4d custom site not found")
+    else:
+        logging.info(siteFoo.getName())

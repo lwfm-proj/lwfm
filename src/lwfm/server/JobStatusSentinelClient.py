@@ -5,7 +5,6 @@ import logging
 from lwfm.base.JobDefn import JobDefn
 
 class JobStatusSentinelClient:
-    # TODO - do the right thing...
     _JSS_URL = "http://127.0.0.1:5000"
 
     def getUrl(self):

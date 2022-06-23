@@ -8,30 +8,34 @@ TODO:
     - code review, documentation, delivery
 
 
-+ code
-    - DT4D run impl
-    - list of sites for factory - how to add new custom ones?
-    - logger - something messing it up?  how to log in local batch jobs?
++ code 0
     - JobStatus clean info fields on emit
-
-
-later:
     - JobStatus history
-    - triggers running other than locally?
-    - David suggests: get MPI into local script
     - job extra args - is it dict or a list (see David email)
     - job status site name in persistence log
-    - trigger/handler persistence
-    - "full" trigger model, wildcards
-    - run repo persistence to real db?
+
+
++ code 1
+    - Full trigger model impl - fuzzy, timeouts, wildcards, persistence, etc. - triggers running other than locally
+    - Spike: remote site jobs which self-spawn other jobs - how to gather their info? (see Balsam example)
+    - Select Python GUI framework incl. graph rendering
+    - Multi-Site Job status panel -> similar to DT4D's, but multi-Site
+    - Showing trigger futures in workflow / digital thread graph view
+    - run repo persistence to real db
+
+
++ code 2
+    - DT4D run impl
+    - DT4D logger - something in Py4 messing it up?  how to log in local batch jobs?
+    - Design spike & impl - inc2 app control via DT4D GUI extended to multi-Site
+    - Azure impl
+    - David suggests: "get MPI into local script" - what does that mean?
     - fire & wait?
-    - nersc tokens are pinned to ip - test in advance for ip
-    - use case: remote job spawns other jobs - how can we get them to report in?  polling for what...
-    - visualize wf
-    - TODO tags
     - Local site driver subclass with ssh as run, scp as repo, with auth credentials
     - repo put/get file with a new dest name (is this needed?)
     - admin endpoints, "site: list compute types"
+    - SiteFileRef with timestamp (see TODO)
+    - JSS security
 
 
 ************************************************************************************************************************************

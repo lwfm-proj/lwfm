@@ -13,7 +13,6 @@ app = Flask(__name__)
 jss = JobStatusSentinel()
 
 
-# TODO: store this sensibly
 _jobStatusCache = {}
 
 @app.route('/')
