@@ -67,6 +67,9 @@ class LocalSiteRunDriver(SiteRunDriver):
             else:
                 # run a command line job
                 cmd = jdefn.getEntryPoint()
+                if (jdefn.getJobArgs() is not None):
+                    for arg in jdefn.getJobArgs():
+                        cmd += " " + arg
                 os.system(cmd)
             #Emit success statuses
             jobStatus.emit(JobStatusValues.FINISHING.value)
@@ -200,7 +203,8 @@ if __name__ == '__main__':
 
     # run a local 'pwd' as a job
     jdefn = JobDefn()
-    jdefn.setEntryPoint("echo pwd = `pwd`")
+    jdefn.setEntryPoint("echo")
+    jdefn.setJobArgs([ "pwd = `pwd`" ])
     status = site.getRunDriver().submitJob(jdefn)
     logging.info("pwd job id = " + status.getId())
     logging.info("pwd job status = " + str(status.getStatus()))   # initial status will be pending - its async
