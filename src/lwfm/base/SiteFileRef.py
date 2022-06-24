@@ -25,6 +25,8 @@ class _SiteFileRefFields(Enum):
     IS_FILE   = "isFile"
 
 class SiteFileRef(LwfmBase):
+    def __init__(self):
+        super(SiteFileRef, self).__init__(None)
 
     # some files have identifiers other than a name, some might just return the name
     def getId(self) -> str:

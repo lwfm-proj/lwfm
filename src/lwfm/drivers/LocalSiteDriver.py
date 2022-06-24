@@ -26,8 +26,8 @@ SITE_NAME = "local"
 #************************************************************************************************************************************
 
 class LocalJobStatus(JobStatus):
-    def __init__(self, jdefn: JobDefn = JobDefn()):
-        super(LocalJobStatus, self).__init__(jdefn)
+    def __init__(self, jcontext: JobContext = None):
+        super(LocalJobStatus, self).__init__(jcontext)
         # use default canonical status map
         self.setSiteName(SITE_NAME)
 
@@ -66,7 +66,7 @@ class LocalSiteRunDriver(SiteRunDriver):
                     logging.error("Unknown repo operation")
             else:
                 # run a command line job
-                cmd = jdefn.getEntryPointPath()
+                cmd = jdefn.getEntryPoint()
                 os.system(cmd)
             #Emit success statuses
             jobStatus.emit(JobStatusValues.FINISHING.value)

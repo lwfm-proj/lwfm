@@ -31,7 +31,7 @@ class _EventHandlerFields(Enum):
 
 class EventHandler(LwfmBase):
     def __init__(self, jobId: str, jobSiteName: str, jobStatus: str, fireDefn: str, targetSiteName: str, targetContext: JobContext):
-        super(EventHandler, self).__init__()
+        super(EventHandler, self).__init__(None)
         LwfmBase._setArg(self, _EventHandlerFields.JOB_ID.value, jobId)
         LwfmBase._setArg(self, _EventHandlerFields.JOB_SITE_NAME.value, jobSiteName)
         LwfmBase._setArg(self, _EventHandlerFields.JOB_STATUS.value, jobStatus)

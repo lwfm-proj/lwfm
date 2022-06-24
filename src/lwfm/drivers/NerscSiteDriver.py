@@ -49,8 +49,8 @@ class NERSC_URLS(Enum):
     NERSC_CMD_URL = NERSC_BASE_URL + "/utilities/command/"
 
 class NerscJobStatus(JobStatus):
-    def __init__(self, jdefn: JobDefn = JobDefn()):
-        super(NerscJobStatus, self).__init__(jdefn)
+    def __init__(self, jcontext: JobContext = None):
+        super(NerscJobStatus, self).__init__(jcontext)
         self.setSiteName("nersc")
         self.setStatusMap({
             "OK"            : JobStatusValues.PENDING    ,
@@ -157,7 +157,7 @@ class NerscSiteRunDriver(SiteRunDriver):
         # Submit the job
         session = self._getSession()
         data = {"isPath" : True,
-                "job" : jdefn.getEntryPointPath()}
+                "job" : jdefn.getEntryPoint()}
         r = session.post(url, data=data)
         if not r.status_code == requests.codes.ok:
             logging.error("Error submitting job")

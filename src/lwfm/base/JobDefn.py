@@ -6,6 +6,7 @@
 # resources within the Site on which the job is run.  For example, an HPC site which has CPU and CPU+GPU nodes.
 
 from enum import Enum
+import logging
 
 from pathlib import Path
 
@@ -17,7 +18,7 @@ class _JobDefnFields(Enum):
     NAME               = "name"                        # for human convenience
     COMPUTE_TYPE       = "computeType"                 # some sites define addressable compute resources within it
     ENTRY_POINT        = "entryPoint"                  # defines the top-level "executable" command to pass to the site scheduler
-    ARGS               = "args"                        # arguments to the job - an array of string
+    JOB_ARGS           = "jobArgs"                     # arguments to the job - an array of string
     NOTIFICATION_EMAIL = "notificationEmail"           # some site schedulers permit direct user notification
     REPO_OP            = "repoOp"                      # put, get
     REPO_LOCAL_REF     = "repoLocalRef"                # local file reference
@@ -27,8 +28,8 @@ class _JobDefnFields(Enum):
 
 class JobDefn(LwfmBase):
 
-    def __init__(self, args: dict=None):
-        super(JobDefn, self).__init__(args)
+    def __init__(self):
+        super(JobDefn, self).__init__(None)
 
     def setName(self, name: str) -> None:
         LwfmBase._setArg(self, _JobDefnFields.NAME.value, name)
@@ -48,11 +49,11 @@ class JobDefn(LwfmBase):
     def getEntryPoint(self) -> str:
         return LwfmBase._getArg(self, _JobDefnFields.ENTRY_POINT.value)
 
-    def setArgs(self, args: [str] = []) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.ARGS.value, args)
+    def setJobArgs(self, args: [str]) -> None:
+        LwfmBase._setArg(self, _JobDefnFields.JOB_ARGS.value, args)
 
-    def getArgs(self) -> [str]:
-        return LwfmBase._getArg(self, _JobDefnFields.ARGS.value)
+    def getJobArgs(self) -> [str]:
+        return LwfmBase._getArg(self, _JobDefnFields.JOB_ARGS.value)
 
     def setNotificationEmail(self, email: str) -> None:
         LwfmBase._setArg(self, _JobDefnFields.NOTIFICATION_EMAIL.value, email)
@@ -69,8 +70,8 @@ class RepoOp(Enum):
 
 
 class RepoJobDefn(JobDefn):
-    def __init__(self, args: dict=None):
-        super(RepoJobDefn, self).__init__(args)
+    def __init__(self):
+        super(RepoJobDefn, self).__init__()
 
     def setRepoOp(self, repoOp: RepoOp) -> None:
         LwfmBase._setArg(self, _JobDefnFields.REPO_OP.value, repoOp)
@@ -92,3 +93,8 @@ class RepoJobDefn(JobDefn):
 
 
 #************************************************************************************************************************************
+# test
+if __name__ == '__main__':
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
+    jdefn = JobDefn()

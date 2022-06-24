@@ -153,11 +153,8 @@ class Site(LwfmBase):
             entry = Site._getSiteEntry(site)
             logging.info("Processing site config entry " + str(entry))
             import importlib
-            print("*****")
             module = importlib.import_module(entry[0])
-            print("*****")
             class_ = getattr(module, str(entry[1]))
-            print(str(class_))
             inst = class_()
             inst.setName(site)
             return inst

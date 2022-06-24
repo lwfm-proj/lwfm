@@ -53,7 +53,7 @@ class JobStatusValues(Enum):
 
 class JobContext(LwfmBase):
     def __init__(self, parentContext = None):
-        super(JobContext, self).__init__()
+        super(JobContext, self).__init__(None)
         self.setId(_IdGenerator.generateId())
         self.setNativeId(self.getId())
         if (parentContext is not None):
@@ -121,10 +121,12 @@ class JobStatus(LwfmBase):
     statusHistory:      dict = None                             # history of status messages, not copied by copy constructor
     jobContext:         JobContext = None                       # job id tracking info
 
-    def __init__(self, jobContext: JobContext = None, args: dict = None):
-        super(JobStatus, self).__init__(args)
+    def __init__(self, jobContext: JobContext):
+        super(JobStatus, self).__init__(None)
         if (jobContext is None):
-            jobContext = JobContext()
+            self.jobContext = JobContext()
+        else:
+            self.jobContext = jobContext
         # default map
         self.setStatusMap( {
             "UNKNOWN"   : JobStatusValues.UNKNOWN,
@@ -136,9 +138,6 @@ class JobStatus(LwfmBase):
             "FAILED"    : JobStatusValues.FAILED,
             "CANCELLED" : JobStatusValues.CANCELLED
         })
-        self.jobContext = jobContext
-        if jobContext is None:
-            self.jobContext = JobContext()
         self.setReceivedTime(datetime.utcnow())
         self.setStatus(JobStatusValues.UNKNOWN)
 
