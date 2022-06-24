@@ -200,7 +200,7 @@ if __name__ == '__main__':
 
     # run a local 'pwd' as a job
     jdefn = JobDefn()
-    jdefn.setEntryPointPath("echo pwd = `pwd`")
+    jdefn.setEntryPoint("echo pwd = `pwd`")
     status = site.getRunDriver().submitJob(jdefn)
     logging.info("pwd job id = " + status.getId())
     logging.info("pwd job status = " + str(status.getStatus()))   # initial status will be pending - its async
@@ -246,7 +246,7 @@ if __name__ == '__main__':
 
     # cancel a job
     jdefn = JobDefn()
-    jdefn.setEntryPointPath("sleep 100")
+    jdefn.setEntryPoint("sleep 100")
     status = site.getRunDriver().submitJob(jdefn)
     logging.info("sleep job id = " + status.getId())
     logging.info("sleep job status = " + str(status.getStatus()))   # initial status will be pending - its async

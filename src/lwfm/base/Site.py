@@ -127,13 +127,18 @@ class Site(LwfmBase):
         path = os.path.expanduser('~') + "/.lwfm/sites.txt"
         # Check whether the specified path exists or not
         if os.path.exists(path):
+            logging.info("Loading custom site configs from ~/.lwfm/sites.txt")
             with open(path) as f:
                 for line in f:
                     name, var = line.split("=")
                     name = name.strip()
                     var = var.strip()
+                    logging.info("Registering driver " + var + " for site " + name)
                     siteSet[name] = var
+        else:
+            logging.info("No custom ~/.lwfm/sites.txt - using built-in site configs")
         fullPath = siteSet[site]
+        logging.info("Obtaining driver " + fullPath + " for site " + site)
         if fullPath is not None:
             # parse the path into package and class parts for convenience
             xpackage = fullPath.rsplit('.', 1)[0]
@@ -146,9 +151,13 @@ class Site(LwfmBase):
     def getSiteInstanceFactory(site: str = "local"):
         try:
             entry = Site._getSiteEntry(site)
+            logging.info("Processing site config entry " + str(entry))
             import importlib
+            print("*****")
             module = importlib.import_module(entry[0])
-            class_ = getattr(module, entry[1])
+            print("*****")
+            class_ = getattr(module, str(entry[1]))
+            print(str(class_))
             inst = class_()
             inst.setName(site)
             return inst
@@ -194,10 +203,5 @@ class Site(LwfmBase):
 if __name__ == '__main__':
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)
-    siteFoo = Site.getSiteInstanceFactory()
+    siteFoo = Site.getSiteInstanceFactory("local")
     logging.info(siteFoo.getName())
-    siteFoo = Site.getSiteInstanceFactory("dt4d")  # a custom user site, defined in ~/.lwfm/sites.txt
-    if (siteFoo is None):
-        logging.info("dt4d custom site not found")
-    else:
-        logging.info(siteFoo.getName())

@@ -27,12 +27,12 @@ if __name__ == '__main__':
 
     # define job A - sit-in for some pre-processing
     jobDefnA = JobDefn()
-    jobDefnA.setEntryPointPath("echo pwd = `pwd`")
+    jobDefnA.setEntryPoint("echo pwd = `pwd`")
 
     # define job B - sit-in for some data-generating application
     dataFile = "/tmp/date.out"
     jobDefnB = JobDefn()
-    jobDefnB.setEntryPointPath("echo date = `date` > " + dataFile)
+    jobDefnB.setEntryPoint("echo date = `date` > " + dataFile)
 
     # define job C - put the data "into management", whatever that means for the given site
     jobDefnC = RepoJobDefn()

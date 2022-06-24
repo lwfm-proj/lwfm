@@ -16,7 +16,8 @@ from lwfm.base.SiteFileRef import SiteFileRef
 class _JobDefnFields(Enum):
     NAME               = "name"                        # for human convenience
     COMPUTE_TYPE       = "computeType"                 # some sites define addressable compute resources within it
-    ENTRY_POINT_PATH   = "entryPointPath"              # defines the top-level "executable" command to pass to the site scheduler
+    ENTRY_POINT        = "entryPoint"                  # defines the top-level "executable" command to pass to the site scheduler
+    ARGS               = "args"                        # arguments to the job - an array of string
     NOTIFICATION_EMAIL = "notificationEmail"           # some site schedulers permit direct user notification
     REPO_OP            = "repoOp"                      # put, get
     REPO_LOCAL_REF     = "repoLocalRef"                # local file reference
@@ -41,23 +42,23 @@ class JobDefn(LwfmBase):
     def getComputeType(self) -> str:
         return LwfmBase._getArg(self, _JobDefnFields.COMPUTE_TYPE.value)
 
-    def setEntryPointPath(self, entryPointPath: [str]) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.ENTRY_POINT_PATH.value, entryPointPath)
+    def setEntryPoint(self, entryPoint: str) -> None:
+        LwfmBase._setArg(self, _JobDefnFields.ENTRY_POINT.value, entryPoint)
 
-    def getEntryPointPath(self) -> [str]:
-        return LwfmBase._getArg(self, _JobDefnFields.ENTRY_POINT_PATH.value)
+    def getEntryPoint(self) -> str:
+        return LwfmBase._getArg(self, _JobDefnFields.ENTRY_POINT.value)
+
+    def setArgs(self, args: [str] = []) -> None:
+        LwfmBase._setArg(self, _JobDefnFields.ARGS.value, args)
+
+    def getArgs(self) -> [str]:
+        return LwfmBase._getArg(self, _JobDefnFields.ARGS.value)
 
     def setNotificationEmail(self, email: str) -> None:
         LwfmBase._setArg(self, _JobDefnFields.NOTIFICATION_EMAIL.value, email)
 
     def getNotificationEmail(self) -> str:
         return LwfmBase._getArg(self, _JobDefnFields.NOTIFICATION_EMAIL.value)
-
-    #def setExtraArgs(self, args: dict=None) -> None:
-    #    LwfmBase.setArgs(self, args)
-
-    #def getExtraArgs(self) -> dict:
-    #    return LwfmBase.getArgs(self)
 
 
 #************************************************************************************************************************************

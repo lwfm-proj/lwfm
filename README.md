@@ -21,6 +21,7 @@ TODO:
     - Showing trigger futures in workflow / digital thread graph view
     - run repo persistence to real db
     - should Nersc driver be abstract?
+    - non batch commands to nersc
 
 
 + code 2

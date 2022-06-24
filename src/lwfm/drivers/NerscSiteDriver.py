@@ -365,7 +365,7 @@ if __name__ == '__main__':
 
     # Try run methods
     jdefn = JobDefn()
-    jdefn.setEntryPointPath("/global/homes/a/agallojr/slurm_test.sh")
+    jdefn.setEntryPoint("/global/homes/a/agallojr/slurm_test.sh")
     runDriver = NerscSiteRunDriver()
     runDriver.setMachine("perlmutter")
     job = runDriver.submitJob(jdefn)
