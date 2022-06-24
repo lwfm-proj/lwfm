@@ -26,7 +26,9 @@ SITE_NAME = "local"
 #************************************************************************************************************************************
 
 class LocalJobStatus(JobStatus):
-    def __init__(self, jdefn: JobDefn = JobDefn()):
+    def __init__(self, jdefn: JobDefn = None):
+        if jdefn is None:
+            jdefn = JobDefn()
         super(LocalJobStatus, self).__init__(jdefn)
         # use default canonical status map
         self.setSiteName(SITE_NAME)
