@@ -57,7 +57,7 @@ b {
 
 <script>
 var width  = 960;
-var height = 500;
+var height = 800;
 var margin = 20;
 var pad = margin / 2;
 var color = d3.scale.category20();
@@ -90,15 +90,15 @@ function addTooltip(circle) {
 }
 var vis = d3.select("#chart")
   .append("svg:svg")
-    .attr("width", w)
-    .attr("height", h)
+    .attr("width", width)
+    .attr("height", height)
     .attr("pointer-events", "all")
   .append('svg:g')
     .call(d3.behavior.zoom().on("zoom", redraw))
   .append('svg:g');
 vis.append('svg:rect')
-    .attr('width', w)
-    .attr('height', h)
+    .attr('width', width)
+    .attr('height', height)
     .attr('fill', 'white');
 function redraw() {
   console.log("here", d3.event.translate, d3.event.scale);
@@ -205,7 +205,7 @@ function drawLinks(links) {
 <div align="center" id="force"></div>
 
 <script>
-d3.json("pcap_export.json", drawGraph);
+d3.json("http://127.0.0.1:5000/static/pcap_export.json", drawGraph);
 </script>
 </body>
 </html>

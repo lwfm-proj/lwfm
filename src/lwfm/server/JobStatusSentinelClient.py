@@ -17,7 +17,7 @@ class JobStatusSentinelClient:
         payload["jobId"] = jobId
         payload["jobSiteName"] = jobSiteName
         payload["jobStatus"] = jobStatus
-        print("**** fireDefn = " + str(fireDefn))
+        #print("**** fireDefn = " + str(fireDefn))
         payload["fireDefn"] = pickle.dumps(fireDefn, 0).decode() # Use protocol 0 so we can easily convert to an ASCII string
         payload["targetSiteName"] = targetSiteName
         if (targetContext is not None):
@@ -74,6 +74,9 @@ class JobStatusSentinelClient:
             return response.text
         else:
             return None
+
+    def getWorkflowUrl(self, jobContext) -> str:
+        return "" + self.getUrl() + "/wfthread/" + jobContext.getId()
 
 
 #************************************************************************************************************************************

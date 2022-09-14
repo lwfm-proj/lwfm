@@ -35,7 +35,7 @@ class LocalJobStatus(JobStatus):
 #************************************************************************************************************************************
 
 class LocalSiteAuthDriver(SiteAuthDriver):
-    # Because this is running locally, we don't actually need any authentication
+    # Because this is running locally, we don't need any authentication
     def login(self, force: bool=False) -> bool:
         return True
 

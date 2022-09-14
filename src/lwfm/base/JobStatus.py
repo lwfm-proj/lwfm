@@ -46,6 +46,34 @@ class JobStatusValues(Enum):
     FAILED    = "FAILED"
     CANCELLED = "CANCELLED"
 
+    def isTerminal(self, stat):
+        try:
+            if (stat == self.COMPLETE) or (stat == self.FAILED) or (stat == self.CANCELLED):
+                return True
+            else:
+                return False
+        except:
+            logging.error("Exception thrown determining status value for stat=" + str(stat))
+            return False
+
+    def isTerminalSuccess(self, stat):
+        if (isTerminal(stat) and (stat == self.COMPLETE)):
+            return True
+        else:
+            return False
+
+    def isTerminalFailure(self, stat):
+        if (isTerminal(stat) and (stat == self.FAILED)):
+            return True
+        else:
+            return False
+
+    def isTerminalCancelled(self, stat):
+        if (isTerminal(stat) and (stat == self.CANCELLED)):
+            return True
+        else:
+            return False
+
 
 #************************************************************************************************************************************
 # A job runs in the context of a runtime id (two ids - one which is canonical to lwfm, and one which is native to the site), and
@@ -269,13 +297,31 @@ class JobStatus(LwfmBase):
             logging.error(str(ex))
             return False
 
+    def isTerminal(self) -> bool:
+        return self.getStatus().isTerminal(self.getStatus())
 
+    def isTerminalSuccess(self) -> bool:
+        return self.getStatus().isTerminalSuccess(self.getStatus())
 
+    def isTerminalFailure(self) -> bool:
+        return self.getStatus().isTerminalFailure(self.getStatus())
+
+    def isTerminalCancelled(self) -> bool:
+        return self.getStatus().isTerminalCancelled(self.getStatus())
 
     @staticmethod
     def deserialize(s: str):
         arr = bytes(s, 'ascii')
         return pickle.loads(arr)
+
+    @staticmethod
+    def getStatusObj(id: str):
+        try:
+            return JobStatus.deserialize(JobStatusSentinelClient().getStatusBlob(id))
+        except:
+            context = JobContext()
+            context.setId(id)
+            return JobStatus(context)
 
 
     @staticmethod
