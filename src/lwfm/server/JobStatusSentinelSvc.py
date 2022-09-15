@@ -29,6 +29,7 @@ def emitStatus():
     statusBlob = request.form['statusBlob']
     statusObj = JobStatus.deserialize(statusBlob)
     # persist it for posterity
+    #print("Run Store " + jobId + " " + jobStatus + " " + statusObj.toString())
     RunJobStatusStore().write(statusObj)
     # store it locally for convenience
     _jobStatusCache[jobId] = statusObj
@@ -39,8 +40,11 @@ def emitStatus():
 
 @app.route('/status/<jobId>')
 def getStatus(jobId : str):
-    stat = _jobStatusCache[jobId]
-    return stat.serialize()
+    try:
+        stat = _jobStatusCache[jobId]
+        return stat.serialize()
+    exception:
+        return None
 
 @app.route('/set', methods = ['POST'])
 def setHandler():

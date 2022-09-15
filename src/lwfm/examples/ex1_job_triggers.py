@@ -5,6 +5,7 @@
 import logging
 import os
 from pathlib import Path
+import time
 
 from lwfm.base.Site import Site
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
@@ -56,16 +57,16 @@ if __name__ == '__main__':
     jssc = JobStatusSentinelClient()
     # set a trigger, a "future" - when job A gets to complete, run B
     jssc.setEventHandler(jobContextA.getId(), siteName, JobStatusValues.COMPLETE.value, jobDefnB, siteName, jobContextB)
-    # set another trigger - when job B gets to complete, run C.  note we don't really need to specify context C
+    # set another trigger - when job B gets to complete, run C.  note we don't really need to specify context C,
     # but we will so we can use it in this demo
     jssc.setEventHandler(jobContextB.getId(), siteName, JobStatusValues.COMPLETE.value, jobDefnC, siteName, jobContextC)
 
     # run job A which initiates the A -> B -> C sequence
-    status = site.getRunDriver().submitJob(jobDefnA, jobContextA)
+    site.getRunDriver().submitJob(jobDefnA, jobContextA)
 
     # for the purposes of this example, let's wait synchronously on the conclusion of job C
     status = JobStatus.getStatusObj(jobContextC.getId())
     while (not status.isTerminal()):
-        # optionally wait some amount of time, and then poll for Job status
+        time.sleep(15)
         status = JobStatus.getStatusObj(status.getId())
     logging.info("job C " + status.getId() + " " + status.getStatus().value)

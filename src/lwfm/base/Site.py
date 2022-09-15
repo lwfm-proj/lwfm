@@ -1,5 +1,5 @@
 
-# Site: Defines an abstract computing location which exposes canonical verbs for the Auth, Run, and Repo (and someday Spin)
+# Site: Defines an abstract computing location which exposes canonical verbs for the Auth, Run, and Repo (and optionally Spin)
 # logical subsystems. The purpose of lwfm is to permit workflows which span Sites.
 
 
@@ -92,7 +92,9 @@ class SiteRepoDriver(ABC):
 # Spin: vaporware.  In theory some Sites would expose mechanisms to create (provision) and destroy various kinds of computing
 # devices.  These might be single nodes, or entire turnkey cloud-bases HPC systems.  Spin operations are modeled as jobs in
 # order to permit sequential workflows which spin up resources, send them jobs, and then spin them down as part of an
-# autonomous operation.
+# autonomous operation.  Basic verbs include: show cafeteria, spin up, spin down.  Spins would be wrapped as Jobs allowing normal
+# status interogation.
+
 
 #***********************************************************************************************************************************
 # Site: the Site is simply a name and the getters and setters for its Auth, Run, Repo subsystems.
@@ -113,6 +115,8 @@ class Site(LwfmBase):
     _runDriver:  SiteRunDriver  = None
     _repoDriver: SiteRepoDriver = None
 
+    # pre-defined Sites and their associated driver implementations, each which implements Auth, Run, Repo, [Spin]
+    # these mappings can be extended in the ~/.lwfm/sites.txt configuration
     _SITES = {
         "local":      "lwfm.drivers.LocalSiteDriver.LocalSite",
         "nersc":      "lwfm.drivers.NerscSiteDriver.NerscSite",

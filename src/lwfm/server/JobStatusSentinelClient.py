@@ -5,7 +5,7 @@ import logging
 from lwfm.base.JobDefn import JobDefn
 
 class JobStatusSentinelClient:
-    _JSS_URL = "http://127.0.0.1:5000"
+    _JSS_URL = "http://127.0.0.1:3000"
 
     def getUrl(self):
         return self._JSS_URL
@@ -70,9 +70,12 @@ class JobStatusSentinelClient:
 
     def getStatusBlob(self, jobId) -> str:
         response = requests.get(f'{self.getUrl()}/status/{jobId}')
-        if response.ok:
-            return response.text
-        else:
+        try:
+            if response.ok:
+                return response.text
+            else:
+                return None
+        except:
             return None
 
     def getWorkflowUrl(self, jobContext) -> str:

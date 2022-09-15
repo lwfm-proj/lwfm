@@ -3,6 +3,7 @@
 # assumes the lwfm job status service is running
 
 import logging
+import time
 
 from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn
@@ -29,7 +30,7 @@ if __name__ == '__main__':
 
     # submit the Job to the Site
     status = site.getRunDriver().submitJob(jobDefn)
-    # the run is generally asynchronous - on a remote HPC Site certainly,
+    # the run is generally asynchronous - on a remote HPC-type Site certainly,
     # and even in a local Site the "local" driver can implement async runs (which in fact it does),
     # so expect this Job status to be "pending"
     logging.info("job " + status.getId() + " " + status.getStatus().value)
@@ -38,6 +39,6 @@ if __name__ == '__main__':
     # (another way is asynchronous triggering, which we'll demonstrate in a separate example)
     status = JobStatus.getStatusObj(status.getId())
     while (not status.isTerminal()):
-        # optionally wait some amount of time, and then poll for Job status
+        time.sleep(15)
         status = JobStatus.getStatusObj(status.getId())
     logging.info("job " + status.getId() + " " + status.getStatus().value)

@@ -214,8 +214,12 @@ class JobStatus(LwfmBase):
         LwfmBase._setArg(self, _JobStatusFields.EMIT_TIME.value, emitTime.timestamp() * 1000)
 
     def getEmitTime(self) -> datetime:
-        ms = int(LwfmBase._getArg(self, _JobStatusFields.EMIT_TIME.value))
-        return datetime.utcfromtimestamp(ms//1000).replace(microsecond=ms%1000*1000)
+        try:
+            ms = int(LwfmBase._getArg(self, _JobStatusFields.EMIT_TIME.value))
+            return datetime.utcfromtimestamp(ms//1000).replace(microsecond=ms%1000*1000)
+        except:
+            # TODO
+            return datetime.now()
 
     def setReceivedTime(self, receivedTime: datetime) -> None:
         LwfmBase._setArg(self, _JobStatusFields.RECEIVED_TIME.value, receivedTime.timestamp() * 1000)
@@ -330,7 +334,8 @@ class JobStatus(LwfmBase):
 
     def toString(self) -> str:
         s = ("" + str(self.getId()) + "," + str(self.getParentJobId()) + "," + str(self.getOriginJobId()) + "," +
-            str(self.getEmitTime()) + "," + str(self.getStatusValue()) + "," + str(self.getSiteName()))
+             str(self.getNativeId()) + "," +
+             str(self.getEmitTime()) + "," + str(self.getStatusValue()) + "," + str(self.getSiteName()))
         if (self.getStatus() == JobStatusValues.INFO):
             s += "," + self.getNativeInfo()
         return s

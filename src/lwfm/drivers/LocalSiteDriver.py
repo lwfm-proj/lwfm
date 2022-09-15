@@ -143,8 +143,9 @@ class LocalSiteRepoDriver(SiteRepoDriver):
                 jstatus.emit(JobStatusValues.FAILED.value)
             return False
 
-        jstatus.emit(JobStatusValues.FINISHING.value)
-        jstatus.emit(JobStatusValues.COMPLETE.value)
+        if (iAmAJob):
+            jstatus.emit(JobStatusValues.FINISHING.value)
+            jstatus.emit(JobStatusValues.COMPLETE.value)
         return True
 
     # If we're given a context, we use it, if not, we consider ourselves our own job.
