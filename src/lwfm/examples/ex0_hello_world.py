@@ -24,6 +24,8 @@ if __name__ == '__main__':
     # a "local" Site login is generally a no-op
     site.getAuthDriver().login()
 
+    logging.info("login successful")
+
     # define the Job - use all Job defaults except the actual command to execute
     jobDefn = JobDefn()
     jobDefn.setEntryPoint("echo 'hello world'")

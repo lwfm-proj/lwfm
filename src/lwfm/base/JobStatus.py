@@ -15,6 +15,7 @@ from types import SimpleNamespace
 
 from datetime import datetime
 import pickle
+import json
 
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
 from lwfm.base.JobDefn import RepoOp
@@ -135,13 +136,15 @@ class JobContext(LwfmBase):
         return self.serialize()
 
     def serialize(self):
-        return pickle.dumps(self, 0)
+        out_bytes = pickle.dumps(self, 0)
+        out_str = out_bytes.decode(encoding='ascii')
+        return out_str
 
     @staticmethod
     def deserialize(s: str):
-        arr = bytes(s, 'ascii')
-        return pickle.loads(arr)
-
+        in_json = json.dumps(s)
+        in_obj = pickle.loads(json.loads(in_json).encode(encoding='ascii'))
+        return in_obj
 
 #************************************************************************************************************************************
 
@@ -316,9 +319,23 @@ class JobStatus(LwfmBase):
     def isTerminalCancelled(self) -> bool:
         return self.getStatus().isTerminalCancelled(self.getStatus())
 
+    #@staticmethod
+    #def deserialize(s: str):
+    #    return pickle.loads(str.encode(s))
+
+    def toJSON(self):
+        return self.serialize()
+
+    def serialize(self):
+        out_bytes = pickle.dumps(self, 0)
+        out_str = out_bytes.decode(encoding='ascii')
+        return out_str
+
     @staticmethod
     def deserialize(s: str):
-        return pickle.loads(str.encode(s))
+        in_json = json.dumps(s)
+        in_obj = pickle.loads(json.loads(in_json).encode(encoding='ascii'))
+        return in_obj
 
     @staticmethod
     def getStatusObj(id: str):

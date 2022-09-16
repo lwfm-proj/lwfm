@@ -29,7 +29,6 @@ def emitStatus():
     statusBlob = request.form['statusBlob']
     statusObj = JobStatus.deserialize(statusBlob)
     # persist it for posterity
-    #print("Run Store " + jobId + " " + jobStatus + " " + statusObj.toString())
     RunJobStatusStore().write(statusObj)
     # store it locally for convenience
     _jobStatusCache[jobId] = statusObj
@@ -40,7 +39,6 @@ def emitStatus():
 
 @app.route('/status/<jobId>')
 def getStatus(jobId : str):
-    print("*** /status/" + jobId)
     try:
         stat = _jobStatusCache[jobId]
         try:
@@ -83,7 +81,6 @@ def setTerminal():
       targetContext = JobContext()
     except ex as Exception:
       print(str(ex))
-    print("*** setTerminal called " + jobId + " native " + nativeId)
     targetContext.setId(jobId)
     targetContext.setParentJobId(parentId)
     targetContext.setOriginJobId(originId)

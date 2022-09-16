@@ -8,6 +8,8 @@ import os
 import shutil
 import multiprocessing
 import time
+import pickle
+import json
 
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +32,22 @@ class LocalJobStatus(JobStatus):
         super(LocalJobStatus, self).__init__(jcontext)
         # use default canonical status map
         self.setSiteName(SITE_NAME)
+
+    def toJSON(self):
+        return self.serialize()
+
+    def serialize(self):
+        out_bytes = pickle.dumps(self, 0)
+        out_str = out_bytes.decode(encoding='ascii')
+        return out_str
+
+    @staticmethod
+    def deserialize(s: str):
+        in_json = json.dumps(s)
+        in_obj = pickle.loads(json.loads(in_json).encode(encoding='ascii'))
+        return in_obj
+
+
 
 
 #************************************************************************************************************************************

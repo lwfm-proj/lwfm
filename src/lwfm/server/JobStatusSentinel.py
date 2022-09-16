@@ -45,7 +45,7 @@ class EventHandler(LwfmBase):
     def getKey(self):
         # We want to permit more than one event handler for the same job, but for now we'll limit it to one handler per
         # canonical job status name.
-        return str(LwfmBase._getArg(self, _EventHandlerFields.JOB_ID.value) +
+        return str("" + LwfmBase._getArg(self, _EventHandlerFields.JOB_ID.value) +
                    "." +
                    LwfmBase._getArg(self, _EventHandlerFields.JOB_STATUS.value))
 
@@ -57,16 +57,16 @@ class JobStatusSentinel:
     _timer = None
     _eventHandlerMap = dict()
     # We can make this adaptive later on, for now let's just wait five minutes between cycling through the list
-    STATUS_CHECK_INTERVAL_SECONDS = 1 # 300
+    STATUS_CHECK_INTERVAL_SECONDS = 15 # 300
 
     def __init__(self):
         self._timer = threading.Timer(self.STATUS_CHECK_INTERVAL_SECONDS, JobStatusSentinel.checkEvents, (self,))
         self._timer.start()
 
     def checkEvents(self):
-        print("*** waking up to check events num handlers = " + str(len(self._eventHandlerMap)))
+        print("*** waking up to check events num waiting handlers = " + str(len(self._eventHandlerMap)))
         # Run through each event, checking the status
-        for key in self._eventHandlerMap:
+        for key in list(self._eventHandlerMap):
             handler = self._eventHandlerMap[key]
             site = handler._getArg( _EventHandlerFields.JOB_SITE_NAME.value)
             # Local jobs can instantly emit their own statuses, on demand
@@ -78,15 +78,20 @@ class JobStatusSentinel:
                 context.setId(jobId)
                 context.setNativeId(jobId)
                 jobStatus = runDriver.getJobStatus(context)
-                print("*** on site " + site + " nativeId " + jobId + " status=" + jobStatus.getStatus().value)
                 if ((handler._getArg( _EventHandlerFields.FIRE_DEFN.value) == "") or
                     (handler._getArg( _EventHandlerFields.FIRE_DEFN.value) is None)):
                     # if we are in a terminal state, "run the handler" which means "evict" the job from checking
-                    # in the future - we have seen a terminal state
+                    # in the future - we have seen its terminal state
+                    # we do have a target context, which gives us the parent and origin job ids
+                    context = (handler._getArg( _EventHandlerFields.TARGET_CONTEXT.value))
+                    jobStatus.setParentJobId(context.getParentJobId())
+                    jobStatus.setOriginJobId(context.getOriginJobId())
+                    jobStatus.setNativeId(context.getNativeId())
+                    jobStatus.setId(context.getId())
                     jobStatus.emit()
                     if (jobStatus.isTerminal()):
                         # evict
-                        key = EventHandler(jobId, None, jobStatus, None, None, None).getKey()
+                        key = EventHandler(jobId, None, "<<TERMINAL>>", None, None, None).getKey()
                         self.unsetEventHandler(key)
                 else:
                     key = EventHandler(jobId, None, jobStatus, None, None, None).getKey()
@@ -103,7 +108,6 @@ class JobStatusSentinel:
                         fireDefn: str, targetSiteName: str, targetContext: JobContext) -> str:
         eventHandler = EventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetContext)
         self._eventHandlerMap[eventHandler.getKey()] = eventHandler
-        print("*** set handler for key " + eventHandler.getKey() + " " + str(eventHandler) + " " + str(len(self._eventHandlerMap)))
         return eventHandler.getKey()
 
     def unsetEventHandler(self, handlerId: str) -> bool:

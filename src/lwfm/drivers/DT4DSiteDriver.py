@@ -57,11 +57,18 @@ class DT4DJobStatus(JobStatus):
 
 
     def toJSON(self):
-        print("*** toJSON() being called")
         return self.serialize()
 
     def serialize(self):
-        return pickle.dumps(self, 0)
+        out_bytes = pickle.dumps(self, 0)
+        out_str = out_bytes.decode(encoding='ascii')
+        return out_str
+
+    @staticmethod
+    def deserialize(s: str):
+        in_json = json.dumps(s)
+        in_obj = pickle.loads(json.loads(in_json).encode(encoding='ascii'))
+        return in_obj
 
 
 #************************************************************************************************************************************
@@ -123,10 +130,8 @@ def _getJobStatusWorker(job, nativeJobId):
     stat =  _statusProcessor(results, nativeJobId)
     if (stat.getParentJobId() is None):
         stat.setParentJobId("")
-    print("*** about to return stat = " + str(stat) + " " + stat.getId() + " " + stat.getNativeId() + " " + stat.getStatus().value)
     out = stat.serialize()
-    print("*** out = " + str(out))
-    return str(out)
+    return out
 
 
 class Struct:
@@ -188,15 +193,12 @@ class DT4DSiteRunDriver(SiteRunDriver):
         # runtime is going to take the job through its states.  to get the state into lwfm, we need to poll the site.
         retval = JobStatusSentinelClient().setTerminalSentinel(context.getId(), context.getParentJobId(), context.getOriginJobId(),
                                                                context.getNativeId(), "dt4d")
-        print("*** setTerminalSentinel.retval = " + retval)
         return status
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
-        print("getJobStatus for native " + jobContext.getNativeId())
         stat =  _getJobStatus(jobContext.getNativeId())
-        print("**** back from stat = " + str(stat))
-        status = DT4DJobStatus.deserialize(str.encode(stat))
-        return stat
+        status = DT4DJobStatus.deserialize(stat)
+        return status
 
     def cancelJob(self, nativeJobId: str) -> bool:
         # not implemented
