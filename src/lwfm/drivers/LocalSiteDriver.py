@@ -114,7 +114,11 @@ class LocalSiteRunDriver(SiteRunDriver):
         return jstatus
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
-        status = JobStatus.deserialize(JobStatusSentinelClient().getStatusBlob(jobContext.getId()))
+        blob = JobStatusSentinelClient().getStatusBlob(jobContext.getId())
+        if (blob is None):
+            status = LocalJobStatus(jobContext)
+        else:
+            status = JobStatus.deserialize(blob)
         return status
 
     def cancelJob(self, jobContext: JobContext) -> bool:

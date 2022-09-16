@@ -89,7 +89,7 @@ class JobContext(LwfmBase):
             self.setParentJobId(parentContext.getParentJobId())
             self.setOriginJobId(parentContext.getOriginJobId())
         else:
-            self.setParentJobId(None)                   # a seminal job has no parent
+            self.setParentJobId("")                     # a seminal job has no parent
             self.setOriginJobId(self.getId())           # a seminal job is its own originator
         self.setName(self.getId())
 
@@ -319,9 +319,6 @@ class JobStatus(LwfmBase):
     def isTerminalCancelled(self) -> bool:
         return self.getStatus().isTerminalCancelled(self.getStatus())
 
-    #@staticmethod
-    #def deserialize(s: str):
-    #    return pickle.loads(str.encode(s))
 
     def toJSON(self):
         return self.serialize()
@@ -336,15 +333,6 @@ class JobStatus(LwfmBase):
         in_json = json.dumps(s)
         in_obj = pickle.loads(json.loads(in_json).encode(encoding='ascii'))
         return in_obj
-
-    @staticmethod
-    def getStatusObj(id: str):
-        try:
-            return JobStatus.deserialize(JobStatusSentinelClient().getStatusBlob(id))
-        except:
-            context = JobContext()
-            context.setId(id)
-            return JobStatus(context)
 
 
     @staticmethod

@@ -62,11 +62,11 @@ if __name__ == '__main__':
     jssc.setEventHandler(jobContextB.getId(), siteName, JobStatusValues.COMPLETE.value, jobDefnC, siteName, jobContextC)
 
     # run job A which initiates the A -> B -> C sequence
-    site.getRunDriver().submitJob(jobDefnA, jobContextA)
+    status = site.getRunDriver().submitJob(jobDefnA, jobContextA)
 
     # for the purposes of this example, let's wait synchronously on the conclusion of job C
-    status = JobStatus.getStatusObj(jobContextC.getId())
+    status = site.getRunDriver().getJobStatus(jobContextC)
     while (not status.isTerminal()):
         time.sleep(15)
-        status = JobStatus.getStatusObj(status.getId())
+        status = site.getRunDriver().getJobStatus(jobContextC)
     logging.info("job C " + status.getId() + " " + status.getStatus().value)

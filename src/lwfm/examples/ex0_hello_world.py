@@ -39,8 +39,9 @@ if __name__ == '__main__':
 
     # how could we tell the async job has finished? one way is to synchronously wait on its end status
     # (another way is asynchronous triggering, which we'll demonstrate in a separate example)
-    status = JobStatus.getStatusObj(status.getId())
+    context = status.getJobContext()
+    status = site.getRunDriver().getJobStatus(context)
     while (not status.isTerminal()):
         time.sleep(15)
-        status = JobStatus.getStatusObj(status.getId())
+        status = site.getRunDriver().getJobStatus(context)
     logging.info("job " + status.getId() + " " + status.getStatus().value)
