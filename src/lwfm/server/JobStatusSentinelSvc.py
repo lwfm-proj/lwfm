@@ -40,18 +40,26 @@ def emitStatus():
 
 @app.route('/status/<jobId>')
 def getStatus(jobId : str):
+    print("*** /status/" + jobId)
     try:
         stat = _jobStatusCache[jobId]
-        return stat.serialize()
-    exception:
-        return None
+        try:
+            return stat.serialize()
+        except ex as Exception:
+            print("*** exception from stat.serialize() " + str(ex))
+            return ""
+    except:
+        return ""
 
 @app.route('/set', methods = ['POST'])
 def setHandler():
     jobId = request.form['jobId']
     jobSiteName = request.form['jobSiteName']
     jobStatus = request.form['jobStatus']
-    fireDefn = pickle.loads(request.form['fireDefn'].encode())
+    try:
+        fireDefn = pickle.loads(request.form['fireDefn'].encode())
+    except:
+        fireDefn = ""
     targetSiteName = request.form['targetSiteName']
     targetContextStr = request.form['targetContext']
     if (targetContextStr == ""):
@@ -62,6 +70,27 @@ def setHandler():
     # set the origin
     handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetContext)
     return handlerId
+
+
+@app.route('/setTerminal', methods = ['POST'])
+def setTerminal():
+    try:
+      jobId = request.form['jobId']
+      parentId = request.form['parentId']
+      originId = request.form['originId']
+      nativeId = request.form['nativeId']
+      siteName = request.form['siteName']
+      targetContext = JobContext()
+    except ex as Exception:
+      print(str(ex))
+    print("*** setTerminal called " + jobId + " native " + nativeId)
+    targetContext.setId(jobId)
+    targetContext.setParentJobId(parentId)
+    targetContext.setOriginJobId(originId)
+    targetContext.setNativeId(nativeId)
+    jss.setEventHandler(nativeId, siteName, "<<TERMINAL>>", "", "", targetContext)
+    return ""
+
 
 # unset a given handler
 @app.route('/unset/<handlerId>')

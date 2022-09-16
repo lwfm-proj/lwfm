@@ -30,8 +30,8 @@ if __name__ == '__main__':
     # "local" is also a compute type within dt4d
     # lwfm allows you to set the compute type in the JobDefn - this can be used by a Site in targeting the run
     # in whatever way they choose
-    jobDefn.setComputeType("local")
-    status = site.getRunDriver().submitJob(jobDefn)
+    #jobDefn.setComputeType("local")
+    #status = site.getRunDriver().submitJob(jobDefn)
 
     # for fun, let's wait until that local job finishes
     #while (not status.isTerminal()):
@@ -41,9 +41,10 @@ if __name__ == '__main__':
     #print("local dt4d job " + status.getId() + " with native dt4d job id = " + status.getNativeId() + " " + status.getStatus().value)
 
     # now run the same tool remote on a remote dt4d node of a named compute type
-    #jobDefn.setComputeType("Win-VDrive")
-    #context = JobContext()
-    #site.getRunDriver().submitJob(jobDefn, context)
+    jobDefn.setComputeType("Win-VDrive")
+    context = JobContext()
+    status = site.getRunDriver().submitJob(jobDefn, context)
+    print("local dt4d job " + status.getId() + " with native dt4d job id = " + status.getNativeId() + " " + status.getStatus().value)
 
     # for fun, let's wait until that remote job finishes
     #status = JobStatus.getStatusObj(context.getId())

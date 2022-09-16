@@ -131,6 +131,9 @@ class JobContext(LwfmBase):
         return LwfmBase._getArg(self, _JobStatusFields.SITE_NAME.value)
 
 
+    def toJSON(self):
+        return self.serialize()
+
     def serialize(self):
         return pickle.dumps(self, 0)
 
@@ -291,7 +294,7 @@ class JobStatus(LwfmBase):
     def emit(self, status: str = None) -> bool:
         if status:
             self.setNativeStatusStr(status)
-            self.setEmitTime(datetime.utcnow())
+        self.setEmitTime(datetime.utcnow())
         try:
             jssc = JobStatusSentinelClient()
             jssc.emitStatus(self.getId(), self.getStatus().value, self.serialize())
@@ -315,8 +318,7 @@ class JobStatus(LwfmBase):
 
     @staticmethod
     def deserialize(s: str):
-        arr = bytes(s, 'ascii')
-        return pickle.loads(arr)
+        return pickle.loads(str.encode(s))
 
     @staticmethod
     def getStatusObj(id: str):

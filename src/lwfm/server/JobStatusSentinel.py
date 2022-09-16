@@ -57,38 +57,53 @@ class JobStatusSentinel:
     _timer = None
     _eventHandlerMap = dict()
     # We can make this adaptive later on, for now let's just wait five minutes between cycling through the list
-    STATUS_CHECK_INTERVAL_SECONDS = 300
+    STATUS_CHECK_INTERVAL_SECONDS = 1 # 300
 
     def __init__(self):
         self._timer = threading.Timer(self.STATUS_CHECK_INTERVAL_SECONDS, JobStatusSentinel.checkEvents, (self,))
         self._timer.start()
 
     def checkEvents(self):
+        print("*** waking up to check events num handlers = " + str(len(self._eventHandlerMap)))
         # Run through each event, checking the status
-        for handler in self._eventHandlerMap:
+        for key in self._eventHandlerMap:
+            handler = self._eventHandlerMap[key]
             site = handler._getArg( _EventHandlerFields.JOB_SITE_NAME.value)
             # Local jobs can instantly emit their own statuses, on demand
             if site != "local":
                 # Get the job's status
                 jobId = handler._getArg( _EventHandlerFields.JOB_ID.value)
                 runDriver = Site.getSiteInstanceFactory(site).getRunDriver()
-                jobStatus = runDriver.getJobStatus(jobId)
-
-                # We don't need to go through the Flask API to emit a status, just run directly
-                key = EventHandler(jobId, None, jobStatus, None, None, None).getKey()
-                self.runHandler(key, jobStatus)
-
+                context = JobContext()
+                context.setId(jobId)
+                context.setNativeId(jobId)
+                jobStatus = runDriver.getJobStatus(context)
+                print("*** on site " + site + " nativeId " + jobId + " status=" + jobStatus.getStatus().value)
+                if ((handler._getArg( _EventHandlerFields.FIRE_DEFN.value) == "") or
+                    (handler._getArg( _EventHandlerFields.FIRE_DEFN.value) is None)):
+                    # if we are in a terminal state, "run the handler" which means "evict" the job from checking
+                    # in the future - we have seen a terminal state
+                    jobStatus.emit()
+                    if (jobStatus.isTerminal()):
+                        # evict
+                        key = EventHandler(jobId, None, jobStatus, None, None, None).getKey()
+                        self.unsetEventHandler(key)
+                else:
+                    key = EventHandler(jobId, None, jobStatus, None, None, None).getKey()
+                    self.runHandler(key, jobStatus)
 
         # Timers only run once, so retrigger it
         self._timer = threading.Timer(self.STATUS_CHECK_INTERVAL_SECONDS, JobStatusSentinel.checkEvents, (self,))
         self._timer.start()
 
+
     # Regsiter an event handler with the sentinel.  When a jobId running on a job Site emits a particular Job Status, fire
-    # the given JobDefn (serialized) at the target Site.  Return the hander id.
+    # the given JobDefn (serialized) at the target Site.  Return the handler id.
     def setEventHandler(self, jobId: str, jobSiteName: str, jobStatus: str,
                         fireDefn: str, targetSiteName: str, targetContext: JobContext) -> str:
         eventHandler = EventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetContext)
         self._eventHandlerMap[eventHandler.getKey()] = eventHandler
+        print("*** set handler for key " + eventHandler.getKey() + " " + str(eventHandler) + " " + str(len(self._eventHandlerMap)))
         return eventHandler.getKey()
 
     def unsetEventHandler(self, handlerId: str) -> bool:
@@ -116,6 +131,10 @@ class JobStatusSentinel:
             return False
         handler = self._eventHandlerMap[handlerId]
         self.unsetEventHandler(handlerId)
+
+        if (handler._getArg( _EventHandlerFields.FIRE_DEFN.value) == ""):
+            # we have no defn to fire - we've just been tracking status
+            return True
 
         # Run in a thread instead of a subprocess so we don't have to make assumptions about the environment
         site = Site.getSiteInstanceFactory(handler._getArg( _EventHandlerFields.TARGET_SITE_NAME.value))

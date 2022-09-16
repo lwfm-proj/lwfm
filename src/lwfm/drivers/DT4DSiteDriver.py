@@ -12,6 +12,7 @@ import pickle
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 
 
 from py4dt4d._internal._SecuritySvc import _SecuritySvc
@@ -52,9 +53,11 @@ class DT4DJobStatus(JobStatus):
             "CANCELLED"   : JobStatusValues.CANCELLED,
             "TIMEOUT"     : JobStatusValues.CANCELLED,
         })
+        self.setSiteName("dt4d")
 
 
     def toJSON(self):
+        print("*** toJSON() being called")
         return self.serialize()
 
     def serialize(self):
@@ -114,10 +117,17 @@ def _getJobStatus(job, nativeJobId):
 
 def _getJobStatusWorker(job, nativeJobId):
     timeNowMs = int(round(time.time() * 1000))
-    startTimeMs =  timeNowMs - (10 * 60 * 1000)
+    startTimeMs =  timeNowMs - (99999 * 60 * 1000)
     endTimeMs = timeNowMs + int(round(99999 * 60 * 1000))
     results = _JobSvc(job).queryJobStatusByJobId(startTimeMs, endTimeMs, nativeJobId)
-    return _statusProcessor(results, nativeJobId)
+    stat =  _statusProcessor(results, nativeJobId)
+    if (stat.getParentJobId() is None):
+        stat.setParentJobId("")
+    print("*** about to return stat = " + str(stat) + " " + stat.getId() + " " + stat.getNativeId() + " " + stat.getStatus().value)
+    out = stat.serialize()
+    print("*** out = " + str(out))
+    return str(out)
+
 
 class Struct:
     def __init__(self, **entries):
@@ -135,6 +145,7 @@ def _statusProcessor(results, nativeJobId):
             currTime = x.dt4dReceivedTimestamp
             currStatus = x.status
     status.setNativeStatusStr(currStatus)
+    status.setId(status.getNativeId())
     return status
 
 
@@ -151,36 +162,41 @@ class DT4DSiteRunDriver(SiteRunDriver):
         modulePath = jdefn.getEntryPoint()
         modulePathStr = modulePath[1] + "." + modulePath[2]
 
+        nativeId = context.getId()  # default to lwfm id
         if (jdefn.getComputeType() == LOCAL_COMPUTE_TYPE):
             # run local dt4d job
             cls = getattr(importlib.import_module(modulePathStr), modulePath[3])
             try:
                 # we need the native id
-                j = cls()
-                id = j.getJobId()
-                context.setNativeId(id)
-                status.setNativeId(id)
-                status.emit("UNKNOWN")
-                print("*** lwfm id = " + context.getId() + " , dt4d id = " + id)
-                # the DT4D runtime will do the proper status reporting
-                retval = PyEngine().runLocal(j)
+                jobClass = cls()
+                nativeId = jobClass.getJobId()
+                PyEngine().runLocal(jobClass)
             except ex as Exception:
-                print("**** blew chunks " + str(ex))
-                retval = None
-            statusObj = JobStatus.getStatusObj(context.getId())
+                print("**** DT4DSiteSDriver exception while running local job " + str(ex))
         else:
             # run remote dt4d job
-            jobId = _PyEngineUtil.generateId()
-            _runRemoteJob(jobId,
+            nativeId = _PyEngineUtil.generateId()
+            _runRemoteJob(nativeId,
                           jdefn.getName(), modulePath[0] + "/" + modulePath[1] + "/" + modulePath[2] + ".py",
                           modulePath[3],
                           jdefn.getJobArgs(), jdefn.getComputeType(), jdefn.getNotificationEmail())
-            status.getJobContext().setNativeId(jobId)
-            status.emit()
+
+        context.setNativeId(nativeId)
+        status.setNativeId(nativeId)
+        # At this point the status object we have contains the job's lwfm id and its native id.  it does not however
+        # contain an accurate job status/state string - the job is being launched asynchronously, and therefore that underlying
+        # runtime is going to take the job through its states.  to get the state into lwfm, we need to poll the site.
+        retval = JobStatusSentinelClient().setTerminalSentinel(context.getId(), context.getParentJobId(), context.getOriginJobId(),
+                                                               context.getNativeId(), "dt4d")
+        print("*** setTerminalSentinel.retval = " + retval)
         return status
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
-        return _getJobStatus(jobContext.getNativeId())
+        print("getJobStatus for native " + jobContext.getNativeId())
+        stat =  _getJobStatus(jobContext.getNativeId())
+        print("**** back from stat = " + str(stat))
+        status = DT4DJobStatus.deserialize(str.encode(stat))
+        return stat
 
     def cancelJob(self, nativeJobId: str) -> bool:
         # not implemented
@@ -211,26 +227,36 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
 
     # define the DT4D site (which is known to model distinct "compute type" resources within it), and login
-    site = Site("dt4d", DT4DSiteAuthDriver(), DT4DSiteRunDriver())
-    site.getAuthDriver().login()
+#    site = Site("dt4d", DT4DSiteAuthDriver(), DT4DSiteRunDriver())
+#    site.getAuthDriver().login()
 
     # define the job
-    jdefn = JobDefn()
-    jdefn.setName("HelloWorld")
-    jdefn.setEntryPointPath([ "/Users/212578984/src/dt4d/py4dt4d", "py4dt4d-examples", "HelloWorld", "HelloWorld" ])
+#    jdefn = JobDefn()
+#    jdefn.setName("HelloWorld")
+#    jdefn.setEntryPointPath([ "/Users/212578984/src/dt4d/py4dt4d", "py4dt4d-examples", "HelloWorld", "HelloWorld" ])
 
     # run it local
-    jdefn.setComputeType(LOCAL_COMPUTE_TYPE)
-    status = site.getRunDriver().submitJob(jdefn)
-    print("Local run status = " + str(status.getStatus()))
+#    jdefn.setComputeType(LOCAL_COMPUTE_TYPE)
+#    status = site.getRunDriver().submitJob(jdefn)
+#    print("Local run status = " + str(status.getStatus()))
 
     # run it remote on a named node type
-    jdefn.setComputeType("Win-VDrive")
-    status = site.getRunDriver().submitJob(jdefn)
-    while (not status.isTerminal()):
-        print("Remote run status = " + str(status.getStatus()) + " ...waiting another 15 seconds for job to finish")
-        time.sleep(15)
-        status = site.getRunDriver().getJobStatus(status.getNativeId())
+#    jdefn.setComputeType("Win-VDrive")
+#    status = site.getRunDriver().submitJob(jdefn)
+#    while (not status.isTerminal()):
+#        print("Remote run status = " + str(status.getStatus()) + " ...waiting another 15 seconds for job to finish")
+#        time.sleep(15)
+#        status = site.getRunDriver().getJobStatus(status.getNativeId())
+#    print("Remote run status = " + str(status.getStatus()))
+
+
+    site = DT4DSite()
+    site.getAuthDriver().login()
+    context = JobContext()
+    context.setId("ae19db11-d52f-4d2f-b298-2864bc7840b7")
+    context.setNativeId("ae19db11-d52f-4d2f-b298-2864bc7840b7")
+    status = site.getRunDriver().getJobStatus(context)
+    print("*** " + str(status))
     print("Remote run status = " + str(status.getStatus()))
 
 
