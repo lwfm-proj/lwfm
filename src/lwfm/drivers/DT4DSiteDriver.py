@@ -119,15 +119,15 @@ def _runRemoteJob(job, jobId, toolName, toolFile, toolClass, toolArgs, computeTy
 
 
 @JobRunner
-def _getJobStatus(job, nativeJobId):
-    return _getJobStatusWorker(job, nativeJobId)
+def _getJobStatus(job, jobContext):
+    return _getJobStatusWorker(job, jobContext)
 
-def _getJobStatusWorker(job, nativeJobId):
+def _getJobStatusWorker(job, jobContext):
     timeNowMs = int(round(time.time() * 1000))
     startTimeMs =  timeNowMs - (99999 * 60 * 1000)
     endTimeMs = timeNowMs + int(round(99999 * 60 * 1000))
-    results = _JobSvc(job).queryJobStatusByJobId(startTimeMs, endTimeMs, nativeJobId)
-    stat =  _statusProcessor(results, nativeJobId)
+    results = _JobSvc(job).queryJobStatusByJobId(startTimeMs, endTimeMs, jobContext.getNativeId())
+    stat =  _statusProcessor(results, jobContext)
     if (stat.getParentJobId() is None):
         stat.setParentJobId("")
     out = stat.serialize()
@@ -138,9 +138,7 @@ class Struct:
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
-def _statusProcessor(results, nativeJobId):
-    context = JobContext()
-    context.setNativeId(nativeJobId)
+def _statusProcessor(results, context):
     status = DT4DJobStatus(context)
     currTime = 0
     currStatus = None
@@ -150,13 +148,15 @@ def _statusProcessor(results, nativeJobId):
             currTime = x.dt4dReceivedTimestamp
             currStatus = x.status
     status.setNativeStatusStr(currStatus)
-    status.setId(status.getNativeId())
+    status.setId(context.getId())
     return status
 
 
 class DT4DSiteRunDriver(SiteRunDriver):
     def submitJob(self, jdefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
-        context = JobContext(parentContext)
+        context = parentContext
+        if (context is None):
+            context = JobContext()
         status = DT4DJobStatus(context)
         if jdefn is None:
             status.emit("IMPROPER")
@@ -196,7 +196,7 @@ class DT4DSiteRunDriver(SiteRunDriver):
         return status
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
-        stat =  _getJobStatus(jobContext.getNativeId())
+        stat =  _getJobStatus(jobContext)
         status = DT4DJobStatus.deserialize(stat)
         return status
 

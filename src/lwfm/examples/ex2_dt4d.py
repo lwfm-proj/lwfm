@@ -33,6 +33,7 @@ if __name__ == '__main__':
     jobDefn.setComputeType("local")
     status = site.getRunDriver().submitJob(jobDefn)
     context = status.getJobContext()
+    print("local dt4d job " + context.getId() + " with native dt4d job id = " + context.getNativeId() + " " + status.getStatus().value)
 
     # for fun, let's wait until that local job finishes
     while (not status.isTerminal()):
@@ -55,4 +56,3 @@ if __name__ == '__main__':
         status = site.getRunDriver().getJobStatus(context)
         print("remote dt4d job " + status.getId() + " with native dt4d job id = " + status.getNativeId() + " " +
               status.getStatus().value)
-    print("remote dt4d job " + status.getId() + " with native dt4d job id = " + status.getNativeId() + " " + status.getStatus().value)
