@@ -23,6 +23,7 @@ class _SiteFileRefFields(Enum):
     SIZE      = "size"
     TIMESTAMP = "timestamp"
     IS_FILE   = "isFile"
+    METADATA  = "metadata"
 
 class SiteFileRef(LwfmBase):
     def __init__(self):
@@ -52,6 +53,12 @@ class SiteFileRef(LwfmBase):
 
     def setTimestamp(self, tstamp: datetime) -> None:
         LwfmBase._setArg(self, _SiteFileRefFields.TIMESTAMP.value, tstamp)
+
+    def getMetadata(self) -> dict:
+        return LwfmBase._getArg(self, _SiteFileRefFields.METADATA.value)
+
+    def setMetadata(self, metadata: dict) -> None:
+        LwfmBase._setArg(self, _SiteFileRefFields.METADATA.value, metadata)
 
 
     # path can mean many things... file system path, with or without host prefix, a link to some "repo", just the id,
