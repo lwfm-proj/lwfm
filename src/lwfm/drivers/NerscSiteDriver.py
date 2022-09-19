@@ -18,6 +18,7 @@ from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import FSFileRef, SiteFileRef, RemoteFSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+from lwfm.base.MetaRepo import MetaRepo
 from lwfm.store.AuthStore import AuthStore
 
 
@@ -284,6 +285,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
             # emit the successful job ending sequence
             jstatus.emit(JobStatusValues.FINISHING.value)
             jstatus.emit(JobStatusValues.COMPLETE.value)
+        MetaRepo.Notate(SiteFileRef)
         return SiteFileRef
 
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
@@ -323,6 +325,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
             # emit the successful job ending sequence
             jstatus.emit(JobStatusValues.FINISHING.value)
             jstatus.emit(JobStatusValues.COMPLETE.value)
+        MetaRepo.Notate(SiteFileRef)
         return localRef
 
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:

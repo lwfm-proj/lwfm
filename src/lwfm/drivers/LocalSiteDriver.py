@@ -18,6 +18,7 @@ from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+from lwfm.base.MetaRepo import MetaRepo
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 
 
@@ -191,7 +192,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
 
 
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
-        return FSFileRef.siteFileRefFromPath(siteRef.getPath())
+        return MetaRepo.Find(siteRef)
 
 
 
