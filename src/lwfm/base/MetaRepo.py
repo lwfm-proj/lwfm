@@ -11,20 +11,22 @@ from pathlib import Path
 # Note that we should switch from pickle to psycopg at some point for performance
 
 class MetaRepo:
+    @staticmethod
     def Notate(fileRef):
     # Given a fileRef, add it to the MetaRepo
-        metaRepo = _getMetaRepo()
+        metaRepo = MetaRepo._getMetaRepo()
         if metaRepo is None:
             print("Could not Notate fileRef")
             return
         metaRepo.append(fileRef)
-        _saveMetaRepo(metaRepo)
+        MetaRepo._saveMetaRepo(metaRepo)
         
+    @staticmethod
     def Find(fileRef):
     # Given an incomplete fileRef, search through the MetaRepo for matching files
         fileList = []
 
-        metaRepo = _getMetaRepo()
+        metaRepo = MetaRepo._getMetaRepo()
         for file in metaRepo:
             if fileRef.getId() is not None       and file.getId() != fileRef.getId():
                 continue
@@ -38,6 +40,7 @@ class MetaRepo:
 
 #************************************************************************************************************************************
 
+    @staticmethod
     def _getMetaRepoPath():
         directory = str(Path.home()) + str(Path("/.lwfm/"))
         if not os.path.exists(directory):
@@ -45,8 +48,9 @@ class MetaRepo:
         filePath = str(Path(directory + "/metarepo"))
         return filePath
 
+    @staticmethod
     def _getMetaRepo():
-        filePath = _getMetaRepo()
+        filePath = MetaRepo._getMetaRepoPath()
         if not os.path.exists(filePath):
             return []
         
@@ -56,8 +60,9 @@ class MetaRepo:
         except Exception as e: # There's a pickle.unpickling exception, but pickle.load can throw any number of different exceptions
             print("Error loading MetaRepo!")
             
+    @staticmethod
     def _saveMetaRepo(metaRepo):
-        filePath = _getMetaRepo()
+        filePath = MetaRepo._getMetaRepoPath()
         try:
             pickle.dump(metaRepo, filePath)
         except Exception as e: # There's a pickle.pickling exception, but pickle.load can throw any number of different exceptions
