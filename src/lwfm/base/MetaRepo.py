@@ -12,7 +12,7 @@ from pathlib import Path
 
 class MetaRepo:
     @staticmethod
-    def Notate(fileRef):
+    def notate(fileRef):
     # Given a fileRef, add it to the MetaRepo
         metaRepo = MetaRepo._getMetaRepo()
         if metaRepo is None:
@@ -22,7 +22,7 @@ class MetaRepo:
         MetaRepo._saveMetaRepo(metaRepo)
         
     @staticmethod
-    def Find(fileRef):
+    def find(fileRef):
     # Given an incomplete fileRef, search through the MetaRepo for matching files
         fileList = []
 
@@ -55,16 +55,18 @@ class MetaRepo:
             return []
         
         try:
-            metaRepo = pickle.load(filePath)
-            return metaRepo
+            with open(filePath, 'rb') as metaFile:
+                metaRepo = pickle.load(metaFile)
+                return metaRepo
         except Exception as e: # There's a pickle.unpickling exception, but pickle.load can throw any number of different exceptions
-            print("Error loading MetaRepo!")
+            print("Error loading MetaRepo: %s" % e)
             
     @staticmethod
     def _saveMetaRepo(metaRepo):
         filePath = MetaRepo._getMetaRepoPath()
         try:
-            pickle.dump(metaRepo, filePath)
+            with open(filePath, 'wb') as metaFile:
+                pickle.dump(metaRepo, metaFile)
         except Exception as e: # There's a pickle.pickling exception, but pickle.load can throw any number of different exceptions
-            print("Error saving MetaRepo!")
+            print("Error saving MetaRepo: %s" % e)
 

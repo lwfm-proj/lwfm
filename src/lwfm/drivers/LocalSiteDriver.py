@@ -179,6 +179,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
            return False
 
         # return success result
+        MetaRepo.notate(siteRef)
         return FSFileRef.siteFileRefFromPath(toPath + "/" + fromPath.name)
 
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
@@ -192,7 +193,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
 
 
     def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
-        return MetaRepo.Find(siteRef)
+        return MetaRepo.find(siteRef)
 
 
 
