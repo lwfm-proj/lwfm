@@ -328,7 +328,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         MetaRepo.Notate(SiteFileRef)
         return localRef
 
-    def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
+    def find(self, siteRef: SiteFileRef) -> SiteFileRef:
         path = siteRef.getPath()
         url = NERSC_URLS.NERSC_LS_URL.value + self.machine + path
 

@@ -192,7 +192,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         return Path(str(toPath) + "/" + Path(fromPath).name)
 
 
-    def ls(self, siteRef: SiteFileRef) -> SiteFileRef:
+    def find(self, siteRef: SiteFileRef) -> SiteFileRef:
         return MetaRepo.find(siteRef)
 
 
@@ -239,12 +239,12 @@ if __name__ == '__main__':
     # ls a file
     fileRef = FSFileRef()
     fileRef.setPath(os.path.realpath(__file__))
-    logging.info("name of the file is " + site.getRepoDriver().ls(fileRef).getName())
-    logging.info("size of the file is " + str(site.getRepoDriver().ls(fileRef).getSize()))
+    logging.info("name of the file is " + site.getRepoDriver().find(fileRef).getName())
+    logging.info("size of the file is " + str(site.getRepoDriver().find(fileRef).getSize()))
 
     # ls a directory
     fileRef.setPath(os.path.expanduser('~'))
-    fileRef = site.getRepoDriver().ls(fileRef)
+    fileRef = site.getRepoDriver().find(fileRef)
     logging.info("size of the dir is " + str(fileRef.getSize()))
     logging.info("time of the dir is " + str(fileRef.getTimestamp()))
     logging.info("contents of the dir is " + str(fileRef.getDirContents()))
