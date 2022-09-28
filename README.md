@@ -13,8 +13,10 @@ of those verbs.
 A small number of local components track and orchestrate the cross-site workflows, permitting job chaining and the weaving of a
 digital thread.
 
-The work is based on a paper presented at the Smoky Mountains Conference in August 2022, and available (temporarily until official
-publication) here: https://drive.google.com/file/d/1c3YEVmEAUjbI5urj4PiV2TtjzBUzLlws/view?usp=sharing
+The work is based on a paper presented by A. Gallo et al at the Smoky Mountains Conference in August 2022, and available
+(temporarily until official publication) here: https://drive.google.com/file/d/1c3YEVmEAUjbI5urj4PiV2TtjzBUzLlws/view?usp=sharing
 
 More detailed documentation about the implementation is presented in a Word doc in this git project.
+
+The initial implementation is the work of A. Gallo & D. Hughes, with the sponsorship of GE Research.
 
