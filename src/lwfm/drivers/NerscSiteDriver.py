@@ -231,6 +231,11 @@ class NerscSiteRunDriver(SiteRunDriver):
             return False
         return True
 
+
+    def listComputeTypes(self) -> [str]:
+        raise NotImplementedError()
+
+
 class PerlmutterSiteRunDriver(NerscSiteRunDriver):
     machine = 'perlmutter'
 

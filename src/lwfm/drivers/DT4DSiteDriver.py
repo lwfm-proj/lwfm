@@ -206,6 +206,10 @@ class DT4DSiteRunDriver(SiteRunDriver):
         return False
 
 
+    def listComputeTypes(self) -> [str]:
+        raise NotImplementedError()
+
+
 #************************************************************************************************************************************
 # Repo
 

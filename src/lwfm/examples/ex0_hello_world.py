@@ -26,6 +26,9 @@ if __name__ == '__main__':
 
     logging.info("login successful")
 
+    # what named computing resources are available on this site?
+    logging.info("compute types = " + str(site.getRunDriver().listComputeTypes()))
+
     # define the Job - use all Job defaults except the actual command to execute
     jobDefn = JobDefn()
     jobDefn.setEntryPoint("echo 'hello world'")

@@ -63,6 +63,10 @@ class SiteRunDriver(ABC):
     def cancelJob(self, jobContext: JobContext) -> bool:
         pass
 
+    @abstractmethod
+    def listComputeTypes(self) -> [str]:
+        pass
+
 
 #***********************************************************************************************************************************
 # Repo: Pemmits the movement of data objects to/from the Site.  The methods require a local file reference, and a reference to the
@@ -122,6 +126,7 @@ class Site(LwfmBase):
         "nersc":      "lwfm.drivers.NerscSiteDriver.NerscSite",
         "cori":       "lwfm.drivers.NerscSiteDriver.CoriSite",
         "perlmutter": "lwfm.drivers.NerscSiteDriver.PerlmutterSite",
+        "dt4d":       "lwfm.drivers.DT4DSiteDriver.DT4DSite",
     }
 
     @staticmethod

@@ -139,6 +139,10 @@ class LocalSiteRunDriver(SiteRunDriver):
             return False
 
 
+    def listComputeTypes(self) -> [str]:
+        return ["local"]
+
+
 #***********************************************************************************************************************************
 
 class LocalSiteRepoDriver(SiteRepoDriver):
