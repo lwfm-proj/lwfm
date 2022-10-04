@@ -13,82 +13,200 @@ import os
 from lwfm.base.LwfmBase  import LwfmBase
 from lwfm.base.JobStatus import JobStatus, JobContext
 from lwfm.base.JobDefn import JobDefn
-
+from lwfm.base.JobEventHandler import JobEventHandler
 from lwfm.base.SiteFileRef import SiteFileRef
 
 
 #***********************************************************************************************************************************
-# Auth: an interface for a Site's user authentication and authorization functiions.  Permits a Site to provide some kind of a
-# "login" be it programmatic or forced interactive.  A given Site's implmentation of Auth might squirrel away some returned
-# token (should the Site use such things).  We can then provide a quicker "is the auth current" method.  We assume the implementation
-# of a Site's Run and Repo subsystems will be provided access under the hood to the necessary implementation details from the
-# Auth system.
 
 class SiteAuthDriver(ABC):
+    """
+    Auth: an interface for a Site's user authentication and authorization functiions.  Permits a Site to provide some kind of a
+    "login" be it programmatic or forced interactive.  A given Site's implmentation of Auth might squirrel away some returned
+    token (should the Site use such things).  We can then provide a quicker "is the auth current" method.  We assume the
+    implementation of a Site's Run and Repo subsystems will be provided access under the hood to the necessary implementation
+    details from the Auth system.
+    """
+
     @abstractmethod
     def login(self, force: bool=False) -> bool:
+        """
+        Login to the Site using the Site's own mechanism for authenication and caching.
+
+        Params:
+            force - if true, forces a login even if the Site detects that the current login is still viable
+        Returns:
+            bool - true if success, else false
+        """
         pass
+
 
     @abstractmethod
     def isAuthCurrent(self) -> bool:
+        """
+        Is the currently cached Site login info still viable?
+
+        Returns:
+            bool - true if the login is still viable, else false; the Site might not cache, and thus always return false
+        """
         pass
 
 
-#***********************************************************************************************************************************
-# Run: in its most basic "MVP-0" form, the Run subsystem provides a mechanism to submit a job, cancel the job, and interrogate
-# the job's status.  The submitting of a job might, for some Sites, involve a batch scheduler.  Or, for some Sites (like a "local"
-# Site), the run might be immediate.  On submit, the method returns a JobStatus, which for immediate execution might be a terminal
-# completion status.  A job definition (JobDefn) is a description of the job.  Its the role of the Site's Run subsystem to
-# interpret the abstract JobDefn in the context of that Site.  Thus the JobDefn permits arbitrary name=value pairs which might be
-# necessary to submit a job at that Site.  The JobStatus returned is canonical - the Site's own status name set is mapped into the
-# lwfm canonical name set by the implementation of the Site itself.
+
+#************************************************************************************************************************************
 
 class SiteRunDriver(ABC):
+    """
+    Run: in its most basic "MVP-0" form, the Run subsystem provides a mechanism to submit a job, cancel the job, and interrogate
+    the job's status.  The submitting of a job might, for some Sites, involve a batch scheduler.  Or, for some Sites (like a "local"
+    Site), the run might be immediate.  On submit, the method returns a JobStatus, which for immediate execution might be a terminal
+    completion status.  A job definition (JobDefn) is a description of the job.  Its the role of the Site's Run subsystem to
+    interpret the abstract JobDefn in the context of that Site.  Thus the JobDefn permits arbitrary name=value pairs which might be
+    necessary to submit a job at that Site.  The JobStatus returned is canonical - the Site's own status name set is mapped into the
+    lwfm canonical name set by the implementation of the Site itself.
+    """
 
     @classmethod
     def _submitJob(cls, jdefn, jobContext = None):
-        # This helper function lets threading instantiate a SiteRunDriver of the correct subtype on demand
+        # This helper function, not a member of the public interface, lets Python threading instantiate a
+        # SiteRunDriver of the correct subtype on demand
         runDriver = cls()
         runDriver.submitJob(jdefn, jobContext)
 
+
     @abstractmethod
-    def submitJob(self, jdefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
+    def submitJob(self, jobDefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
+        """
+        Submit the job for execution on this Site.  It is an implementation detail of the Site what that means - everything
+        from pseudo-immediate command line execution, to scheduling on an HPC system.  The caller should assume the run is
+        asynchronous.  We would assume all Sites would implement this method.  Note that "compute type" is an optional member
+        of JobDefn, and might be used by the Site to direct the execution of the job.
+
+        Params:
+            jobDefn - the definition of the job to run, might include the name of a script, include arguments for the run, etc.
+            parentContext - information about the current JobContext which might be running, thus the job we are submitting will be
+                a child in the digital thread; this is an optional argument - if none, the submitted job is considered semminal
+        Returns:
+            JobStatus - preliminary status, containing a JobContext including the Site-specific native job id
+        """
         pass
+
 
     @abstractmethod
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
+        """
+        Check the status of a job running on this Site.  The Site might raise a NotImplementedError if it does not implement
+        such a check, though this would be unusual.
+
+        Params:
+            jobContext - the context of the executing job, including the native job id
+        Returns:
+            JobStatus - the current known status of the job
+        """
         pass
+
 
     @abstractmethod
     def cancelJob(self, jobContext: JobContext) -> bool:
+        """
+        Cancel the job, which might be in a queued, state, or might already be running.  Its up to to the Site how to
+        handle the cancel, including raising a NotImplementedError.
+
+        Params:
+            jobContext - the context of the job, including the Site-native job id
+        Returns:
+            bool - true if a successful cancel, else false, or throw exception; callers should invoke the getJobStatus() method
+                to obtain final status (e.g., the job might have completed successfully prior to the cancel being receieved, etc.)
+        """
         pass
+
 
     @abstractmethod
     def listComputeTypes(self) -> [str]:
+        """
+        List the compute types supported by the Site.  The Site might not have any concept, and thus might raise a
+        NotImplementedError, or return an empty list, or a list of one singular type of the Site.  Or, the Site might front
+        a number of resources, and return a list of names.
+
+        Returns:
+            [str] - a list of names, potentially empty or None, or a raise of NotImplementedError
+        """
         pass
+
+
+    #@abstractmethod
+    #def setEventHandler(self, jobContext: JobContext, jeh: JobEventHandler, jdef: JobDefn) -> JobEventHandler:
+    #    pass
+
+    #@abstractmethod
+    #def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
+    #    pass
+
+    #@abstractmethod
+    #def listEventHandlers(self) -> [JobEventHandler]:
+    #    pass
 
 
 #***********************************************************************************************************************************
-# Repo: Pemmits the movement of data objects to/from the Site.  The methods require a local file reference, and a reference to the
-# remote file - a SiteFileRef.  The SiteFileRef permits arbitrary name=value pairs because the Site might require them to
-# complete the transaction.
 
 class SiteRepoDriver(ABC):
-    # Take the local file by path and put it to the remote site.
-    # If we're given a context, we use it, if not, we consider ourselves our own job.
+    """
+    Repo: Pemmits the movement of data objects to/from the Site.  The methods require a local file reference, and a reference to the
+    remote file - a SiteFileRef.  The SiteFileRef permits arbitrary name=value pairs because the Site might require them to
+    complete the transaction.
+    """
+
     @abstractmethod
-    def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
+    def put(self, localPath: Path, siteFileRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
+        """
+        Take the local file by path and put it to the remote Site.  This might be implemented by the Site as a simple
+        filesystem copy, or it might be a checkin to a managed service - that's up to the Site.  If we're given a context,
+        we use it, if not, we consider ourselves our own job.
+
+        Params:
+            localPath - a local file object
+            siteFileRef - a reference to an abstract "file" entity on the Site - this is the target of the put operation
+            jobContext - if we have a job context we wish to use (e.g. we are already inside a job and wish to indicate the
+                digital thread parent-child relationships) then pass the context in, else the put operation will be performed
+                as its own seminal job
+        Returns:
+            SiteFileRef - a refernce to the entity put on the Site; the Site might also raise any kind of exception depending on
+                the error case
+        """
         pass
 
-    # Get the file from the remote site and write it local, returning a path to the local.
-    # If we're given a context, we use it, if not, we consider ourselves our own job.
+
     @abstractmethod
-    def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
+    def get(self, siteFileRef: SiteFileRef, localPath: Path, jobContext: JobContext = None) -> Path:
+        """
+        Get the file from the remote site and write it local, returning a path to the local.
+        If we're given a context, we use it, if not, we consider ourselves our own job.
+
+        Params:
+            siteFileRef - a reference to a data entity on the Site, the source of the get
+            localPath - a local file object, the destination of the get
+            jobContext - if we have a job context we wish to use (e.g. we are already inside a job and wish to indicate the
+                digital thread parent-child relationships) then pass the context in, else the put operation will be performed
+                as its own seminal job
+        Returns:
+            Path - the reference to the local location of the gotten file; during the get, the Site might also raise any kind of
+                exception depending on the error case
+        """
         pass
 
-    # get info about the file/dir on the remote site
+
     @abstractmethod
-    def find(self, siteRef: SiteFileRef) -> SiteFileRef:
+    def find(self, siteFileRef: SiteFileRef) -> [SiteFileRef]:
+        """
+        Get info about the file/dir on the remote site
+
+        Params:
+            siteFileRef - a reference to an abstract "file" entity on the Site, may be specialized partially (e.g. wildcards) though
+                it is up to the Site to determine how to implement this search
+        Returns:
+            [SiteFileRef] - the instantiated file reference(s) (not the file, but the references), including the size, timestamp
+                info, and other arbitrary metadata; may be a single file reference, or a list, or none
+        """
         pass
 
 

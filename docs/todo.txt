@@ -1,13 +1,16 @@
 TODO
 
 + now
-    - delivery to main
+    - JEH doc UML
+    - compute type in the job status / context?
+    - Repo.find() returns a list
 
 
 + priority 1
     - triggers should work like >= as remote sites might not report all states
     - SiteFileRef with timestamp (see TODO)
-    - triggers as part of Site.Run, lwfm implements as current
+    - triggers as part of Site.Run, lwfm implements as current; "data trigger" is based on metadata - Event Message, Event Handler -
+      trigger is a verb; add to doc UML
 
 
 + priority 2

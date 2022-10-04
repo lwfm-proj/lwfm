@@ -43,9 +43,9 @@ class JobStatusValues(Enum):
     RUNNING   = "RUNNING"
     INFO      = "INFO"
     FINISHING = "FINISHING"
-    COMPLETE  = "COMPLETE"
-    FAILED    = "FAILED"
-    CANCELLED = "CANCELLED"
+    COMPLETE  = "COMPLETE"           # terminal state
+    FAILED    = "FAILED"             # terminal state
+    CANCELLED = "CANCELLED"          # terminal state
 
     def isTerminal(self, stat):
         try:
