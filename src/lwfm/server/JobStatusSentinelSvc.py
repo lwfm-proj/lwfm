@@ -4,7 +4,8 @@
 
 from flask import Flask, request
 import pickle
-from lwfm.server.JobStatusSentinel import JobStatusSentinel, EventHandler
+from lwfm.server.JobStatusSentinel import JobStatusSentinel
+from lwfm.base.JobEventHandler import JobEventHandler
 from lwfm.base.JobStatus import JobStatus, JobContext
 from lwfm.store.RunStore import RunJobStatusStore
 import logging
@@ -33,7 +34,7 @@ def emitStatus():
     # store it locally for convenience
     _jobStatusCache[jobId] = statusObj
     _jobStatusHistory.append(statusObj)
-    key = EventHandler(jobId, None, jobStatus, None, None, None).getKey()
+    key = JobEventHandler(jobId, None, jobStatus, None, None, None).getKey()
     jss.runHandler(key, statusObj) # This will check to see if the handler is in the JSS store, and run if so
     return '', 200
 

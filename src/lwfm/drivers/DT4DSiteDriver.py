@@ -8,12 +8,14 @@ from types import SimpleNamespace
 from pathlib import Path
 import os
 import pickle
+from typing import Callable
 
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.base.MetaRepo import MetaRepo
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
+from lwfm.base.JobEventHandler import JobEventHandler
 
 
 from py4dt4d._internal._SecuritySvc import _SecuritySvc
@@ -207,6 +209,19 @@ class DT4DSiteRunDriver(SiteRunDriver):
 
 
     def listComputeTypes(self) -> [str]:
+        raise NotImplementedError()
+
+
+    def setEventHandler(self, jobContext: JobContext, jobStatus: JobStatusValues, statusFilter: Callable,
+                        newJobDefn: JobDefn, newJobContext: JobContext, newSiteName: str) -> JobEventHandler:
+        raise NotImplementedError()
+
+
+    def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
+        raise NotImplementedError()
+
+
+    def listEventHandlers(self) -> [JobEventHandler]:
         raise NotImplementedError()
 
 

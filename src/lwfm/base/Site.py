@@ -6,12 +6,13 @@
 from enum import Enum
 import logging
 from abc import ABC, abstractmethod
+from typing import Callable
 from pathlib import Path
 import os
 
 
 from lwfm.base.LwfmBase  import LwfmBase
-from lwfm.base.JobStatus import JobStatus, JobContext
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobEventHandler import JobEventHandler
 from lwfm.base.SiteFileRef import SiteFileRef
@@ -82,6 +83,14 @@ class SiteRunDriver(ABC):
         asynchronous.  We would assume all Sites would implement this method.  Note that "compute type" is an optional member
         of JobDefn, and might be used by the Site to direct the execution of the job.
 
+        [We note that both the JobDefn and the JobContext potentially contain a reference to a compute type.  Since the Job Context
+        is historical, and provided to give that historical context to the job we're about to run, its strongly suggested that
+        Site.Run implementations use the compute type named in the JobDef, if the concept is present at all on the Site.  We note also
+        that compute type and Site are relatively interchangeable - one can model a compute resource as a compute type, or as its
+        own Site, perhaps with a complete inherited Site driver imp]ementation.  e.g. NerscSiteDriver has two trivially subclassed
+        Sites - one for Cori (rest in peace) and one for Perlmutter.  This could have been impleted as one Site with two compute
+        types.  The Site driver author is invited to use whichever model fits them best.]
+
         Params:
             jobDefn - the definition of the job to run, might include the name of a script, include arguments for the run, etc.
             parentContext - information about the current JobContext which might be running, thus the job we are submitting will be
@@ -134,17 +143,50 @@ class SiteRunDriver(ABC):
         pass
 
 
-    #@abstractmethod
-    #def setEventHandler(self, jobContext: JobContext, jeh: JobEventHandler, jdef: JobDefn) -> JobEventHandler:
-    #    pass
+    @abstractmethod
+    def setEventHandler(self, jobContext: JobContext, jobStatus: JobStatusValues, statusFilter: Callable,
+                        newJobDefn: JobDefn, newJobContext: JobContext, newSiteName: str) -> JobEventHandler:
+        """
+        Set a job to be submitted when a prior job event occurs.
+        A Site does not need to have a concept of these event handlers (most won't) and is free to throw a NotImplementedError.
+        The local lwfm site will provide an implementation through its own Site.Run interface, and thus permit
+        cross-Site workflow job chaining.
+        Asking a Site to run a job on a Site other than itself (siteName = None) is free to raise a NotImplementedError, though
+        it might be possible in some cases, and the lwfm Local site will permit it.
 
-    #@abstractmethod
-    #def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
-    #    pass
+        Params:
+            jobContext - information about the job we're waiting on including the native Site job id
+            jobStatus - the status string, from the enum set of canonical strings, on which we're waiting
+            statusFilter - a function which returns boolean success / failure after parsing the content of the status message in detail
+            newJobDefn - the job to be submitted to this Site if the handler fires
+            newJobContext - the job context to run the job under, if not provided, reverts to the triggering job being the parent
+            newSiteName - run the job on the named site - this can be None to run on self
+        Returns:
+            JobEventHandler
+        """
+        pass
 
-    #@abstractmethod
-    #def listEventHandlers(self) -> [JobEventHandler]:
-    #    pass
+
+    @abstractmethod
+    def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
+        """
+        Unset an event handler.
+
+        Params:
+            JobEventHandler - a previously set handler
+        Returns:
+            bool - success, fail, or raise NotImplementedError if the Site has no concept of event handlers
+        """
+        pass
+
+
+    @abstractmethod
+    def listEventHandlers(self) -> [JobEventHandler]:
+        """
+        List the JobEventHandler registrations the Site is holding, or an empty list, or raise NotImplementedError if the
+        Site doesn't support event handlers.
+        """
+        pass
 
 
 #***********************************************************************************************************************************

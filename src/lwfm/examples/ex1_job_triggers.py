@@ -11,7 +11,6 @@ from lwfm.base.Site import Site
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
-from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 
 # This Site name can be an argument - name maps to a Site class implementation,
 # either one provided with this sdk, or one user-authored.
@@ -54,12 +53,13 @@ if __name__ == '__main__':
     # canonical job id reaches the state specified, run the given job definition on the named target site in a given job context"
     # then set C to fire when B finishes
     # the "job context" is tracking the digital thread of the related jobs
-    jssc = JobStatusSentinelClient()
     # set a trigger, a "future" - when job A gets to complete, run B
-    jssc.setEventHandler(jobContextA.getId(), siteName, JobStatusValues.COMPLETE.value, jobDefnB, siteName, jobContextB)
+    #site.setEventHandler(jobContextA.getId(), siteName, JobStatusValues.COMPLETE.value, jobDefnB, siteName, jobContextB)
+    site.getRunDriver().setEventHandler(jobContextA, JobStatusValues.COMPLETE, None, jobDefnB, jobContextB, None)
     # set another trigger - when job B gets to complete, run C.  note we don't really need to specify context C,
     # but we will so we can use it in this demo
-    jssc.setEventHandler(jobContextB.getId(), siteName, JobStatusValues.COMPLETE.value, jobDefnC, siteName, jobContextC)
+    #site.setEventHandler(jobContextB.getId(), siteName, JobStatusValues.COMPLETE.value, jobDefnC, siteName, jobContextC)
+    site.getRunDriver().setEventHandler(jobContextB, JobStatusValues.COMPLETE, None, jobDefnC, jobContextC, None)
 
     # run job A which initiates the A -> B -> C sequence
     status = site.getRunDriver().submitJob(jobDefnA, jobContextA)

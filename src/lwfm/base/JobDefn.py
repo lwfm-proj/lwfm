@@ -44,8 +44,6 @@ class JobDefn(LwfmBase):
 
     job args - distinct from the entry point, the job might desire arbitrary arguments at runtime
 
-    notification email - the Site might
-
     """
 
     def __init__(self):
@@ -84,6 +82,12 @@ class RepoOp(Enum):
 
 
 class RepoJobDefn(JobDefn):
+    """
+    Moving data between Sites is expected to be common, and time consuming, and thus wanted to be performed asynchronously.
+    Thus wrapping a data movement as a job and setting a job event trigger to fire when the data move is complete would be common.
+    The RepoJobDefn as a subclass of JobDefn provides this convenience mechanism for wrapping a data move as an independent job.
+    """
+
     def __init__(self):
         super(RepoJobDefn, self).__init__()
 

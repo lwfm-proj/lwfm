@@ -10,6 +10,7 @@ import multiprocessing
 import time
 import pickle
 import json
+from typing import Callable
 
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+from lwfm.base.JobEventHandler import JobEventHandler
 from lwfm.base.MetaRepo import MetaRepo
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 
@@ -143,6 +145,22 @@ class LocalSiteRunDriver(SiteRunDriver):
         return ["local"]
 
 
+    def setEventHandler(self, jobContext: JobContext, jobStatus: JobStatusValues, statusFilter: Callable,
+                        newJobDefn: JobDefn, newJobContext: JobContext, newSiteName: str) -> JobEventHandler:
+        if (newSiteName is None):
+            newSiteName = "local"
+        JobStatusSentinelClient().setEventHandler(jobContext.getId(), jobContext.getSiteName(), jobStatus.value,
+                                                  newJobDefn, newSiteName, newJobContext)
+
+
+    def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
+        raise NotImplementedError()
+
+
+    def listEventHandlers(self) -> [JobEventHandler]:
+        raise NotImplementedError()
+
+
 #***********************************************************************************************************************************
 
 class LocalSiteRepoDriver(SiteRepoDriver):
@@ -196,7 +214,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         return Path(str(toPath) + "/" + Path(fromPath).name)
 
 
-    def find(self, siteRef: SiteFileRef) -> SiteFileRef:
+    def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
         return MetaRepo.find(siteRef)
 
 
