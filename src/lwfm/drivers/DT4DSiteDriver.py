@@ -111,11 +111,11 @@ class DT4DSiteAuthDriver(SiteAuthDriver):
 # Run
 
 @JobRunner
-def _runRemoteJob(job, jobId, toolName, toolFile, toolClass, toolArgs, computeType, email, timeout=0.5):
+def _runRemoteJob(job, jobId, toolName, toolFile, toolClass, toolArgs, computeType, timeout=0.5):
     # Put the file referened by script into ToolRepo with the given name and auto-increment the version
     ToolRepo(job).putTool(toolFile, toolName, None)
     # Run the tool on the remote computeType.
-    _JobSvc(job).runRemotePyJob(job, toolName, toolName, toolName, toolArgs, computeType, email, jobId,
+    _JobSvc(job).runRemotePyJob(job, toolName, toolName, toolName, toolArgs, computeType, "", jobId,
                                 toolName, timeout, None, None, jobId)
 
 
@@ -185,7 +185,7 @@ class DT4DSiteRunDriver(SiteRunDriver):
             _runRemoteJob(nativeId,
                           jdefn.getName(), modulePath[0] + "/" + modulePath[1] + "/" + modulePath[2] + ".py",
                           modulePath[3],
-                          jdefn.getJobArgs(), jdefn.getComputeType(), jdefn.getNotificationEmail())
+                          jdefn.getJobArgs(), jdefn.getComputeType())
 
         context.setNativeId(nativeId)
         status.setNativeId(nativeId)

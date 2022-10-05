@@ -2,7 +2,6 @@ TODO
 
 + now
     - JEH doc UML
-    - compute type in the job status / context?
     - Repo.find() returns a list
 
 
@@ -11,6 +10,7 @@ TODO
     - SiteFileRef with timestamp (see TODO)
     - triggers as part of Site.Run, lwfm implements as current; "data trigger" is based on metadata - Event Message, Event Handler -
       trigger is a verb; add to doc UML
+    - compute type in status message via job context
 
 
 + priority 2

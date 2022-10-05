@@ -34,6 +34,7 @@ class _JobStatusFields(Enum):
     ORIGIN_JOB_ID = "originJobId"                    # oldest ancestor - a seminal job is its own originator
     NATIVE_INFO   = "nativeInfo"                     # any additional info the native Run wants to put in the status message
     SITE_NAME     = "siteName"                       # name of the Site which emitted the message
+    COMPUTE_TYPE  = "computeType"                    # a named resource on the Site, if any
 
 
 # The canonical set of status codes.  Run implementations will have their own sets, and they must provide a mapping into these.
@@ -99,8 +100,9 @@ class JobContext(LwfmBase):
 
     site name - the job is running (or has been submitted to the Site for queuing), therefore the Site name is known
 
-    """
+    compute type - if the Site distinguishes compute types, it can be noted here
 
+    """
 
     def __init__(self, parentContext = None):
         super(JobContext, self).__init__(None)
@@ -113,6 +115,8 @@ class JobContext(LwfmBase):
             self.setParentJobId("")                     # a seminal job has no parent
             self.setOriginJobId(self.getId())           # a seminal job is its own originator
         self.setName(self.getId())
+        self.setComputeType("")
+        self.setSiteName("")
 
     def setId(self, idValue: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.ID.value, idValue)
@@ -151,6 +155,12 @@ class JobContext(LwfmBase):
 
     def getSiteName(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.SITE_NAME.value)
+
+    def setComputeType(self, name: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.COMPUTE_TYPE.value, name)
+
+    def getComputeType(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.COMPUTE_TYPE.value)
 
 
     def toJSON(self):
