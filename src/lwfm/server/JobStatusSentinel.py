@@ -87,7 +87,7 @@ class JobStatusSentinel:
                     jobStatus.setParentJobId(context.getParentJobId())
                     jobStatus.setOriginJobId(context.getOriginJobId())
                     jobStatus.setNativeId(context.getNativeId())
-                    jobStatus.setId(context.getId())
+                    jobStatus.getJobContext().setId(context.getId())
                     jobStatus.emit()
                     if (jobStatus.isTerminal()):
                         # evict
@@ -144,7 +144,7 @@ class JobStatusSentinel:
         site = Site.getSiteInstanceFactory(handler._getArg( _EventHandlerFields.TARGET_SITE_NAME.value))
         runDriver = site.getRunDriver().__class__
         jobContext = handler._getArg(_EventHandlerFields.TARGET_CONTEXT.value)
-        jobContext.setOriginJobId(jobStatus.getOriginJobId())
+        jobContext.setOriginJobId(jobStatus.getJobContext().getOriginJobId())
         # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
         thread = threading.Thread(target = runDriver._submitJob,
                                   args = (handler._getArg( _EventHandlerFields.FIRE_DEFN.value),jobContext,) )

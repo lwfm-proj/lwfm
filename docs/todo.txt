@@ -26,3 +26,4 @@ TODO
     - digital thread graph render & navigate, incl. event trigger futures
     - full trigger model impl - fuzzy, timeouts, wildcards, persistence, etc. - triggers running other than locally
     - JSS security
+    - adaptive job status polling based on emit & received job status timestamps

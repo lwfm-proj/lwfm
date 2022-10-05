@@ -149,7 +149,7 @@ def _statusProcessor(results, context):
             currTime = x.dt4dReceivedTimestamp
             currStatus = x.status
     status.setNativeStatusStr(currStatus)
-    status.setId(context.getId())
+    status.getJobContext().setId(context.getId())
     return status
 
 

@@ -40,19 +40,21 @@ if __name__ == '__main__':
         time.sleep(15)
         status = site.getRunDriver().getJobStatus(context)
 
-    print("local dt4d job " + status.getId() + " with native dt4d job id = " + status.getNativeId() + " " + status.getStatus().value)
+    print("local dt4d job " + status.getJobContext().getId() + " with native dt4d job id = " + status.getJobContext().getNativeId() +
+          " " + status.getStatus().value)
 
     # now run the same tool remote on a remote dt4d node of a named compute type
     jobDefn.setComputeType("Win-VDrive")
     context = JobContext()
     status = site.getRunDriver().submitJob(jobDefn, context)
     context = status.getJobContext()
-    print("remote dt4d job " + status.getId() + " with native dt4d job id = " + status.getNativeId() + " " + status.getStatus().value)
+    print("remote dt4d job " + status.getJobContext().getId() + " with native dt4d job id = " +
+          status.getJobContext().getNativeId() + " " + status.getStatus().value)
 
     # for fun, let's wait until that remote job finishes
     status = site.getRunDriver().getJobStatus(context)
     while (not status.isTerminal()):
         time.sleep(15)
         status = site.getRunDriver().getJobStatus(context)
-        print("remote dt4d job " + status.getId() + " with native dt4d job id = " + status.getNativeId() + " " +
-              status.getStatus().value)
+        print("remote dt4d job " + status.getJobContext().getId() + " with native dt4d job id = " +
+              status.getJobStatus().getNativeId() + " " + status.getStatus().value)

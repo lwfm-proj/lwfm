@@ -77,10 +77,31 @@ class JobStatusValues(Enum):
 
 
 #************************************************************************************************************************************
-# A job runs in the context of a runtime id (two ids - one which is canonical to lwfm, and one which is native to the site), and
-# references to upstream job which spawned it, to permit later navigation of the digital thread.
 
 class JobContext(LwfmBase):
+    """
+    The runtime execution context of the job.  It contains the id of the job and references to its parent jobs, if any.
+    A Job Status can reference a Job Context, and then augument it with updated job status information.
+
+    Attributes:
+
+    id - the lwfm id of the executing job.  This is distinct from the "native job id" below, which is the id of the job on the
+        specific Site.  If the Site is "lwfm local", then one might expect that the id and the native id are the same, else one
+        should assume they are not.  lwfm ids are generated as uuids.  Sites can use whatever mechanism they prefer.
+
+    native id - the Site-generated job id
+
+    parent job id - a lwfm generated id, the immediate parent of this job, if any; a seminal job has no parent
+
+    origin job id - the elest parent in the job chain; a seminal job is its own originator
+
+    name - the job can have an optional name for human consumption, else the name is the lwfm job id
+
+    site name - the job is running (or has been submitted to the Site for queuing), therefore the Site name is known
+
+    """
+
+
     def __init__(self, parentContext = None):
         super(JobContext, self).__init__(None)
         self.setId(_IdGenerator.generateId())
@@ -146,13 +167,43 @@ class JobContext(LwfmBase):
         in_obj = pickle.loads(json.loads(in_json).encode(encoding='ascii'))
         return in_obj
 
+
 #************************************************************************************************************************************
 
 
 class JobStatus(LwfmBase):
+    """
+    Over the lifetime of the running job, it may emit many status messages.  (Or, more specifically, lwfm might poll the remote
+    Site for an updated status of a job it is tracking.)
+
+    The Job Status references the Job Context of the running job, which contains the id of the job and other originating information.
+
+    The Job Status is then augmented with the updated status info.  Like job ids, which come in canonical lwfm and Site-specific
+    forms (and we track both), so do job status strings - there's the native job status, and the mapped canonical status.
+
+    Attributes:
+
+    job context - the Job Context for the job, which includes the job id
+
+    status - the current canonical status string
+
+    native status - the current native status string
+
+    emit time - the timestamp when the Site emitted the status - the Site driver will need to populate this value
+
+    received time - the timestamp when lwfm received the Job Status from the Site; this can be used to study latency in
+        status receipt (which is by polling)
+
+    native info - the Site may inject Site-specific status information into the Job Status message
+
+    status map - a constant, the mapping of Site-native status strings to canonical status strings; native lwfm local jobs will use
+        the literal mapping, and Site drivers will implement Job Status subclasses which provide their own Site-to-canonical
+        mapping.
+
+    """
 
     statusMap:          dict = None                             # maps native status to canonical status
-    statusHistory:      dict = None                             # history of status messages, not copied by copy constructor
+    #statusHistory:      dict = None                             # history of status messages, not copied by copy constructor
     jobContext:         JobContext = None                       # job id tracking info
 
     def __init__(self, jobContext: JobContext):
@@ -234,53 +285,17 @@ class JobStatus(LwfmBase):
         ms = LwfmBase._getArg(self, _JobStatusFields.RECEIVED_TIME.value)
         return datetime.utcfromtimestamp(ms//1000).replace(microsecond=ms%1000*1000)
 
-    def setId(self, idValue: str) -> None:
-        self.jobContext.setId(idValue)
-
-    def getId(self) -> str:
-        return self.jobContext.getId()
-
-    def setNativeId(self, idValue: str) -> None:
-        self.jobContext.setNativeId(idValue)
-
-    def getNativeId(self) -> str:
-        return self.jobContext.getNativeId()
-
-    def setName(self, name: str) -> None:
-        self.jobContext.setName(name)
-
-    def getName(self) -> str:
-        return self.jobContext.getName()
-
-    def setParentJobId(self, idValue: str) -> None:
-        self.jobContext.setParentJobId(idValue)
-
-    def getParentJobId(self) -> str:
-        return self.jobContext.getParentJobId()
-
-    def setOriginJobId(self, idValue: str) -> None:
-        self.jobContext.setOriginJobId(idValue)
-
-    def getOriginJobId(self) -> str:
-        return self.jobContext.getOriginJobId()
-
     def setNativeInfo(self, info: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.NATIVE_INFO.value, info)
 
     def getNativeInfo(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.NATIVE_INFO.value)
 
-    def setStatusHistory(self, history: dict) -> None:
-        self._statusHistory = history
-
-    def getStatusHistory(self) -> dict:
-        return self._statusHistory
-
-    def setSiteName(self, name: str) -> None:
-        self.jobContext.setSiteName(name)
-
-    def getSiteName(self) -> str:
-        return self.jobContext.getSiteName()
+#    def setStatusHistory(self, history: dict) -> None:
+#        self._statusHistory = history
+#
+#    def getStatusHistory(self) -> dict:
+#        return self._statusHistory
 
     def serialize(self):
         return pickle.dumps(self, 0)
@@ -300,7 +315,7 @@ class JobStatus(LwfmBase):
         self.setEmitTime(datetime.utcnow())
         try:
             jssc = JobStatusSentinelClient()
-            jssc.emitStatus(self.getId(), self.getStatus().value, self.serialize())
+            jssc.emitStatus(self.getJobContext().getId(), self.getStatus().value, self.serialize())
             self.clear()
             return True
         except Exception as ex:
@@ -340,9 +355,10 @@ class JobStatus(LwfmBase):
         return ("[" + verb.value + "," + str(success) + "," + fromPath + "," + toPath + "]")
 
     def toString(self) -> str:
-        s = ("" + str(self.getId()) + "," + str(self.getParentJobId()) + "," + str(self.getOriginJobId()) + "," +
-             str(self.getNativeId()) + "," +
-             str(self.getEmitTime()) + "," + str(self.getStatusValue()) + "," + str(self.getSiteName()))
+        s = ("" + str(self.getJobContext().getId()) + "," + str(self.getJobContext().getParentJobId()) + "," +
+             str(self.getJobContext().getOriginJobId()) + "," +
+             str(self.getJobContext().getNativeId()) + "," +
+             str(self.getEmitTime()) + "," + str(self.getStatusValue()) + "," + str(self.getJobContext().getSiteName()))
         if (self.getStatus() == JobStatusValues.INFO):
             s += "," + self.getNativeInfo()
         return s

@@ -108,7 +108,7 @@ def listHandlers():
 def _getStatusHistory(jobId: str) -> []:
     results = []
     for record in _jobStatusHistory:
-        if (record.getId() == jobId):
+        if (record.getJobContext().getId() == jobId):
             results.append(record)
     return results
 
@@ -121,10 +121,10 @@ def _buildThreadJson(jobId: str) -> str:
     # find all jobs which list this job as the parent
     children = _getChildren(jobId)
     for child in children:
-        statusList = _getStatusHistory(child.getId())
-        data[child.getId()] = statusList
+        statusList = _getStatusHistory(child.getJobContext().getId())
+        data[child.getJobContext().getId()] = statusList
         # does this child have children?
-        subkids = _getChildren(child.getId())
+        subkids = _getChildren(child.getJobContext().getId())
 
 
 
@@ -132,11 +132,11 @@ def _buildThreadJson(jobId: str) -> str:
 def _buildWFThread(jobId: str) -> str:
     status = getStatus(jobId)
     # does the job have a parent?
-    if (status.getOriginJobId() != status.getId()):
+    if (status.getOriginJobId() != status.getJobContext().getId()):
         # this job is not seminal - go up the tree
         threadJson = _buildThreadJson(status.getOriginJobId())
     else:
-        threadJson = _buildThreadJson(status.getId())
+        threadJson = _buildThreadJson(status.getJobContext().getId())
     return threadJson
 
 # get the digital thread for a given workflow - returns a JSON blob

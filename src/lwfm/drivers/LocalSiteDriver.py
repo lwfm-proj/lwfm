@@ -32,7 +32,7 @@ class LocalJobStatus(JobStatus):
     def __init__(self, jcontext: JobContext = None):
         super(LocalJobStatus, self).__init__(jcontext)
         # use default canonical status map
-        self.setSiteName(SITE_NAME)
+        self.getJobContext().setSiteName(SITE_NAME)
 
     def toJSON(self):
         return self.serialize()
@@ -110,7 +110,7 @@ class LocalSiteRunDriver(SiteRunDriver):
         # Run the job in a new thread so we can wrap it in a bit more code
         thread = multiprocessing.Process(target=self._runJob, args=[jdefn, jstatus])
         thread.start()
-        self._pendingJobs[jstatus.getId()] = thread
+        self._pendingJobs[jstatus.getJobContext().getId()] = thread
 
         return jstatus
 
@@ -235,7 +235,7 @@ if __name__ == '__main__':
     jdefn.setEntryPoint("echo")
     jdefn.setJobArgs([ "pwd = `pwd`" ])
     status = site.getRunDriver().submitJob(jdefn)
-    logging.info("pwd job id = " + status.getId())
+    logging.info("pwd job id = " + status.getJobContext().getId())
     logging.info("pwd job status = " + str(status.getStatus()))   # initial status will be pending - its async
 
     logging.info("***** repo tests")
@@ -281,7 +281,7 @@ if __name__ == '__main__':
     jdefn = JobDefn()
     jdefn.setEntryPoint("sleep 100")
     status = site.getRunDriver().submitJob(jdefn)
-    logging.info("sleep job id = " + status.getId())
+    logging.info("sleep job id = " + status.getJobContext().getId())
     logging.info("sleep job status = " + str(status.getStatus()))   # initial status will be pending - its async
     # wait a little bit for the job to actually start and emit a running status, then we'll cancel it
     time.sleep(10)

@@ -69,4 +69,4 @@ if __name__ == '__main__':
     while (not status.isTerminal()):
         time.sleep(15)
         status = site.getRunDriver().getJobStatus(jobContextC)
-    logging.info("job C " + status.getId() + " " + status.getStatus().value)
+    logging.info("job C " + status.getJobContext().getId() + " " + status.getStatus().value)
