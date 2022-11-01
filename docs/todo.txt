@@ -1,17 +1,17 @@
 TODO
 
 + now
-    - Repo.find() returns a list
-    - compute type in status message via job context
+    - test loggger in dt4d example
+    - compute type in status message via job context (anything else to do?)
+    - listComputeTypes returns complex list object w. metadata
 
 
 + priority 1
     + event handlers
         - metadata-based filter implementation & example
+        - better examples around multi-site - not all sites implement, but local does
         - triggers should work like >= as remote sites might not report all states
         - test: trigger job running on remote site, targer runs on remote site
-        - persisting over lwfm restart
-        - full trigger model impl - fuzzy, timeouts, wildcards, persistence, etc.
     - SiteFileRef with timestamp (see TODO)
     - MetaRepo notate()
 
@@ -20,6 +20,9 @@ TODO
     - JobStatus history
     - multi-Site Job status panel -> similar to DT4D's, but multi-Site
     - demo: lab device as a Site
+    + event handlers
+        - persisting over lwfm restart
+        - full trigger model impl - fuzzy, timeouts, wildcards, persistence, etc.
 
 
 + priority 3
