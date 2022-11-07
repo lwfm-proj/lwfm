@@ -4,7 +4,7 @@ TODO
     - test loggger in dt4d example
     - compute type in status message via job context (anything else to do?)
     - listComputeTypes returns complex list object w. metadata
-
+  
 
 + priority 1
     + event handlers
