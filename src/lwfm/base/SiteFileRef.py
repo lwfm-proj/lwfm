@@ -34,7 +34,7 @@ class SiteFileRef(LwfmBase):
         return LwfmBase._getArg(self, _SiteFileRefFields.ID.value)
 
     def setId(self, id: str) -> None:
-        LwfmBase._setArg(self, _SiteFileRefFields.ID.value, name)
+        LwfmBase._setArg(self, _SiteFileRefFields.ID.value, id)
 
     def getName(self) -> str:
         return LwfmBase._getArg(self, _SiteFileRefFields.NAME.value)
