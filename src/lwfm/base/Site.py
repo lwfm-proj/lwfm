@@ -144,8 +144,10 @@ class SiteRunDriver(ABC):
 
 
     @abstractmethod
-    def setEventHandler(self, jobContext: JobContext, jobStatus: JobStatusValues, statusFilter: Callable,
-                        newJobDefn: JobDefn, newJobContext: JobContext, newSiteName: str) -> JobEventHandler:
+    def setEventHandler(self, jeh: JobEventHandler) -> JobEventHandler:
+
+                        #jobContext: JobContext, jobStatus: JobStatusValues, statusFilter: Callable,
+                        #newJobDefn: JobDefn, newJobContext: JobContext, newSiteName: str) -> JobEventHandler:
         """
         Set a job to be submitted when a prior job event occurs.
         A Site does not need to have a concept of these event handlers (most won't) and is free to throw a NotImplementedError.

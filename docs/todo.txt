@@ -5,6 +5,7 @@ TODO
     - compute type in status message via job context (anything else to do?)
     - listComputeTypes returns complex list object w. metadata
 
+lwfm: Repo.Run job status serialization incl. subclasses & job context
 
 + priority 1
     + event handlers
@@ -31,3 +32,14 @@ TODO
     - RunRepo - robust impl
     - JSS security
     - adaptive job status polling based on emit & received job status timestamps
+
+
+---------------------
+
+NAFEMS paper
+    - byo workflow tool
+    - spin (see NERSC)
+    - federated metadata
+    - surrogate u
+    - metadata transfer
+
