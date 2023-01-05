@@ -11,7 +11,8 @@ import pickle
 from typing import Callable
 
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
-from lwfm.base.JobDefn import JobDefn
+from lwfm.base.SiteFileRef import FSFileRef, SiteFileRef, RemoteFSFileRef
+from lwfm.base.JobDefn import JobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.base.MetaRepo import MetaRepo
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
@@ -25,6 +26,7 @@ from py4dt4d._internal._Constants import _Locations
 from py4dt4d.PyEngine import PyEngine
 from py4dt4d.Job import JobRunner
 from py4dt4d.ToolRepo import ToolRepo
+from py4dt4d.SimRepo import SimRepo
 
 SERVER = _Locations.PROD_STR.value
 
@@ -56,8 +58,6 @@ class DT4DJobStatus(JobStatus):
             "CANCELLED"   : JobStatusValues.CANCELLED,
             "TIMEOUT"     : JobStatusValues.CANCELLED,
         })
-        self.setSiteName("dt4d")
-
 
     def toJSON(self):
         return self.serialize()
@@ -228,6 +228,100 @@ class DT4DSiteRunDriver(SiteRunDriver):
 #************************************************************************************************************************************
 # Repo
 
+@JobRunner
+def repoPut(job, path, metadata={}):
+    return SimRepo(job).put(path, metadata)
+
+@JobRunner
+def repoGet(job, docId, path=""):
+    return SimRepo(job).getByDocId(docId, path)
+
+@JobRunner
+def repoFindById(job, docId):
+    return SimRepo(job).getMetadataByDocId(docId)
+
+@JobRunner
+def repoFindByMetadata(job, metadata):
+    return SimRepo(job).getMetadataByMetadata(metadata)
+
+class Dt4DSiteRepoDriver(SiteRepoDriver):
+
+    def _getSession(self):
+        authDriver = DT4DSiteAuthDriver()
+        authDriver.login()
+        return authDriver._session
+
+    def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
+        # Book keeping for status emissions
+        iAmAJob = False
+        if (jobContext is None):
+            iAmAJob = True
+            jobContext = JobContext()
+        status = DT4DJobStatus(jobContext)
+        if (iAmAJob):
+            # emit the starting job status sequence
+            status.emit("PENDING")
+            status.emit("RUNNING")
+
+        # Emit our info status before hitting the API
+        status.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(localRef), ""))
+        status.emit("MOVING")
+
+        repoPut(localRef, siteRef.getMetadata())
+
+        status.emit("MOVED")
+
+        if (iAmAJob):
+            # emit the successful job ending sequence
+            status.emit("FINISHED")
+            status.emit("COMPLETED")
+        MetaRepo.notate(SiteFileRef)
+        return SiteFileRef
+
+    def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
+        # Book keeping for status emissions
+        iAmAJob = False
+        if (jobContext is None):
+            iAmAJob = True
+            jobContext = JobContext()
+        status = DT4DJobStatus(jobContext)
+        if (iAmAJob):
+            # emit the starting job status sequence
+            status.emit("PENDING")
+            status.emit("RUNNING")
+
+        # Emit our info status before hitting the API
+        status.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, "", str(localRef)))
+        status.emit("MOVING")
+
+        getFile = repoGet(siteRef.getId(), localRef)
+
+        status.emit("MOVED")
+
+        if (iAmAJob):
+            # emit the successful job ending sequence
+            status.emit("FINISHED")
+            status.emit("COMPLETED")
+        #MetaRepo.Notate(SiteFileRef)
+        return getFile
+
+    def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
+        sheets = None
+        if(siteRef.getId()):
+            sheets = repoFindById(siteRef.getId())
+        elif(siteRef.getMetadata()):   
+            sheets = repoFindByMetadata(siteRef.getMetadata())
+        print(str(sheets))
+        remoteRefs = []
+        for sheet in sheets:
+            remoteRef = FSFileRef()
+            remoteRef.setId(sheet["id"])
+            if "resourceName" in sheet:
+                remoteRef.setName(sheet["resourceName"])
+            remoteRef.setSize(sheet["fileSizeBytes"])
+            remoteRef.setTimestamp(sheet["timestamp"])
+            remoteRefs.append(remoteRef)
+        return remoteRefs
 
 #************************************************************************************************************************************
 
@@ -236,7 +330,7 @@ class DT4DSiteRunDriver(SiteRunDriver):
 class DT4DSite(Site):
     # There are no required args to instantiate a local site.
     def __init__(self):
-        super(DT4DSite, self).__init__("dt4d", DT4DSiteAuthDriver(), DT4DSiteRunDriver(), None, None)
+        super(DT4DSite, self).__init__("dt4d", DT4DSiteAuthDriver(), DT4DSiteRunDriver(), Dt4DSiteRepoDriver(), None)
 
 
 

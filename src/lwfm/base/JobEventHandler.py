@@ -29,10 +29,29 @@ class JobEventHandler(LwfmBase):
     the body of the message includes the metadata used in the put.  If the metadata meets certain user-supplied filters, the
     event handler fires.
 
-    Attributes:
+    This struct and potential derrived classes provide the means to describe the conditions under which a given job should fire
+    as a result of an upstream event or events, and when it fires, where and how.
 
-    job context - contains the lwfm and native id of the job we're waiting on, and the site on which its running
+    Implementations of the Run.Registrar component provide a means to accept these JobEventHandler descriptors and monitor the
+    job status message traffic to determine when to fire them.
 
+
+    Some example event handler rules:
+        - job or set of jobs (to reach some state (or one or a set of states) completely or set in partial within some timeframe)
+        - fire once or fire many times, or fire when triggered until some TTL
+        - fire on a schedule
+        - fire when a job status header and/or body contains certain attributes / metadata
+
+    Attributes of the event handler:
+        - id: each is assigned a unique id
+        - site: filters to just status messages from named site or list of sites, may be omitted in which case all sites are considered
+        - rule function: takes a JobStatus and returns bool to indicate the rule is satisfied an the registered JobDefn should fire
+        - fire defn: the JobDefn to fire if the event handler rule is satisfied
+        - target site: the site on which the job defn will fire
+        - target context: the JobContext for digital threading to use when the job fires, if one is provided
+
+    To implement this functionality, the rule must be able to save state.  Registrar provides a means for the rule function
+    to post back tracking information.
 
     """
 
