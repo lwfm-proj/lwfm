@@ -125,6 +125,10 @@ def _runRemoteJob(job, jobId, toolName, toolFile, toolClass, toolArgs, computeTy
 def _getJobStatus(job, jobContext):
     return _getJobStatusWorker(job, jobContext)
 
+@JobRunner
+def _getAllJobs(job, startTime, endTime):
+    return _JobSvc(job).queryJobStatus(startTime, endTime)
+
 def _getJobStatusWorker(job, jobContext):
     timeNowMs = int(round(time.time() * 1000))
     startTimeMs =  timeNowMs - (99999 * 60 * 1000)
@@ -225,7 +229,7 @@ class DT4DSiteRunDriver(SiteRunDriver):
         raise NotImplementedError()
         
     def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
-        raise NotImplementedError()
+        return _getAllJobs(startTime, endTime)
 
 
 #************************************************************************************************************************************
