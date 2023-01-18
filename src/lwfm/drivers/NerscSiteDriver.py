@@ -27,18 +27,18 @@ from lwfm.store.AuthStore import AuthStore
 class NerscSite(Site):
     def __init__(self):
         super(NerscSite, self).__init__("nersc", NerscSiteAuthDriver(), NerscSiteRunDriver(), NerscSiteRepoDriver(), None)
-        _runDriver.setMachine(None)
+        self._runDriver.setMachine(None)
 
 class PerlmutterSite(Site):
     def __init__(self):
         super(PerlmutterSite, self).__init__("nersc", NerscSiteAuthDriver(), PerlmutterSiteRunDriver(), PerlmutterSiteRepoDriver(),
                                              None)
-        _runDriver.setMachine("perlmutter")
+        self._runDriver.setMachine("perlmutter")
 
 class CoriSite(Site):
     def __init__(self):
         super(CoriSite, self).__init__("nersc", NerscSiteAuthDriver(), CoriSiteRunDriver(), CoriSiteRepoDriver(), None)
-        _runDriver.setMachine("cori")
+        self._runDriver.setMachine("cori")
 
 NERSC_BASE_URL = "https://api.nersc.gov/api/v1.2"
 class NERSC_URLS(Enum):
