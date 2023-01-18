@@ -183,7 +183,7 @@ class DT4DSiteRunDriver(SiteRunDriver):
                 jobClass = cls()
                 nativeId = jobClass.getJobId()
                 PyEngine().runLocal(jobClass)
-            except ex as Exception:
+            except Exception as ex:
                 print("**** DT4DSiteSDriver exception while running local job " + str(ex))
         else:
             # run remote dt4d job
