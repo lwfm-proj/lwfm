@@ -223,6 +223,9 @@ class DT4DSiteRunDriver(SiteRunDriver):
 
     def listEventHandlers(self) -> [JobEventHandler]:
         raise NotImplementedError()
+        
+    def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
+        raise NotImplementedError()
 
 
 #************************************************************************************************************************************
