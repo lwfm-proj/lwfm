@@ -32,6 +32,7 @@ class _JobStatusFields(Enum):
     NAME          = "name"                           # optional human-readable job name
     PARENT_JOB_ID = "parentJobId"                    # immediate predecessor of this job, if any - seminal job has no parent
     ORIGIN_JOB_ID = "originJobId"                    # oldest ancestor - a seminal job is its own originator
+    SET_ID        = "setId"                          # optional id of a set if the job is part of a set
     NATIVE_INFO   = "nativeInfo"                     # any additional info the native Run wants to put in the status message
     SITE_NAME     = "siteName"                       # name of the Site which emitted the message
     COMPUTE_TYPE  = "computeType"                    # a named resource on the Site, if any
@@ -141,6 +142,12 @@ class JobContext(LwfmBase):
 
     def getOriginJobId(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.ORIGIN_JOB_ID.value)
+
+    def setJobSetId(self, idValue: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.SET_ID.value, idValue)
+
+    def getJobSetId(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.SET_ID.value)    
 
     # job name
     def setName(self, name: str) -> None:
