@@ -146,6 +146,10 @@ def _unset_data_event(self, jobId):
 def _getJobStatus(self, jobContext):
     return _getJobStatusWorker(self, jobContext)
 
+@JobRunner
+def _getAllJobs(job, startTime, endTime):
+    return _JobSvc(job).queryJobStatus(startTime, endTime)
+
 def _getJobStatusWorker(job, jobContext):
     timeNowMs = int(round(time.time() * 1000))
     startTimeMs =  timeNowMs - (99999 * 60 * 1000)
@@ -201,7 +205,7 @@ class DT4DSiteRunDriver(SiteRunDriver):
                 jobClass = cls()
                 nativeId = jobClass.getJobId()
                 PyEngine().runLocal(jobClass)
-            except ex as Exception:
+            except Exception as ex:
                 print("**** DT4DSiteSDriver exception while running local job " + str(ex))
         else:
             # run remote dt4d job
@@ -286,6 +290,9 @@ class DT4DSiteRunDriver(SiteRunDriver):
         eventHandlers = PyEngine.listRegisteredJobs(self)
         eventHandlers.extend(PyEngine.listDataTriggers(self))
         return eventHandlers
+        
+    def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
+        return _getAllJobs(startTime, endTime)
 
 
 #************************************************************************************************************************************

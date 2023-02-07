@@ -189,6 +189,19 @@ class SiteRunDriver(ABC):
         Site doesn't support event handlers.
         """
         pass
+    
+    @abstractmethod
+    def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
+        """
+        Get a list of jobs between two timestamps.
+        
+        Params:
+            int - a timestamp in the Unix epoch, the beginning of the returned period
+            int - a timestamp in the Unix epoch, the end of the returned period
+        Returns:
+            [JobStatus] - a list of jobs between the two timestamps
+        """
+        pass
 
 
 #***********************************************************************************************************************************
