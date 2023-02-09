@@ -56,7 +56,7 @@ class JobEventHandler(LwfmBase):
     """
 
     def __init__(self,
-                 jobId: str, jobSiteName: str, jobStatus: str, fireDefn: str, targetSiteName: str, targetContext: JobContext):
+                 jobId: str, jobSiteName: str, jobStatus: str, fireDefn: str, targetSiteName: str,  targetContext: JobContext):
         super(JobEventHandler, self).__init__(None)
         self._setId(_IdGenerator.generateId())
         LwfmBase._setArg(self, _JobEventHandlerFields.JOB_ID.value, jobId)
@@ -70,13 +70,19 @@ class JobEventHandler(LwfmBase):
         LwfmBase._setArg(self, _JobEventHandlerFields.ID.value, idValue)
 
     def getId(self) -> str:
-        return LwfmBase._getArg(self, _JobHandlerFieldsFields.ID.value)
+        return LwfmBase._getArg(self, _JobEventHandlerFields.ID.value)
 
     def getJobSiteName(self) -> str:
-        return LwfmBase._getArg(self, _JobHandlerFieldsFields.JOB_SITE_NAME.value)
+        return LwfmBase._getArg(self, _JobEventHandlerFields.JOB_SITE_NAME.value)
 
+    def getFireDefn(self) -> str:
+        return LwfmBase._getArg(self, _JobEventHandlerFields.FIRE_DEFN.value)
 
+    def getTargetSiteName(self) -> str:
+        return LwfmBase._getArg(self, _JobEventHandlerFields.TARGET_SITE_NAME.value)
 
+    def getTargetContext(self) -> str:
+        return LwfmBase._getArg(self, _JobEventHandlerFields.TARGET_CONTEXT.value)
 
     def getHandlerId(self) -> str:
         return self.getKey()

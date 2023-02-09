@@ -144,7 +144,7 @@ class SiteRunDriver(ABC):
 
 
     @abstractmethod
-    def setEventHandler(self, jeh: JobEventHandler) -> JobEventHandler:
+    def setEventHandler(self, jdef:JobDefn, jeh: JobEventHandler) -> JobEventHandler:
 
                         #jobContext: JobContext, jobStatus: JobStatusValues, statusFilter: Callable,
                         #newJobDefn: JobDefn, newJobContext: JobContext, newSiteName: str) -> JobEventHandler:

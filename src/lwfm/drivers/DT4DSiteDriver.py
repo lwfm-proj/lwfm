@@ -25,6 +25,7 @@ from py4dt4d._internal._JobSvc import _JobSvc
 from py4dt4d._internal._PyEngineUtil import _PyEngineUtil
 from py4dt4d._internal._Constants import _Locations, _LocationServers
 from py4dt4d.PyEngine import PyEngine
+from py4dt4d._internal._PyEngineImpl import _PyEngineImpl
 from py4dt4d.Job import JobRunner
 from py4dt4d.ToolRepo import ToolRepo
 from py4dt4d.SimRepo import SimRepo
@@ -33,6 +34,8 @@ SERVER = _Locations.PROD_STR.value
 
 LOCAL_COMPUTE_TYPE = "local"
 
+JOB_SET_HANDLER_TYPE = "jobset"
+DATA_HANDLER_TYPE = "data"
 
 #************************************************************************************************************************************
 
@@ -114,17 +117,35 @@ class DT4DSiteAuthDriver(SiteAuthDriver):
 # Run
 
 @JobRunner
-def _runRemoteJob(job, jobId, toolName, toolFile, toolClass, toolArgs, computeType, timeout=0.5):
-    # Put the file referened by script into ToolRepo with the given name and auto-increment the version
-    ToolRepo(job).putTool(toolFile, toolName, None)
+def _runRemoteJob(job, jobId, toolName, toolFile, toolClass, toolArgs, computeType, jobName, setId, timeout=0.5):
     # Run the tool on the remote computeType.
-    _JobSvc(job).runRemotePyJob(job, toolName, toolName, toolName, toolArgs, computeType, "", jobId,
-                                toolName, timeout, None, None, jobId)
-
+    _JobSvc(job).runRemotePyJob(job, toolName, toolFile, toolClass, toolArgs, computeType, "", setId,
+                                jobName, timeout, None, None, jobId)
 
 @JobRunner
-def _getJobStatus(job, jobContext):
-    return _getJobStatusWorker(job, jobContext)
+def _job_set_event(job, jobId, toolName, toolFile, toolClass, toolArgs, computeType, waitOnSetId, jobSetNumber, setId, jobName, timeout=0):
+    # Run the tool on the remote computeType.
+    print("Time to register the job: toolName:" + str(toolName) + "|toolFile:" + str(toolFile) + "|toolClass:" + str(toolClass) + "|args:" + str(toolArgs) + "|computeType:" + str(computeType) + "|waitOnSetId:" + str(waitOnSetId) + "|setNum:" + str(jobSetNumber))
+    _JobSvc(job).registerJob(job, toolName, toolFile, toolClass, toolArgs, computeType, "", waitOnSetId, jobSetNumber, jobType="python",
+        setId=setId, jobName=jobName, triggerJobId=jobId)
+
+@JobRunner
+def _data_event(job, jobId, toolName, toolFile, toolClass, toolArgs, computeType, trigger, setId, jobName, timeout=0):
+    # Run the tool on the remote computeType.
+    _JobSvc(job).registerDataTrigger(job, toolName, toolFile, toolClass, toolArgs, computeType, "", trigger, jobType="python",
+                                setId=setId, jobName=jobName, triggerJobId=jobId)
+
+@JobRunner
+def _unset_job_set_event(self, jobId):
+    # Run the tool on the remote computeType.
+    _PyEngineImpl().removeJobSetTrigger(self, jobId)
+
+def _unset_data_event(self, jobId):
+    # Run the tool on the remote computeType.
+    _PyEngineImpl().removeDataTrigger(self, jobId)
+
+def _getJobStatus(self, jobContext):
+    return _getJobStatusWorker(self, jobContext)
 
 def _getAllJobs(startTime, endTime):
     s = requests.Session()
@@ -166,8 +187,8 @@ def _getJobStatusWorker(job, jobContext):
     endTimeMs = timeNowMs + int(round(99999 * 60 * 1000))
     results = _JobSvc(job).queryJobStatusByJobId(startTimeMs, endTimeMs, jobContext.getNativeId())
     stat =  _statusProcessor(results, jobContext)
-    if (stat.getParentJobId() is None):
-        stat.setParentJobId("")
+    # if (stat.getParentJobId() is None):
+    #     stat.setParentJobId("")
     out = stat.serialize()
     return out
 
@@ -206,6 +227,7 @@ class DT4DSiteRunDriver(SiteRunDriver):
         modulePathStr = modulePath[1] + "." + modulePath[2]
 
         nativeId = context.getId()  # default to lwfm id
+        setId = context.getJobSetId()
         if (jdefn.getComputeType() == LOCAL_COMPUTE_TYPE):
             # run local dt4d job
             cls = getattr(importlib.import_module(modulePathStr), modulePath[3])
@@ -218,19 +240,18 @@ class DT4DSiteRunDriver(SiteRunDriver):
                 print("**** DT4DSiteSDriver exception while running local job " + str(ex))
         else:
             # run remote dt4d job
-            nativeId = _PyEngineUtil.generateId()
+            #nativeId = _PyEngineUtil.generateId()
             _runRemoteJob(nativeId,
-                          jdefn.getName(), modulePath[0] + "/" + modulePath[1] + "/" + modulePath[2] + ".py",
-                          modulePath[3],
-                          jdefn.getJobArgs(), jdefn.getComputeType())
+                          modulePath[0], modulePath[1], modulePath[2],
+                          jdefn.getJobArgs(), jdefn.getComputeType(), jdefn.getName(), setId)
 
         context.setNativeId(nativeId)
-        status.setNativeId(nativeId)
+        #status.setNativeId(nativeId)
         # At this point the status object we have contains the job's lwfm id and its native id.  it does not however
         # contain an accurate job status/state string - the job is being launched asynchronously, and therefore that underlying
         # runtime is going to take the job through its states.  to get the state into lwfm, we need to poll the site.
-        retval = JobStatusSentinelClient().setTerminalSentinel(context.getId(), context.getParentJobId(), context.getOriginJobId(),
-                                                               context.getNativeId(), "dt4d")
+        #retval = JobStatusSentinelClient().setTerminalSentinel(context.getId(), context.getParentJobId(), context.getOriginJobId(),
+        #                                                       context.getNativeId(), "dt4d")
         return status
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
@@ -244,20 +265,62 @@ class DT4DSiteRunDriver(SiteRunDriver):
 
 
     def listComputeTypes(self) -> [str]:
-        raise NotImplementedError()
+        computeTypes = PyEngine.listComputeTypes(self)
+        return computeTypes
 
 
-    def setEventHandler(self, jobContext: JobContext, jobStatus: JobStatusValues, statusFilter: Callable,
-                        newJobDefn: JobDefn, newJobContext: JobContext, newSiteName: str) -> JobEventHandler:
-        raise NotImplementedError()
+    def setEventHandler(self, jdefn:JobDefn, jeh: JobEventHandler) -> JobEventHandler:
+        context = jeh.getTargetContext()
+        if (context is None):
+            context = JobContext()
+        status = DT4DJobStatus(context)
+        if jeh is None:
+            status.emit("IMPROPER")
+            return status
+
+        # set the handler with DT4D
+        # DT4D moodule path is python [module, file, class ]
+        modulePath = jdefn.getEntryPoint()
+
+        nativeId = _PyEngineUtil.generateId()
+        setId = context.getJobSetId()
+        jobName = jdefn.getName()
+        fireDefn = jeh.getFireDefn()
+        # Getting the handler type.  There are 2 types in dt4d.  jobset handlers will fire when a job set with a specified length
+        # has completed.  data handlers will fire when a file is uploaded with a given metadata set.
+        handlerType = fireDefn[0]
+        if handlerType.lower() == JOB_SET_HANDLER_TYPE:
+            waitOnSetId = fireDefn[1]
+            jobSetNumber = int(fireDefn[2])
+            _job_set_event(nativeId, modulePath[0], modulePath[1], modulePath[2],
+                        jdefn.getJobArgs(), jdefn.getComputeType(), waitOnSetId, jobSetNumber, setId, jobName)
+        elif handlerType.lower() == DATA_HANDLER_TYPE:
+            trigger = fireDefn[1]
+            _data_event(nativeId, modulePath[0], modulePath[1], modulePath[2],
+                        jdefn.getJobArgs(), jdefn.getComputeType(), trigger, setId, jobName)
+        context.setNativeId(nativeId)
+        # At this point the status object we have contains the job's lwfm id and its native id.  it does not however
+        # contain an accurate job status/state string - the job is being launched asynchronously, and therefore that underlying
+        # runtime is going to take the job through its states.  to get the state into lwfm, we need to poll the site.
+        #retval = JobStatusSentinelClient().setTerminalSentinel(context.getId(), context.getParentJobId(), context.getOriginJobId(),
+        #                                                       context.getNativeId(), "dt4d")
+        return status
 
 
     def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
-        raise NotImplementedError()
-
+        handlerType = jeh.getFireDefn()[0]
+        print("UNSETTING " + handlerType + ": " + jeh.getId())
+        if(handlerType.lower() == JOB_SET_HANDLER_TYPE):
+            _unset_job_set_event(jeh.getId())
+            #_PyEngineImpl.removeJobSetTrigger(self, self, jeh.getId())
+        elif(handlerType.lower() == DATA_HANDLER_TYPE):
+            _unset_data_event(jeh.getId())
+            #_PyEngineImpl.removeDataTrigger(self, self, jeh.getId())
 
     def listEventHandlers(self) -> [JobEventHandler]:
-        raise NotImplementedError()
+        eventHandlers = PyEngine.listRegisteredJobs(self)
+        eventHandlers.extend(PyEngine.listDataTriggers(self))
+        return eventHandlers
         
     def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
         return _getAllJobs(startTime, endTime)
