@@ -129,7 +129,6 @@ def _getJobStatus(job, jobContext):
 def _getAllJobs(startTime, endTime):
     s = requests.Session()
     tokenFile = _SecuritySvc().login()
-    username = tokenFile["sso"]
     location = tokenFile["location"]
     token = tokenFile["accessToken"]
     query="?startTimeMs=" + str(startTime) + "&endTimeMs=" + str(endTime)
@@ -137,6 +136,27 @@ def _getAllJobs(startTime, endTime):
     m = s.get(url,
                   headers={"Authorization":"Bearer " + token, "Content-Type" : "application/json"},
                   json = {"startTimeMs":str(startTime), "endTimeMs":str(endTime)})
+
+
+    # We have a list of DT4D jobs, but we need it in lwfm format
+    jobStatuses = []
+    jobList = m.json()
+    for job in jobList:
+        jobContext = JobContext()
+        jobContext.setNativeId(job['workflowId'])
+        jobContext.setParentJobId(job['parentWorkflowId'])
+        jobContext.setOriginJobId(job['originatorWOrkflowId'])
+        jobContext.setName(job['jobName'])
+        jobContext.setSetName('DT4D')
+        jobContext.setComputeType(job['computeType'])
+
+        jobStatus = DT4DJobStatus(jobContext)
+        jobStatus.setNativeStatusStr(job['status'])
+        jobStatus.setEmitTime(job['headerTimestamp'])
+        jobStatus.setReceivedTime(job['dt4dReceivedTimestamp'])
+
+        jobStatuses.append(jobStatus)
+
     return m.json()
 
 
