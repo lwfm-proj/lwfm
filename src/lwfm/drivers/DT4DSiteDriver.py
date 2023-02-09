@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from pathlib import Path
 import os
 import pickle
+import requests
 from typing import Callable
 
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
@@ -22,7 +23,7 @@ from lwfm.base.JobEventHandler import JobEventHandler
 from py4dt4d._internal._SecuritySvc import _SecuritySvc
 from py4dt4d._internal._JobSvc import _JobSvc
 from py4dt4d._internal._PyEngineUtil import _PyEngineUtil
-from py4dt4d._internal._Constants import _Locations
+from py4dt4d._internal._Constants import _Locations, _LocationServers
 from py4dt4d.PyEngine import PyEngine
 from py4dt4d._internal._PyEngineImpl import _PyEngineImpl
 from py4dt4d.Job import JobRunner
@@ -146,9 +147,39 @@ def _unset_data_event(self, jobId):
 def _getJobStatus(self, jobContext):
     return _getJobStatusWorker(self, jobContext)
 
-@JobRunner
-def _getAllJobs(job, startTime, endTime):
-    return _JobSvc(job).queryJobStatus(startTime, endTime)
+def _getAllJobs(startTime, endTime):
+    s = requests.Session()
+    tokenFile = _SecuritySvc().login()
+    location = tokenFile["location"]
+    token = tokenFile["accessToken"]
+    query="?startTimeMs=" + str(startTime) + "&endTimeMs=" + str(endTime)
+    url = _LocationServers.JOB_SVC_MAP.value[location] + "/api/v0/repo/get/runAggregated" + query
+    m = s.get(url,
+                  headers={"Authorization":"Bearer " + token, "Content-Type" : "application/json"},
+                  json = {"startTimeMs":str(startTime), "endTimeMs":str(endTime)})
+
+
+    # We have a list of DT4D jobs, but we need it in lwfm format
+    jobStatuses = []
+    jobList = m.json()
+    for job in jobList:
+        jobContext = JobContext()
+        jobContext.setNativeId(job['workflowId'])
+        jobContext.setParentJobId(job['parentWorkflowId'])
+        jobContext.setOriginJobId(job['originatorWOrkflowId'])
+        jobContext.setName(job['jobName'])
+        jobContext.setSetName('DT4D')
+        jobContext.setComputeType(job['computeType'])
+
+        jobStatus = DT4DJobStatus(jobContext)
+        jobStatus.setNativeStatusStr(job['status'])
+        jobStatus.setEmitTime(job['headerTimestamp'])
+        jobStatus.setReceivedTime(job['dt4dReceivedTimestamp'])
+
+        jobStatuses.append(jobStatus)
+
+    return m.json()
+
 
 def _getJobStatusWorker(job, jobContext):
     timeNowMs = int(round(time.time() * 1000))
