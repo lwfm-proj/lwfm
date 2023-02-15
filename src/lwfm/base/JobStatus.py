@@ -60,19 +60,19 @@ class JobStatusValues(Enum):
             return False
 
     def isTerminalSuccess(self, stat):
-        if (isTerminal(stat) and (stat == self.COMPLETE)):
+        if (self.isTerminal(stat) and (stat == self.COMPLETE)):
             return True
         else:
             return False
 
     def isTerminalFailure(self, stat):
-        if (isTerminal(stat) and (stat == self.FAILED)):
+        if (self.isTerminal(stat) and (stat == self.FAILED)):
             return True
         else:
             return False
 
     def isTerminalCancelled(self, stat):
-        if (isTerminal(stat) and (stat == self.CANCELLED)):
+        if (self.isTerminal(stat) and (stat == self.CANCELLED)):
             return True
         else:
             return False
