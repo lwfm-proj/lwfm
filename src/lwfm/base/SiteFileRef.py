@@ -19,7 +19,7 @@ from lwfm.base.LwfmBase import LwfmBase
 
 class _SiteFileRefFields(Enum):
     ID        = "id"       # sometimes the data entity has an id distinct from its name
-    NAME      = "name"
+    NAME      = "filename"
     SIZE      = "size"
     TIMESTAMP = "timestamp"
     IS_FILE   = "isFile"
@@ -31,12 +31,14 @@ class SiteFileRef(LwfmBase):
 
     # some files have identifiers other than a name, some might just return the name
     def getId(self) -> str:
+        print("getting ID")
         return LwfmBase._getArg(self, _SiteFileRefFields.ID.value)
 
     def setId(self, id: str) -> None:
         LwfmBase._setArg(self, _SiteFileRefFields.ID.value, id)
 
     def getName(self) -> str:
+        print("getting Name")
         return LwfmBase._getArg(self, _SiteFileRefFields.NAME.value)
 
     def setName(self, name: str) -> None:
