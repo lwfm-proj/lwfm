@@ -376,8 +376,8 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             # emit the successful job ending sequence
             status.emit("FINISHED")
             status.emit("COMPLETED")
-        MetaRepo.notate(SiteFileRef)
-        return SiteFileRef
+        MetaRepo.notate(siteRef)
+        return siteRef
 
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
         # Book keeping for status emissions
