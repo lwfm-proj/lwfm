@@ -168,7 +168,7 @@ def _getAllJobs(startTime, endTime):
         jobContext.setParentJobId(job['parentWorkflowId'])
         jobContext.setOriginJobId(job['originatorWorkflowId'])
         jobContext.setName(job['jobName'])
-        jobContext.setSetName('DT4D')
+        jobContext.setSiteName('DT4D')
         jobContext.setComputeType(job['computeType'])
 
         jobStatus = DT4DJobStatus(jobContext)
