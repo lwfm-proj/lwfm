@@ -348,7 +348,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
             # emit the successful job ending sequence
             jstatus.emit(JobStatusValues.FINISHING.value)
             jstatus.emit(JobStatusValues.COMPLETE.value)
-        MetaRepo.Notate(siteRef)
+        MetaRepo.notate(siteRef)
         return localRef
 
     def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
