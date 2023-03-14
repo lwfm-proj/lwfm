@@ -341,9 +341,27 @@ def repoGet(job, docId, path=""):
 def repoFindById(job, docId):
     return SimRepo(job).getMetadataByDocId(docId)
 
-@JobRunner
-def repoFindByMetadata(job, metadata):
-    return SimRepo(job).getMetadataByMetadata(metadata)
+def repoFindByMetadata(metadata):
+    authDriver = DT4DSiteAuthDriver()
+    if not authDriver.isAuthCurrent():
+        authDriver.login()
+    creds = _SecuritySvc().login(SERVER)
+    location = creds["location"]
+    group = creds["userGroup"]
+    token = creds["accessToken"]
+    metadata['DT4D_TENANT'] = group
+    values = {"metadata" : metadata}
+
+    s = requests.Session()
+    url = _LocationServers.REPO_SVC_MAP.value[location] + "/api/v0/repo/get/simMetaSearchInTenancy"
+
+    m = s.post(url, headers={
+        "Authorization": "Bearer " + token}, json=values)
+
+    if not m.json():
+        raise LookupError("No results found")
+    return m.json()
+
 
 class Dt4DSiteRepoDriver(SiteRepoDriver):
 
@@ -412,7 +430,6 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             sheets = repoFindById(siteRef.getId())
         elif(siteRef.getMetadata()):   
             sheets = repoFindByMetadata(siteRef.getMetadata())
-        print(str(sheets))
         remoteRefs = []
         for sheet in sheets:
             remoteRef = FSFileRef()
