@@ -432,7 +432,7 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             sheets = repoFindByMetadata(siteRef.getMetadata())
         remoteRefs = []
         for sheet in sheets:
-            remoteRef = SiteFileRef()
+            remoteRef = FSFileRef()
             remoteRef.setId(sheet["id"])
             if "resourceName" in sheet:
                 remoteRef.setName(sheet["resourceName"])
