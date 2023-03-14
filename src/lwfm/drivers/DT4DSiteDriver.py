@@ -335,7 +335,7 @@ def repoPut(job, path, metadata={}):
 
 @JobRunner
 def repoGet(job, docId, path=""):
-    return SimRepo(job).getByDocId(docId, path)
+    return SimRepo(job).getByDocId(docId, path, fullPath=True)
 
 @JobRunner
 def repoFindById(job, docId):
@@ -432,12 +432,15 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             sheets = repoFindByMetadata(siteRef.getMetadata())
         remoteRefs = []
         for sheet in sheets:
-            remoteRef = FSFileRef()
+            remoteRef = SiteFileRef()
             remoteRef.setId(sheet["id"])
             if "resourceName" in sheet:
                 remoteRef.setName(sheet["resourceName"])
-            remoteRef.setSize(sheet["fileSizeBytes"])
+            elif "fileName" in sheet:
+                remoteRef.setName(sheet["fileName"])
             remoteRef.setTimestamp(sheet["timestamp"])
+            remoteRef.setSize(sheet["fileSizeBytes"])
+            remoteRef.setMetadata(sheet["metadata"])
             remoteRefs.append(remoteRef)
         return remoteRefs
 
