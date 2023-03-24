@@ -15,39 +15,7 @@ from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.base.Site import Site
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
-
-
-#************************************************************************************************************************************
-# tracks an event being waited upon, and the information to launch the responding job when it happens
-
-class _EventHandlerFields(Enum):
-    JOB_ID           = "jobId"
-    JOB_SITE_NAME    = "jobSiteName"
-    JOB_STATUS       = "jobStatus"
-    FIRE_DEFN        = "fireDefn"
-    TARGET_SITE_NAME = "targetSiteName"
-    TARGET_CONTEXT   = "targetContext"
-
-
-class EventHandler(LwfmBase):
-    def __init__(self, jobId: str, jobSiteName: str, jobStatus: str, fireDefn: str, targetSiteName: str, targetContext: JobContext):
-        super(EventHandler, self).__init__(None)
-        LwfmBase._setArg(self, _EventHandlerFields.JOB_ID.value, jobId)
-        LwfmBase._setArg(self, _EventHandlerFields.JOB_SITE_NAME.value, jobSiteName)
-        LwfmBase._setArg(self, _EventHandlerFields.JOB_STATUS.value, jobStatus)
-        LwfmBase._setArg(self, _EventHandlerFields.FIRE_DEFN.value, fireDefn)
-        LwfmBase._setArg(self, _EventHandlerFields.TARGET_SITE_NAME.value, targetSiteName)
-        LwfmBase._setArg(self, _EventHandlerFields.TARGET_CONTEXT.value, targetContext)
-
-    def getHandlerId(self) -> str:
-        return self.getKey()
-
-    def getKey(self):
-        # We want to permit more than one event handler for the same job, but for now we'll limit it to one handler per
-        # canonical job status name.
-        return str("" + LwfmBase._getArg(self, _EventHandlerFields.JOB_ID.value) +
-                   "." +
-                   LwfmBase._getArg(self, _EventHandlerFields.JOB_STATUS.value))
+from lwfm.base.JobEventHandler import JobEventHandler, _JobEventHandlerFields
 
 
 #************************************************************************************************************************************
@@ -68,11 +36,11 @@ class JobStatusSentinel:
         # Run through each event, checking the status
         for key in list(self._eventHandlerMap):
             handler = self._eventHandlerMap[key]
-            site = handler._getArg( _EventHandlerFields.JOB_SITE_NAME.value)
+            site = handler._getArg( _JobEventHandlerFields.JOB_SITE_NAME.value)
             # Local jobs can instantly emit their own statuses, on demand
             if site != "local":
                 # Get the job's status
-                jobId = handler._getArg( _EventHandlerFields.JOB_ID.value)
+                jobId = handler._getArg( _JobEventHandlerFields.JOB_ID.value)
                 runDriver = Site.getSiteInstanceFactory(site).getRunDriver()
                 context = JobContext()
                 context.setId(jobId)
@@ -83,18 +51,18 @@ class JobStatusSentinel:
                     # if we are in a terminal state, "run the handler" which means "evict" the job from checking
                     # in the future - we have seen its terminal state
                     # we do have a target context, which gives us the parent and origin job ids
-                    context = (handler._getArg( _EventHandlerFields.TARGET_CONTEXT.value))
+                    context = (handler._getArg( _JobEventHandlerFields.TARGET_CONTEXT.value))
                     jobStatus.setParentJobId(context.getParentJobId())
                     jobStatus.setOriginJobId(context.getOriginJobId())
                     jobStatus.setNativeId(context.getNativeId())
-                    jobStatus.setId(context.getId())
+                    jobStatus.getJobContext().setId(context.getId())
                     jobStatus.emit()
                     if (jobStatus.isTerminal()):
                         # evict
-                        key = EventHandler(jobId, None, "<<TERMINAL>>", None, None, None).getKey()
+                        key = JobEventHandler(jobId, None, "<<TERMINAL>>", None, None, None).getKey()
                         self.unsetEventHandler(key)
                 else:
-                    key = EventHandler(jobId, None, jobStatus, None, None, None).getKey()
+                    key = JobEventHandler(jobId, None, jobStatus, None, None, None).getKey()
                     self.runHandler(key, jobStatus)
 
         # Timers only run once, so retrigger it
@@ -106,7 +74,7 @@ class JobStatusSentinel:
     # the given JobDefn (serialized) at the target Site.  Return the handler id.
     def setEventHandler(self, jobId: str, jobSiteName: str, jobStatus: str,
                         fireDefn: str, targetSiteName: str, targetContext: JobContext) -> str:
-        eventHandler = EventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetContext)
+        eventHandler = JobEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetContext)
         self._eventHandlerMap[eventHandler.getKey()] = eventHandler
         return eventHandler.getKey()
 
@@ -136,18 +104,18 @@ class JobStatusSentinel:
         handler = self._eventHandlerMap[handlerId]
         self.unsetEventHandler(handlerId)
 
-        if (handler._getArg( _EventHandlerFields.FIRE_DEFN.value) == ""):
+        if (handler._getArg( _JobEventHandlerFields.FIRE_DEFN.value) == ""):
             # we have no defn to fire - we've just been tracking status
             return True
 
         # Run in a thread instead of a subprocess so we don't have to make assumptions about the environment
-        site = Site.getSiteInstanceFactory(handler._getArg( _EventHandlerFields.TARGET_SITE_NAME.value))
+        site = Site.getSiteInstanceFactory(handler._getArg( _JobEventHandlerFields.TARGET_SITE_NAME.value))
         runDriver = site.getRunDriver().__class__
-        jobContext = handler._getArg(_EventHandlerFields.TARGET_CONTEXT.value)
-        jobContext.setOriginJobId(jobStatus.getOriginJobId())
+        jobContext = handler._getArg(_JobEventHandlerFields.TARGET_CONTEXT.value)
+        jobContext.setOriginJobId(jobStatus.getJobContext().getOriginJobId())
         # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
         thread = threading.Thread(target = runDriver._submitJob,
-                                  args = (handler._getArg( _EventHandlerFields.FIRE_DEFN.value),jobContext,) )
+                                  args = (handler._getArg( _JobEventHandlerFields.FIRE_DEFN.value),jobContext,) )
         try:
             thread.start()
         except Exception as ex:

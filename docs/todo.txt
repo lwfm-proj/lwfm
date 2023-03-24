@@ -1,25 +1,45 @@
 TODO
 
 + now
-    - delivery to main
+    - test loggger in dt4d example
+    - compute type in status message via job context (anything else to do?)
+    - listComputeTypes returns complex list object w. metadata
 
+lwfm: Repo.Run job status serialization incl. subclasses & job context
 
 + priority 1
-    - triggers should work like >= as remote sites might not report all states
+    + event handlers
+        - metadata-based filter implementation & example
+        - better examples around multi-site - not all sites implement, but local does
+        - triggers should work like >= as remote sites might not report all states
+        - test: trigger job running on remote site, targer runs on remote site
     - SiteFileRef with timestamp (see TODO)
-    - triggers as part of Site.Run, lwfm implements as current
+    - MetaRepo notate()
 
 
 + priority 2
     - JobStatus history
-    - MetaRepo notate()
-    - RunRepo
     - multi-Site Job status panel -> similar to DT4D's, but multi-Site
     - demo: lab device as a Site
-    - local site driver subclass with ssh as run, scp as repo, with auth credentials
+    + event handlers
+        - persisting over lwfm restart
+        - full trigger model impl - fuzzy, timeouts, wildcards, persistence, etc.
 
 
 + priority 3
+    - local site driver subclass with ssh as run, scp as repo, with auth credentials
     - digital thread graph render & navigate, incl. event trigger futures
-    - full trigger model impl - fuzzy, timeouts, wildcards, persistence, etc. - triggers running other than locally
+    - RunRepo - robust impl
     - JSS security
+    - adaptive job status polling based on emit & received job status timestamps
+
+
+---------------------
+
+NAFEMS paper
+    - byo workflow tool
+    - spin (see NERSC)
+    - federated metadata
+    - surrogate u
+    - metadata transfer
+

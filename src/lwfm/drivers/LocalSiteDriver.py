@@ -10,6 +10,7 @@ import multiprocessing
 import time
 import pickle
 import json
+from typing import Callable
 
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+from lwfm.base.JobEventHandler import JobEventHandler
 from lwfm.base.MetaRepo import MetaRepo
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 
@@ -32,7 +34,7 @@ class LocalJobStatus(JobStatus):
     def __init__(self, jcontext: JobContext = None):
         super(LocalJobStatus, self).__init__(jcontext)
         # use default canonical status map
-        self.setSiteName(SITE_NAME)
+        self.getJobContext().setSiteName(SITE_NAME)
 
     def toJSON(self):
         return self.serialize()
@@ -110,7 +112,7 @@ class LocalSiteRunDriver(SiteRunDriver):
         # Run the job in a new thread so we can wrap it in a bit more code
         thread = multiprocessing.Process(target=self._runJob, args=[jdefn, jstatus])
         thread.start()
-        self._pendingJobs[jstatus.getId()] = thread
+        self._pendingJobs[jstatus.getJobContext().getId()] = thread
 
         return jstatus
 
@@ -142,6 +144,24 @@ class LocalSiteRunDriver(SiteRunDriver):
     def listComputeTypes(self) -> [str]:
         return ["local"]
 
+
+    def setEventHandler(self, jobContext: JobContext, jobStatus: JobStatusValues, statusFilter: Callable,
+                        newJobDefn: JobDefn, newJobContext: JobContext, newSiteName: str) -> JobEventHandler:
+        if (newSiteName is None):
+            newSiteName = "local"
+        JobStatusSentinelClient().setEventHandler(jobContext.getId(), jobContext.getSiteName(), jobStatus.value,
+                                                  newJobDefn, newSiteName, newJobContext)
+
+
+    def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
+        raise NotImplementedError()
+
+
+    def listEventHandlers(self) -> [JobEventHandler]:
+        raise NotImplementedError()
+
+    def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
+        raise NotImplementedError()
 
 #***********************************************************************************************************************************
 
@@ -196,7 +216,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         return Path(str(toPath) + "/" + Path(fromPath).name)
 
 
-    def find(self, siteRef: SiteFileRef) -> SiteFileRef:
+    def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
         return MetaRepo.find(siteRef)
 
 
@@ -235,7 +255,7 @@ if __name__ == '__main__':
     jdefn.setEntryPoint("echo")
     jdefn.setJobArgs([ "pwd = `pwd`" ])
     status = site.getRunDriver().submitJob(jdefn)
-    logging.info("pwd job id = " + status.getId())
+    logging.info("pwd job id = " + status.getJobContext().getId())
     logging.info("pwd job status = " + str(status.getStatus()))   # initial status will be pending - its async
 
     logging.info("***** repo tests")
@@ -281,7 +301,7 @@ if __name__ == '__main__':
     jdefn = JobDefn()
     jdefn.setEntryPoint("sleep 100")
     status = site.getRunDriver().submitJob(jdefn)
-    logging.info("sleep job id = " + status.getId())
+    logging.info("sleep job id = " + status.getJobContext().getId())
     logging.info("sleep job status = " + str(status.getStatus()))   # initial status will be pending - its async
     # wait a little bit for the job to actually start and emit a running status, then we'll cancel it
     time.sleep(10)

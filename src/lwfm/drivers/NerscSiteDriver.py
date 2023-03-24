@@ -11,6 +11,7 @@ import time
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
+from typing import Callable
 
 import logging
 
@@ -18,6 +19,7 @@ from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import FSFileRef, SiteFileRef, RemoteFSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+from lwfm.base.JobEventHandler import JobEventHandler
 from lwfm.base.MetaRepo import MetaRepo
 from lwfm.store.AuthStore import AuthStore
 
@@ -25,18 +27,18 @@ from lwfm.store.AuthStore import AuthStore
 class NerscSite(Site):
     def __init__(self):
         super(NerscSite, self).__init__("nersc", NerscSiteAuthDriver(), NerscSiteRunDriver(), NerscSiteRepoDriver(), None)
-        _runDriver.setMachine(None)
+        self._runDriver.setMachine(None)
 
 class PerlmutterSite(Site):
     def __init__(self):
         super(PerlmutterSite, self).__init__("nersc", NerscSiteAuthDriver(), PerlmutterSiteRunDriver(), PerlmutterSiteRepoDriver(),
                                              None)
-        _runDriver.setMachine("perlmutter")
+        self._runDriver.setMachine("perlmutter")
 
 class CoriSite(Site):
     def __init__(self):
         super(CoriSite, self).__init__("nersc", NerscSiteAuthDriver(), CoriSiteRunDriver(), CoriSiteRepoDriver(), None)
-        _runDriver.setMachine("cori")
+        self._runDriver.setMachine("cori")
 
 NERSC_BASE_URL = "https://api.nersc.gov/api/v1.2"
 class NERSC_URLS(Enum):
@@ -236,6 +238,22 @@ class NerscSiteRunDriver(SiteRunDriver):
         raise NotImplementedError()
 
 
+    def setEventHandler(self, jobContext: JobContext, jobStatus: JobStatusValues, statusFilter: Callable,
+                        newJobDefn: JobDefn, newJobContext: JobContext, newSiteName: str) -> JobEventHandler:
+        raise NotImplementedError()
+
+
+    def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
+        raise NotImplementedError()
+
+
+    def listEventHandlers(self) -> [JobEventHandler]:
+        raise NotImplementedError()
+
+    def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
+        raise NotImplementedError()
+
+
 class PerlmutterSiteRunDriver(NerscSiteRunDriver):
     machine = 'perlmutter'
 
@@ -333,7 +351,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         MetaRepo.Notate(SiteFileRef)
         return localRef
 
-    def find(self, siteRef: SiteFileRef) -> SiteFileRef:
+    def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
         path = siteRef.getPath()
         url = NERSC_URLS.NERSC_LS_URL.value + self.machine + path
 
@@ -350,7 +368,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
         fileList = [f["name"] for f in fileList]
         remoteRef = FSFileRef()
         remoteRef.setDirContents(fileList)
-        return remoteRef
+        return [remoteRef]
 
 class PerlmutterSiteRepoDriver(NerscSiteRepoDriver):
     machine = 'perlmutter'

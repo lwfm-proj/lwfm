@@ -19,7 +19,6 @@ class _JobDefnFields(Enum):
     COMPUTE_TYPE       = "computeType"                 # some sites define addressable compute resources within it
     ENTRY_POINT        = "entryPoint"                  # defines the top-level "executable" command to pass to the site scheduler
     JOB_ARGS           = "jobArgs"                     # arguments to the job - an array of string
-    NOTIFICATION_EMAIL = "notificationEmail"           # some site schedulers permit direct user notification
     REPO_OP            = "repoOp"                      # put, get
     REPO_LOCAL_REF     = "repoLocalRef"                # local file reference
     REPO_SITE_REF      = "repoSiteRef"                 # site file reference
@@ -27,6 +26,25 @@ class _JobDefnFields(Enum):
 
 
 class JobDefn(LwfmBase):
+    """
+    The static definition of a job, to be instantiated at runtime by the Site.Run subsystem.  The Job Defn is not presumed
+    to be portable - within will be baked arbitrary arguments, which might very well be Site-specific (e.g., parameters to a
+    specific Site HPC scheduler).
+
+    Attributes:
+
+    name - an optional name for human consumption
+
+    compute type - we can target the job at an optional compute type on the Site, a specific resource the Site provides;
+        the Site might have no such concept and present only one runtime option
+
+    entry point - a declaration of the command to run, from the perspective of the Site.  This can be anything from an actual
+        command string, or a complex serialized object - its entirely up to the Site how to specify and interpret the entry point -
+        again, the JobDefn is not presumed to be portable across Sites
+
+    job args - distinct from the entry point, the job might desire arbitrary arguments at runtime
+
+    """
 
     def __init__(self):
         super(JobDefn, self).__init__(None)
@@ -55,12 +73,6 @@ class JobDefn(LwfmBase):
     def getJobArgs(self) -> [str]:
         return LwfmBase._getArg(self, _JobDefnFields.JOB_ARGS.value)
 
-    def setNotificationEmail(self, email: str) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.NOTIFICATION_EMAIL.value, email)
-
-    def getNotificationEmail(self) -> str:
-        return LwfmBase._getArg(self, _JobDefnFields.NOTIFICATION_EMAIL.value)
-
 
 #************************************************************************************************************************************
 
@@ -70,6 +82,12 @@ class RepoOp(Enum):
 
 
 class RepoJobDefn(JobDefn):
+    """
+    Moving data between Sites is expected to be common, and time consuming, and thus wanted to be performed asynchronously.
+    Thus wrapping a data movement as a job and setting a job event trigger to fire when the data move is complete would be common.
+    The RepoJobDefn as a subclass of JobDefn provides this convenience mechanism for wrapping a data move as an independent job.
+    """
+
     def __init__(self):
         super(RepoJobDefn, self).__init__()
 
