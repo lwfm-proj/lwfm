@@ -145,3 +145,14 @@ class RemoteFSFileRef(FSFileRef):
 
 
 #************************************************************************************************************************************
+
+#************************************************************************************************************************************
+# file in an s3 bucket
+
+class S3FileRef(SiteFileRef):
+
+    def getPath(self) -> str:
+        raise NotImplementedError()
+
+    def setPath(self, path: str) -> None:
+        raise NotImplementedError()

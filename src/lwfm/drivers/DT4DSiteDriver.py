@@ -11,7 +11,7 @@ import pickle
 from typing import Callable
 
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
-from lwfm.base.SiteFileRef import FSFileRef, SiteFileRef, RemoteFSFileRef
+from lwfm.base.SiteFileRef import FSFileRef, SiteFileRef, RemoteFSFileRef, S3FileRef
 from lwfm.base.JobDefn import JobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.base.MetaRepo import MetaRepo
@@ -148,7 +148,7 @@ def _getJobStatus(self, jobContext):
 
 @JobRunner
 def _getAllJobs(job, startTime, endTime):
-    return _JobSvc(job).queryJobStatus(startTime, endTime)
+    return _JobSvc(job).queryMostRecentJobStatus(startTime, endTime)
 
 def _getJobStatusWorker(job, jobContext):
     timeNowMs = int(round(time.time() * 1000))
@@ -321,7 +321,7 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
         authDriver.login()
         return authDriver._session
 
-    def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
+    def put(self, localRef: Path, siteRef: S3FileRef, jobContext: JobContext = None) -> S3FileRef:
         # Book keeping for status emissions
         iAmAJob = False
         if (jobContext is None):
@@ -345,10 +345,10 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             # emit the successful job ending sequence
             status.emit("FINISHED")
             status.emit("COMPLETED")
-        MetaRepo.notate(SiteFileRef)
-        return SiteFileRef
+        MetaRepo.notate(S3FileRef)
+        return S3FileRef
 
-    def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
+    def get(self, siteRef: S3FileRef, localRef: Path, jobContext: JobContext = None) -> Path:
         # Book keeping for status emissions
         iAmAJob = False
         if (jobContext is None):
@@ -372,10 +372,10 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             # emit the successful job ending sequence
             status.emit("FINISHED")
             status.emit("COMPLETED")
-        #MetaRepo.Notate(SiteFileRef)
+        #MetaRepo.Notate(S3FileRef)
         return getFile
 
-    def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
+    def find(self, siteRef: S3FileRef) -> [S3FileRef]:
         sheets = None
         if(siteRef.getId()):
             sheets = repoFindById(siteRef.getId())
@@ -384,7 +384,7 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
         print(str(sheets))
         remoteRefs = []
         for sheet in sheets:
-            remoteRef = SiteFileRef()
+            remoteRef = S3FileRef()
             remoteRef.setId(sheet["id"])
             if "resourceName" in sheet:
                 remoteRef.setName(sheet["resourceName"])
