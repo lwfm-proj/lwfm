@@ -2,7 +2,7 @@
 #************************************************************************************************************************************
 # Flask app
 
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import pickle
 from lwfm.server.JobStatusSentinel import JobStatusSentinel
 from lwfm.base.JobEventHandler import JobEventHandler
@@ -49,6 +49,23 @@ def getStatus(jobId : str):
             return ""
     except:
         return ""
+
+@app.route('/all/statuses')
+def getAllStatuses():
+    print("Starting get statuses")
+    try:
+        statuses = []
+        for jobId in _jobStatusCache:
+            try:
+                status = _jobStatusCache[jobId]
+                statuses.append(status.toJSON())
+            except ex as Exception:
+                print("*** exception from stat.serialize() " + str(ex))
+                return ""
+    except Exception as e:
+        print("exception: " + str(e))
+        return ""
+    return jsonify(statuses)
 
 @app.route('/set', methods = ['POST'])
 def setHandler():

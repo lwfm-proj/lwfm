@@ -1,6 +1,7 @@
 import pickle
 import requests
 import logging
+import json
 
 from lwfm.base.JobDefn import JobDefn
 
@@ -102,6 +103,17 @@ class JobStatusSentinelClient:
             else:
                 return None
         except:
+            return None
+
+    def getStatuses(self):
+        response = requests.get(f'{self.getUrl()}/all/statuses')
+        if response.ok:
+            if (response.text == ""):
+                return None
+            else:
+                statuses =  json.loads(str(response.text))
+                return statuses
+        else:
             return None
 
     def getWorkflowUrl(self, jobContext) -> str:

@@ -161,7 +161,12 @@ class LocalSiteRunDriver(SiteRunDriver):
         raise NotImplementedError()
 
     def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
-        raise NotImplementedError()
+        statuses = []
+        serializedStatuses = JobStatusSentinelClient().getStatuses()
+        for serializedStatus in serializedStatuses:
+            status = LocalJobStatus.deserialize(serializedStatus)
+            statuses.append(status)
+        return statuses
 
 #***********************************************************************************************************************************
 

@@ -21,6 +21,7 @@ from lwfm.base.JobEventHandler import JobEventHandler
 
 from py4dt4d._internal._SecuritySvc import _SecuritySvc
 from py4dt4d._internal._JobSvc import _JobSvc
+from py4dt4d._internal._SimRepoSvc import _SimRepoSvc
 from py4dt4d._internal._PyEngineUtil import _PyEngineUtil
 from py4dt4d._internal._Constants import _Locations
 from py4dt4d.PyEngine import PyEngine
@@ -148,7 +149,23 @@ def _getJobStatus(self, jobContext):
 
 @JobRunner
 def _getAllJobs(job, startTime, endTime):
-    return _JobSvc(job).queryMostRecentJobStatus(startTime, endTime)
+    statuses = []
+    status_dicts = _JobSvc(job).queryMostRecentJobStatus(startTime, endTime)
+    for status_dict in status_dicts:
+        context = JobContext()
+        context.setId(status_dict['workflowId'])
+        context.setParentJobId(status_dict['originatorWorkflowId'])
+        context.setOriginJobId(status_dict['parentWorkflowId'])
+        context.setName(status_dict['jobName'])
+        context.setSiteName('dt4d')
+        context.setComputeType(status_dict['computeType'])
+        context.setGroup(status_dict['group'])
+        context.setUser(status_dict['userSSO'])
+        status = DT4DJobStatus(context)
+        status.setReceivedTime(datetime.utcfromtimestamp(status_dict['timestamp']/1000))
+        status.setStatus(status.getStatusMap()[status_dict['status'].upper()])
+        statuses.append(status.serialize())
+    return statuses
 
 def _getJobStatusWorker(job, jobContext):
     timeNowMs = int(round(time.time() * 1000))
@@ -292,7 +309,12 @@ class DT4DSiteRunDriver(SiteRunDriver):
         return eventHandlers
         
     def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
-        return _getAllJobs(startTime, endTime)
+        statuses = []
+        serialized_statuses = _getAllJobs(startTime, endTime)
+        for serialized_status in serialized_statuses:
+            status = DT4DJobStatus.deserialize(serialized_status)
+            statuses.append(status)
+        return statuses
 
 
 #************************************************************************************************************************************
@@ -313,6 +335,10 @@ def repoFindById(job, docId):
 @JobRunner
 def repoFindByMetadata(job, metadata):
     return SimRepo(job).getMetadataByMetadata(metadata)
+
+@JobRunner
+def repoGetValues(job, field, contains, group, metadata, startTime, endTime):
+    return _SimRepoSvc(job).getValues(field, contains, group, metadata, startTime, endTime)
 
 class Dt4DSiteRepoDriver(SiteRepoDriver):
 
@@ -395,6 +421,9 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             remoteRef.setMetadata(sheet["metadata"])
             remoteRefs.append(remoteRef)
         return remoteRefs
+
+    def get_values(self, field, contains="", group="", metadata={}, startTime=None, endTime=None):
+        return repoGetValues(field, contains, group, metadata, startTime, endTime)
 
 #************************************************************************************************************************************
 
