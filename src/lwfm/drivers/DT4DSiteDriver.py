@@ -341,11 +341,15 @@ def repoGet(job, docId, path=""):
 def repoFindById(job, docId):
     return SimRepo(job).getMetadataByDocId(docId)
 
-def repoFindByMetadata(metadata):
+def _getCreds():
     authDriver = DT4DSiteAuthDriver()
     if not authDriver.isAuthCurrent():
         authDriver.login()
     creds = _SecuritySvc().login(SERVER)
+    return creds
+
+def repoFindByMetadata(metadata):
+    creds = _getCreds()
     location = creds["location"]
     group = creds["userGroup"]
     token = creds["accessToken"]
@@ -365,11 +369,6 @@ def repoFindByMetadata(metadata):
 
 class Dt4DSiteRepoDriver(SiteRepoDriver):
 
-    def _getSession(self):
-        authDriver = DT4DSiteAuthDriver()
-        authDriver.login()
-        return authDriver._session
-
     def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
         # Book keeping for status emissions
         iAmAJob = False
@@ -386,7 +385,7 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
         status.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(localRef), ""))
         status.emit("MOVING")
 
-        repoPut(localRef, siteRef.getMetadata())
+        #repoPut(str(localRef), siteRef.getMetadata())
 
         status.emit("MOVED")
 
@@ -394,7 +393,25 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             # emit the successful job ending sequence
             status.emit("FINISHED")
             status.emit("COMPLETED")
-        MetaRepo.notate(siteRef)
+            
+        creds = _getCreds()
+
+        # Add to the repo, if possible
+        siteMetadata = {}
+        siteMetadata["type"] = "sim"
+        siteMetadata["tenant"] = creds["userGroup"]
+        siteMetadata["workflowId"] = jobContext.getNativeId()
+        siteMetadata["parentWorkflowId"] = jobContext.getParentJobId()
+        siteMetadata["originatorWorkflowId"] = jobContext.getOriginJobId()
+        
+        targetMetadata = {}
+        targetMetadata["fileName"] = localRef.name
+        targetMetadata["filePath"] = str(localRef.resolve())
+        targetMetadata["fileSize"] = localRef.stat().st_size
+        targetMetadata["storageKey"] = "abc"
+        targetMetadata["bucketName"] = "myBucket"
+
+        MetaRepo.notate(siteRef, "DT4DSite", siteMetadata, "DT4DTarget", targetMetadata, creds["accessToken"])
         return siteRef
 
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
