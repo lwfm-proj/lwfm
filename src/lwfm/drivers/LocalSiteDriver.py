@@ -75,30 +75,30 @@ class LocalSiteRunDriver(SiteRunDriver):
         # Putting the job in a new thread means we can easily run it asynchronously while still emitting statuses before and after
         #Emit RUNNING status
         jobStatus.emit(JobStatusValues.RUNNING.value)
-        #try:
-        #    # This is synchronous, so we wait here until the subprocess is over. Check=True raises an exception on non-zero returns
-        #    if (isinstance(jdefn, RepoJobDefn)):
-        #        # run the repo job
-        #        if (jdefn.getRepoOp() == RepoOp.PUT):
-        #            _repoDriver.put(jdefn.getLocalRef(), jdefn.getSiteRef(), jobStatus.getJobContext())
-        #        elif (jdefn.getRepo() == RepoOp.GET):
-        #            _repoDriver.get(jdefn.getSiteRef(), jdefn.getLocalRef(), jobStatus.getJobContext())
-        #        else:
-        #            logging.error("Unknown repo operation")
-        #    else:
-        #        # run a command line job
-        #        cmd = jdefn.getEntryPoint()
-        #        if (jdefn.getJobArgs() is not None):
-        #            for arg in jdefn.getJobArgs():
-        #                cmd += " " + arg
-        #        os.system(cmd)
-        #    #Emit success statuses
-        #    jobStatus.emit(JobStatusValues.FINISHING.value)
-        #    jobStatus.emit(JobStatusValues.COMPLETE.value)
-        #except Exception as ex:
-        #    logging.error("ERROR: Job failed %s" % (ex))
-        #    #Emit FAILED status
-        #    jobStatus.emit(JobStatusValues.FAILED.value)
+        try:
+            # This is synchronous, so we wait here until the subprocess is over. Check=True raises an exception on non-zero returns
+            if (isinstance(jdefn, RepoJobDefn)):
+                # run the repo job
+                if (jdefn.getRepoOp() == RepoOp.PUT):
+                    _repoDriver.put(jdefn.getLocalRef(), jdefn.getSiteRef(), jobStatus.getJobContext())
+                elif (jdefn.getRepo() == RepoOp.GET):
+                    _repoDriver.get(jdefn.getSiteRef(), jdefn.getLocalRef(), jobStatus.getJobContext())
+                else:
+                    logging.error("Unknown repo operation")
+            else:
+                # run a command line job
+                cmd = jdefn.getEntryPoint()
+                if (jdefn.getJobArgs() is not None):
+                    for arg in jdefn.getJobArgs():
+                        cmd += " " + arg
+                os.system(cmd)
+            #Emit success statuses
+            jobStatus.emit(JobStatusValues.FINISHING.value)
+            jobStatus.emit(JobStatusValues.COMPLETE.value)
+        except Exception as ex:
+            logging.error("ERROR: Job failed %s" % (ex))
+            #Emit FAILED status
+            jobStatus.emit(JobStatusValues.FAILED.value)
 
     def submitJob(self, jdefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
         if (parentContext is None):
@@ -110,11 +110,11 @@ class LocalSiteRunDriver(SiteRunDriver):
         jstatus.emit(JobStatusValues.PENDING.value)
 
         # Run the job in a new thread so we can wrap it in a bit more code
-        #thread = multiprocessing.Process(target=self._runJob, args=[jdefn, jstatus])
-        #thread.start()
-        #self._pendingJobs[jstatus.getJobContext().getId()] = thread
+        thread = multiprocessing.Process(target=self._runJob, args=[jdefn, jstatus])
+        thread.start()
+        self._pendingJobs[jstatus.getJobContext().getId()] = thread
 
-        #return jstatus
+        return jstatus
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
         blob = JobStatusSentinelClient().getStatusBlob(jobContext.getId())
