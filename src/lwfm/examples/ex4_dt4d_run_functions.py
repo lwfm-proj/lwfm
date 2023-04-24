@@ -1,5 +1,3 @@
-
-import os
 from lwfm.base.Site import Site
 from lwfm.base.SiteFileRef import FSFileRef
 from py4dt4d.PyEngine import PyEngineUtil
@@ -19,11 +17,11 @@ if __name__ == '__main__':
 
     #print("COMPUTE TYPES: " + str(runDriver.listComputeTypes()))
 
-    handlers = runDriver.listEventHandlers()
-    handlerIds = []
+    #handlers = runDriver.listEventHandlers()
+    #handlerIds = []
 
-    for handler in handlers:
-      handlerIds.append(handler["triggerJobId"])
+    #for handler in handlers:
+    #  handlerIds.append(handler["triggerJobId"])
 
     #print("EVENT HANDLER IDS: " + str(handlerIds))
 
@@ -35,14 +33,14 @@ if __name__ == '__main__':
     # here we're running a simple python script as a dt4d "tool"
     jobDefn.setEntryPoint(["HelloWorld", "HelloWorld", "HelloWorld"])
     context = JobContext()
-    jobSetTriggerId = context.getJobId()
+    jobSetTriggerId = context.getId()
     uuid = PyEngineUtil.generateId()
     print("Test UUID: " + uuid)
     jeh = JobEventHandler("", "dt4d", "", ["jobset", uuid,"1"], "dt4d", context)
     runDriver.setEventHandler(jobDefn, jeh)
 
     context = JobContext()
-    dataTriggerId = context.getJobId()
+    dataTriggerId = context.getId()
     jeh = JobEventHandler("", "dt4d", "", ["data", {"lwfm-data-trigger-test": uuid}], "dt4d", context)
     jobDefn.setName("HelloWorld-data-trigger")
     runDriver.setEventHandler(jobDefn, jeh)
@@ -61,6 +59,6 @@ if __name__ == '__main__':
     putFileRef.setName(resourceName)
     putFileRef.setMetadata({"lwfm-data-trigger-test": uuid})
 
-    filePath = os.path.abspath(__file__)
+    filePath = Path(__file__)
 
     repoDriver.put(filePath, putFileRef)
