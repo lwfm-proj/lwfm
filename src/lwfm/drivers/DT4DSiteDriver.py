@@ -144,8 +144,9 @@ def _unset_data_event(self, jobId):
     # Run the tool on the remote computeType.
     _PyEngineImpl().removeDataTrigger(self, jobId)
 
-def _getJobStatus(self, jobContext):
-    return _getJobStatusWorker(self, jobContext)
+@JobRunner
+def _getJobStatus(job, jobContext):
+    return _getJobStatusWorker(job, jobContext)
 
 def _getAllJobs(startTime, endTime):
     s = requests.Session()
@@ -318,8 +319,8 @@ class DT4DSiteRunDriver(SiteRunDriver):
             #_PyEngineImpl.removeDataTrigger(self, self, jeh.getId())
 
     def listEventHandlers(self) -> [JobEventHandler]:
-        eventHandlers = PyEngine.listRegisteredJobs(self)
-        eventHandlers.extend(PyEngine.listDataTriggers(self))
+        eventHandlers = PyEngine().listRegisteredJobs()
+        eventHandlers.extend(PyEngine().listDataTriggers())
         return eventHandlers
         
     def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
@@ -385,7 +386,7 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
         status.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(localRef), ""))
         status.emit("MOVING")
 
-        #repoPut(str(localRef), siteRef.getMetadata())
+        repoPut(str(localRef), siteRef.getMetadata())
 
         status.emit("MOVED")
 
@@ -411,7 +412,7 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
         targetMetadata["storageKey"] = "abc"
         targetMetadata["bucketName"] = "myBucket"
 
-        MetaRepo.notate(siteRef, "DT4DSite", siteMetadata, "DT4DTarget", targetMetadata, creds["accessToken"])
+        #MetaRepo.notate(siteRef, "DT4DSite", siteMetadata, "DT4DTarget", targetMetadata, creds["accessToken"])
         return siteRef
 
     def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:

@@ -57,4 +57,4 @@ if __name__ == '__main__':
         time.sleep(15)
         status = site.getRunDriver().getJobStatus(context)
         print("remote dt4d job " + status.getJobContext().getId() + " with native dt4d job id = " +
-              status.getJobStatus().getNativeId() + " " + status.getStatus().value)
+              status.getJobContext().getNativeId() + " " + status.getStatus().value)
