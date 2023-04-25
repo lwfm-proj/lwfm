@@ -343,7 +343,7 @@ class Site(LwfmBase):
             inst.setName(site)
             return inst
         except Exception as ex:
-            logging.error("Cannot instantiate Site for " + site + " {}".format(ex))
+            logging.error("Cannot instantiate Site for " + str(site) + " {}".format(ex))
 
 
     def __init__(self, name: str, authDriver: SiteAuthDriver, runDriver: SiteRunDriver, repoDriver: SiteRepoDriver, args: dict=None):

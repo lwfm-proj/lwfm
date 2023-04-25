@@ -4,6 +4,7 @@ import importlib
 from datetime import datetime, timezone
 import time
 import json
+import requests
 from types import SimpleNamespace
 from pathlib import Path
 import os
@@ -36,6 +37,8 @@ LOCAL_COMPUTE_TYPE = "local"
 
 JOB_SET_HANDLER_TYPE = "jobset"
 DATA_HANDLER_TYPE = "data"
+
+DT4D_API = "https://dt4dapi.research.ge.com"
 
 #************************************************************************************************************************************
 
@@ -147,25 +150,48 @@ def _unset_data_event(self, jobId):
 def _getJobStatus(self, jobContext):
     return _getJobStatusWorker(self, jobContext)
 
-@JobRunner
-def _getAllJobs(job, startTime, endTime):
+def _getAllJobs(startTime, endTime):
     statuses = []
-    status_dicts = _JobSvc(job).queryMostRecentJobStatus(startTime, endTime)
+    status_dicts = _queryMostRecentJobStatus(startTime, endTime)
     for status_dict in status_dicts:
         context = JobContext()
-        context.setId(status_dict['workflowId'])
-        context.setParentJobId(status_dict['originatorWorkflowId'])
-        context.setOriginJobId(status_dict['parentWorkflowId'])
-        context.setName(status_dict['jobName'])
+        if 'workflowId' in status_dict:
+            context.setId(status_dict['workflowId'])
+        if 'originatorWorkflowId' in status_dict:
+            context.setParentJobId(status_dict['originatorWorkflowId'])
+        if 'parentWorkflowId' in status_dict:
+            context.setOriginJobId(status_dict['parentWorkflowId'])        
+        if 'jobName' in status_dict:
+            context.setName(status_dict['jobName'])
+        if 'computeType' in status_dict:
+            context.setComputeType(status_dict['computeType'])
+        elif 'computeHost' in status_dict:
+            context.setComputeType(status_dict['computeHost'])
+        if 'tenant' in status_dict:
+            context.setGroup(status_dict['tenant'])
+        if 'userSSO' in status_dict:
+            context.setUser(status_dict['userSSO'])
         context.setSiteName('dt4d')
-        context.setComputeType(status_dict['computeType'])
-        context.setGroup(status_dict['group'])
-        context.setUser(status_dict['userSSO'])
         status = DT4DJobStatus(context)
         status.setReceivedTime(datetime.utcfromtimestamp(status_dict['timestamp']/1000))
         status.setStatus(status.getStatusMap()[status_dict['status'].upper()])
         statuses.append(status.serialize())
     return statuses
+
+def _queryMostRecentJobStatus(startTime, endTime):
+    s = requests.Session()
+    token = _SecuritySvc()._getTokens()["accessToken"]
+    query="?startTimeMs=" + str(startTime) + "&endTimeMs=" + str(endTime)
+    url = DT4D_API + "/api/v0/repo/get/runAggregated" + query
+    m = s.get(url,
+                  headers={"Authorization":"Bearer " + token, "Content-Type" : "application/json"},
+                  json = {"startTimeMs":str(startTime), "endTimeMs":str(endTime)})
+    if m.status_code == 200:
+        return m.json()
+    else: 
+        logger.error(str(m.content))
+        return []
+
 
 def _getJobStatusWorker(job, jobContext):
     timeNowMs = int(round(time.time() * 1000))
@@ -336,9 +362,20 @@ def repoFindById(job, docId):
 def repoFindByMetadata(job, metadata):
     return SimRepo(job).getMetadataByMetadata(metadata)
 
-@JobRunner
-def repoGetValues(job, field, contains, group, metadata, startTime, endTime):
-    return _SimRepoSvc(job).getValues(field, contains, group, metadata, startTime, endTime)
+def repoGetValues(field, contains, group, metadata, startTime, endTime):
+    s = requests.Session()
+    token = _SecuritySvc()._getTokens()["accessToken"]
+    values = s.post(DT4D_API + "/api/v0/search/get/fieldValues",
+                  headers={"Authorization":"Bearer " + token, "Content-Type" : "application/json"},
+                  json = {
+                        "field": field,
+                        "fieldFilter": contains,
+                        "group": group,
+                        "metadata": metadata,
+                        "startTime": startTime,
+                        "endTime": endTime
+                  })
+    return values.json()
 
 class Dt4DSiteRepoDriver(SiteRepoDriver):
 
@@ -407,7 +444,6 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             sheets = repoFindById(siteRef.getId())
         elif(siteRef.getMetadata()):   
             sheets = repoFindByMetadata(siteRef.getMetadata())
-        print(str(sheets))
         remoteRefs = []
         for sheet in sheets:
             remoteRef = S3FileRef()
