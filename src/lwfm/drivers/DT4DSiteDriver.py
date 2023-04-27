@@ -24,6 +24,7 @@ from py4dt4d._internal._SecuritySvc import _SecuritySvc
 from py4dt4d._internal._JobSvc import _JobSvc
 from py4dt4d._internal._SimRepoSvc import _SimRepoSvc
 from py4dt4d._internal._PyEngineUtil import _PyEngineUtil
+from py4dt4d._internal._Constants import _Locations, _LocationServers
 from py4dt4d._internal._Constants import _Locations
 from py4dt4d.PyEngine import PyEngine
 from py4dt4d._internal._PyEngineImpl import _PyEngineImpl
@@ -138,7 +139,6 @@ def _data_event(job, jobId, toolName, toolFile, toolClass, toolArgs, computeType
     _JobSvc(job).registerDataTrigger(job, toolName, toolFile, toolClass, toolArgs, computeType, "", trigger, jobType="python",
                                 setId=setId, jobName=jobName, triggerJobId=jobId)
 
-@JobRunner
 def _unset_job_set_event(self, jobId):
     # Run the tool on the remote computeType.
     _PyEngineImpl().removeJobSetTrigger(self, jobId)
@@ -180,9 +180,12 @@ def _getAllJobs(startTime, endTime):
 
 def _queryMostRecentJobStatus(startTime, endTime):
     s = requests.Session()
-    token = _SecuritySvc()._getTokens()["accessToken"]
+    tokenFile = _SecuritySvc().login()
+    location = tokenFile["location"]
+    token = tokenFile["accessToken"]
     query="?startTimeMs=" + str(startTime) + "&endTimeMs=" + str(endTime)
-    url = DT4D_API + "/api/v0/repo/get/runAggregated" + query
+    url = _LocationServers.JOB_SVC_MAP.value[location] + "/api/v0/repo/get/runAggregated" + query
+
     m = s.get(url,
                   headers={"Authorization":"Bearer " + token, "Content-Type" : "application/json"},
                   json = {"startTimeMs":str(startTime), "endTimeMs":str(endTime)})
@@ -330,8 +333,8 @@ class DT4DSiteRunDriver(SiteRunDriver):
             #_PyEngineImpl.removeDataTrigger(self, self, jeh.getId())
 
     def listEventHandlers(self) -> [JobEventHandler]:
-        eventHandlers = PyEngine.listRegisteredJobs(self)
-        eventHandlers.extend(PyEngine.listDataTriggers(self))
+        eventHandlers = PyEngine().listRegisteredJobs()
+        eventHandlers.extend(PyEngine().listDataTriggers())
         return eventHandlers
         
     def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
@@ -351,8 +354,8 @@ def repoPut(job, path, metadata={}):
     return SimRepo(job).put(path, metadata)
 
 @JobRunner
-def repoGet(job, docId, path=""):
-    return SimRepo(job).getByDocId(docId, path, fullPath=True)
+def repoGet(job, docId, path="", fullPath=False):
+    return SimRepo(job).getByDocId(docId, path, fullPath=fullPath)
 
 @JobRunner
 def repoFindById(job, docId):
@@ -364,8 +367,16 @@ def repoFindByMetadata(job, metadata):
 
 def repoGetValues(field, contains, group, metadata, startTime, endTime):
     s = requests.Session()
-    token = _SecuritySvc()._getTokens()["accessToken"]
-    values = s.post(DT4D_API + "/api/v0/search/get/fieldValues",
+    tokenFile = _SecuritySvc().login()
+    location = tokenFile["location"]
+    token = tokenFile["accessToken"]
+    #overriding group for now and using the group the user is logged into
+    print("GROUP: " + str(group))
+    group = tokenFile["userGroup"]
+    print("GROUP: " + str(group))
+    query="?startTimeMs=" + str(startTime) + "&endTimeMs=" + str(endTime)
+    url = _LocationServers.JOB_SVC_MAP.value[location] + "/api/v0/search/get/fieldValues"
+    values = s.post(url,
                   headers={"Authorization":"Bearer " + token, "Content-Type" : "application/json"},
                   json = {
                         "field": field,
@@ -411,7 +422,7 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
         MetaRepo.notate(S3FileRef)
         return S3FileRef
 
-    def get(self, siteRef: S3FileRef, localRef: Path, jobContext: JobContext = None) -> Path:
+    def get(self, siteRef: S3FileRef, localRef: Path, jobContext: JobContext = None, fullPath = False) -> Path:
         # Book keeping for status emissions
         iAmAJob = False
         if (jobContext is None):
@@ -427,7 +438,7 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
         status.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, "", str(localRef)))
         status.emit("MOVING")
 
-        getFile = repoGet(siteRef.getId(), localRef)
+        getFile = repoGet(siteRef.getId(), localRef, fullPath)
 
         status.emit("MOVED")
 

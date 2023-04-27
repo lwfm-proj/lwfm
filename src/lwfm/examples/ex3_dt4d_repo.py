@@ -1,5 +1,4 @@
 
-import os
 from lwfm.base.Site import Site
 from lwfm.base.SiteFileRef import FSFileRef
 from py4dt4d.PyEngine import PyEngineUtil
@@ -26,7 +25,7 @@ if __name__ == '__main__':
     putFileRef.setName(resourceName)
     putFileRef.setMetadata(metadata)
 
-    filePath = os.path.abspath(__file__)
+    filePath = Path(__file__)
 
     repoDriver.put(filePath, putFileRef)
 
