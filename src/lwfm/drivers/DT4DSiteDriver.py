@@ -4,15 +4,15 @@ import importlib
 from datetime import datetime, timezone
 import time
 import json
+import requests
 from types import SimpleNamespace
 from pathlib import Path
 import os
 import pickle
-import requests
 from typing import Callable
 
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
-from lwfm.base.SiteFileRef import FSFileRef, SiteFileRef, RemoteFSFileRef
+from lwfm.base.SiteFileRef import FSFileRef, SiteFileRef, RemoteFSFileRef, S3FileRef
 from lwfm.base.JobDefn import JobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.base.MetaRepo import MetaRepo
@@ -22,8 +22,10 @@ from lwfm.base.JobEventHandler import JobEventHandler
 
 from py4dt4d._internal._SecuritySvc import _SecuritySvc
 from py4dt4d._internal._JobSvc import _JobSvc
+from py4dt4d._internal._SimRepoSvc import _SimRepoSvc
 from py4dt4d._internal._PyEngineUtil import _PyEngineUtil
 from py4dt4d._internal._Constants import _Locations, _LocationServers
+from py4dt4d._internal._Constants import _Locations
 from py4dt4d.PyEngine import PyEngine
 from py4dt4d._internal._PyEngineImpl import _PyEngineImpl
 from py4dt4d.Job import JobRunner
@@ -36,6 +38,8 @@ LOCAL_COMPUTE_TYPE = "local"
 
 JOB_SET_HANDLER_TYPE = "jobset"
 DATA_HANDLER_TYPE = "data"
+
+DT4D_API = "https://dt4dapi.research.ge.com"
 
 #************************************************************************************************************************************
 
@@ -135,7 +139,6 @@ def _data_event(job, jobId, toolName, toolFile, toolClass, toolArgs, computeType
     _JobSvc(job).registerDataTrigger(job, toolName, toolFile, toolClass, toolArgs, computeType, "", trigger, jobType="python",
                                 setId=setId, jobName=jobName, triggerJobId=jobId)
 
-@JobRunner
 def _unset_job_set_event(self, jobId):
     # Run the tool on the remote computeType.
     _PyEngineImpl().removeJobSetTrigger(self, jobId)
@@ -144,42 +147,53 @@ def _unset_data_event(self, jobId):
     # Run the tool on the remote computeType.
     _PyEngineImpl().removeDataTrigger(self, jobId)
 
-@JobRunner
-def _getJobStatus(job, jobContext):
-    return _getJobStatusWorker(job, jobContext)
+def _getJobStatus(self, jobContext):
+    return _getJobStatusWorker(self, jobContext)
 
 def _getAllJobs(startTime, endTime):
+    statuses = []
+    status_dicts = _queryMostRecentJobStatus(startTime, endTime)
+    for status_dict in status_dicts:
+        context = JobContext()
+        if 'workflowId' in status_dict:
+            context.setId(status_dict['workflowId'])
+        if 'originatorWorkflowId' in status_dict:
+            context.setParentJobId(status_dict['originatorWorkflowId'])
+        if 'parentWorkflowId' in status_dict:
+            context.setOriginJobId(status_dict['parentWorkflowId'])        
+        if 'jobName' in status_dict:
+            context.setName(status_dict['jobName'])
+        if 'computeType' in status_dict:
+            context.setComputeType(status_dict['computeType'])
+        elif 'computeHost' in status_dict:
+            context.setComputeType(status_dict['computeHost'])
+        if 'tenant' in status_dict:
+            context.setGroup(status_dict['tenant'])
+        if 'userSSO' in status_dict:
+            context.setUser(status_dict['userSSO'])
+        context.setSiteName('dt4d')
+        status = DT4DJobStatus(context)
+        status.setReceivedTime(datetime.utcfromtimestamp(status_dict['timestamp']/1000))
+        status.setStatus(status.getStatusMap()[status_dict['status'].upper()])
+        statuses.append(status.serialize())
+    return statuses
+
+def _queryMostRecentJobStatus(startTime, endTime):
     s = requests.Session()
     tokenFile = _SecuritySvc().login()
     location = tokenFile["location"]
     token = tokenFile["accessToken"]
     query="?startTimeMs=" + str(startTime) + "&endTimeMs=" + str(endTime)
     url = _LocationServers.JOB_SVC_MAP.value[location] + "/api/v0/repo/get/runAggregated" + query
+
     m = s.get(url,
                   headers={"Authorization":"Bearer " + token, "Content-Type" : "application/json"},
                   json = {"startTimeMs":str(startTime), "endTimeMs":str(endTime)})
-
-
-    # We have a list of DT4D jobs, but we need it in lwfm format
-    jobStatuses = []
-    jobList = m.json()
-    for job in jobList:
-        jobContext = JobContext()
-        jobContext.setNativeId(job['workflowId'])
-        jobContext.setParentJobId(job['parentWorkflowId'])
-        jobContext.setOriginJobId(job['originatorWorkflowId'])
-        jobContext.setName(job['jobName'])
-        jobContext.setSiteName('DT4D')
-        jobContext.setComputeType(job['computeType'])
-
-        jobStatus = DT4DJobStatus(jobContext)
-        jobStatus.setNativeStatusStr(job['status'])
-        jobStatus.setEmitTime(job['headerTimestamp'])
-        jobStatus.setReceivedTime(job['dt4dReceivedTimestamp'])
-
-        jobStatuses.append(jobStatus)
-
-    return m.json()
+    if m.status_code == 200:
+        return m.json()
+    else: 
+        logger.error(str(m.content))
+        return []
 
 
 def _getJobStatusWorker(job, jobContext):
@@ -324,7 +338,12 @@ class DT4DSiteRunDriver(SiteRunDriver):
         return eventHandlers
         
     def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
-        return _getAllJobs(startTime, endTime)
+        statuses = []
+        serialized_statuses = _getAllJobs(startTime, endTime)
+        for serialized_status in serialized_statuses:
+            status = DT4DJobStatus.deserialize(serialized_status)
+            statuses.append(status)
+        return statuses
 
 
 #************************************************************************************************************************************
@@ -335,42 +354,48 @@ def repoPut(job, path, metadata={}):
     return SimRepo(job).put(path, metadata)
 
 @JobRunner
-def repoGet(job, docId, path=""):
-    return SimRepo(job).getByDocId(docId, path, fullPath=True)
+def repoGet(job, docId, path="", fullPath=False):
+    return SimRepo(job).getByDocId(docId, path, fullPath=fullPath)
 
 @JobRunner
 def repoFindById(job, docId):
     return SimRepo(job).getMetadataByDocId(docId)
 
-def _getCreds():
-    authDriver = DT4DSiteAuthDriver()
-    if not authDriver.isAuthCurrent():
-        authDriver.login()
-    creds = _SecuritySvc().login(SERVER)
-    return creds
+@JobRunner
+def repoFindByMetadata(job, metadata):
+    return SimRepo(job).getMetadataByMetadata(metadata)
 
-def repoFindByMetadata(metadata):
-    creds = _getCreds()
-    location = creds["location"]
-    group = creds["userGroup"]
-    token = creds["accessToken"]
-    metadata['DT4D_TENANT'] = group
-    values = {"metadata" : metadata}
-
+def repoGetValues(field, contains, group, metadata, startTime, endTime):
     s = requests.Session()
-    url = _LocationServers.REPO_SVC_MAP.value[location] + "/api/v0/repo/get/simMetaSearchInTenancy"
-
-    m = s.post(url, headers={
-        "Authorization": "Bearer " + token}, json=values)
-
-    if not m.json():
-        raise LookupError("No results found")
-    return m.json()
-
+    tokenFile = _SecuritySvc().login()
+    location = tokenFile["location"]
+    token = tokenFile["accessToken"]
+    #overriding group for now and using the group the user is logged into
+    print("GROUP: " + str(group))
+    group = tokenFile["userGroup"]
+    print("GROUP: " + str(group))
+    query="?startTimeMs=" + str(startTime) + "&endTimeMs=" + str(endTime)
+    url = _LocationServers.JOB_SVC_MAP.value[location] + "/api/v0/search/get/fieldValues"
+    values = s.post(url,
+                  headers={"Authorization":"Bearer " + token, "Content-Type" : "application/json"},
+                  json = {
+                        "field": field,
+                        "fieldFilter": contains,
+                        "group": group,
+                        "metadata": metadata,
+                        "startTime": startTime,
+                        "endTime": endTime
+                  })
+    return values.json()
 
 class Dt4DSiteRepoDriver(SiteRepoDriver):
 
-    def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
+    def _getSession(self):
+        authDriver = DT4DSiteAuthDriver()
+        authDriver.login()
+        return authDriver._session
+
+    def put(self, localRef: Path, siteRef: S3FileRef, jobContext: JobContext = None) -> S3FileRef:
         # Book keeping for status emissions
         iAmAJob = False
         if (jobContext is None):
@@ -386,7 +411,7 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
         status.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(localRef), ""))
         status.emit("MOVING")
 
-        repoPut(str(localRef), siteRef.getMetadata())
+        repoPut(localRef, siteRef.getMetadata())
 
         status.emit("MOVED")
 
@@ -394,28 +419,10 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             # emit the successful job ending sequence
             status.emit("FINISHED")
             status.emit("COMPLETED")
-            
-        creds = _getCreds()
+        MetaRepo.notate(S3FileRef)
+        return S3FileRef
 
-        # Add to the repo, if possible
-        siteMetadata = {}
-        siteMetadata["type"] = "sim"
-        siteMetadata["tenant"] = creds["userGroup"]
-        siteMetadata["workflowId"] = jobContext.getNativeId()
-        siteMetadata["parentWorkflowId"] = jobContext.getParentJobId()
-        siteMetadata["originatorWorkflowId"] = jobContext.getOriginJobId()
-        
-        targetMetadata = {}
-        targetMetadata["fileName"] = localRef.name
-        targetMetadata["filePath"] = str(localRef.resolve())
-        targetMetadata["fileSize"] = localRef.stat().st_size
-        targetMetadata["storageKey"] = "abc"
-        targetMetadata["bucketName"] = "myBucket"
-
-        #MetaRepo.notate(siteRef, "DT4DSite", siteMetadata, "DT4DTarget", targetMetadata, creds["accessToken"])
-        return siteRef
-
-    def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
+    def get(self, siteRef: S3FileRef, localRef: Path, jobContext: JobContext = None, fullPath = False) -> Path:
         # Book keeping for status emissions
         iAmAJob = False
         if (jobContext is None):
@@ -431,7 +438,7 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
         status.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, "", str(localRef)))
         status.emit("MOVING")
 
-        getFile = repoGet(siteRef.getId(), localRef)
+        getFile = repoGet(siteRef.getId(), localRef, fullPath)
 
         status.emit("MOVED")
 
@@ -439,10 +446,10 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             # emit the successful job ending sequence
             status.emit("FINISHED")
             status.emit("COMPLETED")
-        #MetaRepo.Notate(SiteFileRef)
+        #MetaRepo.Notate(S3FileRef)
         return getFile
 
-    def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
+    def find(self, siteRef: S3FileRef) -> [S3FileRef]:
         sheets = None
         if(siteRef.getId()):
             sheets = repoFindById(siteRef.getId())
@@ -450,7 +457,7 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             sheets = repoFindByMetadata(siteRef.getMetadata())
         remoteRefs = []
         for sheet in sheets:
-            remoteRef = FSFileRef()
+            remoteRef = S3FileRef()
             remoteRef.setId(sheet["id"])
             if "resourceName" in sheet:
                 remoteRef.setName(sheet["resourceName"])
@@ -461,6 +468,9 @@ class Dt4DSiteRepoDriver(SiteRepoDriver):
             remoteRef.setMetadata(sheet["metadata"])
             remoteRefs.append(remoteRef)
         return remoteRefs
+
+    def get_values(self, field, contains="", group="", metadata={}, startTime=None, endTime=None):
+        return repoGetValues(field, contains, group, metadata, startTime, endTime)
 
 #************************************************************************************************************************************
 

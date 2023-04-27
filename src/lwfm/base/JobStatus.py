@@ -38,6 +38,8 @@ class _JobStatusFields(Enum):
     NATIVE_INFO   = "nativeInfo"                     # any additional info the native Run wants to put in the status message
     SITE_NAME     = "siteName"                       # name of the Site which emitted the message
     COMPUTE_TYPE  = "computeType"                    # a named resource on the Site, if any
+    GROUP         = "group"                          # a group id that the job belongs to, if any
+    USER          = "user"                         # a user id of the user that submitted the job, if any
 
 
 # The canonical set of status codes.  Run implementations will have their own sets, and they must provide a mapping into these.
@@ -171,6 +173,17 @@ class JobContext(LwfmBase):
     def getComputeType(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.COMPUTE_TYPE.value)
 
+    def setGroup(self, name: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.GROUP.value, name)
+
+    def getGroup(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.GROUP.value)
+
+    def setUser(self, name: str) -> None:
+        LwfmBase._setArg(self, _JobStatusFields.USER.value, name)
+
+    def getUser(self) -> str:
+        return LwfmBase._getArg(self, _JobStatusFields.USER.value)
 
     def toJSON(self):
         return self.serialize()
@@ -301,7 +314,7 @@ class JobStatus(LwfmBase):
         LwfmBase._setArg(self, _JobStatusFields.RECEIVED_TIME.value, receivedTime.timestamp() * 1000)
 
     def getReceivedTime(self) -> datetime:
-        ms = LwfmBase._getArg(self, _JobStatusFields.RECEIVED_TIME.value)
+        ms = int(LwfmBase._getArg(self, _JobStatusFields.RECEIVED_TIME.value))
         return datetime.utcfromtimestamp(ms//1000).replace(microsecond=ms%1000*1000)
 
     def setNativeInfo(self, info: str) -> None:
@@ -380,7 +393,7 @@ class JobStatus(LwfmBase):
              str(self.getJobContext().getNativeId()) + "," +
              str(self.getEmitTime()) + "," + str(self.getStatusValue()) + "," + str(self.getJobContext().getSiteName()))
         if (self.getStatus() == JobStatusValues.INFO):
-            s += "," + self.getNativeInfo()
+            s += "," + str(self.getNativeInfo())
         return s
 
 
