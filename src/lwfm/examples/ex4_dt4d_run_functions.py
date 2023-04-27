@@ -15,16 +15,6 @@ if __name__ == '__main__':
     site = Site.getSiteInstanceFactory(siteName)
     runDriver = site.getRunDriver()
 
-    #print("COMPUTE TYPES: " + str(runDriver.listComputeTypes()))
-
-    #handlers = runDriver.listEventHandlers()
-    #handlerIds = []
-
-    #for handler in handlers:
-    #  handlerIds.append(handler["triggerJobId"])
-
-    #print("EVENT HANDLER IDS: " + str(handlerIds))
-
     jobDefn = JobDefn()
 
     jobDefn.setName("HelloWorld-jobSet-trigger")
