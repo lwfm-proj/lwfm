@@ -1,5 +1,5 @@
 from lwfm.base.Site import Site
-from lwfm.base.SiteFileRef import FSFileRef
+from lwfm.base.SiteFileRef import S3FileRef
 from py4dt4d.PyEngine import PyEngineUtil
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.base.JobDefn import JobDefn
@@ -15,16 +15,6 @@ if __name__ == '__main__':
     site = Site.getSiteInstanceFactory(siteName)
     runDriver = site.getRunDriver()
 
-    #print("COMPUTE TYPES: " + str(runDriver.listComputeTypes()))
-
-    #handlers = runDriver.listEventHandlers()
-    #handlerIds = []
-
-    #for handler in handlers:
-    #  handlerIds.append(handler["triggerJobId"])
-
-    #print("EVENT HANDLER IDS: " + str(handlerIds))
-
     jobDefn = JobDefn()
 
     jobDefn.setName("HelloWorld-jobSet-trigger")
@@ -33,7 +23,7 @@ if __name__ == '__main__':
     # here we're running a simple python script as a dt4d "tool"
     jobDefn.setEntryPoint(["HelloWorld", "HelloWorld", "HelloWorld"])
     context = JobContext()
-    jobSetTriggerId = context.getId()
+
     uuid = PyEngineUtil.generateId()
     print("Test UUID: " + uuid)
     jeh = JobEventHandler("", "dt4d", "", ["jobset", uuid,"1"], "dt4d", context)
@@ -55,10 +45,11 @@ if __name__ == '__main__':
     repoDriver = site.getRepoDriver()
     resourceName = "testFile" + uuid
 
-    putFileRef = FSFileRef()
+    putFileRef = S3FileRef()
     putFileRef.setName(resourceName)
     putFileRef.setMetadata({"lwfm-data-trigger-test": uuid})
 
     filePath = Path(__file__)
 
     repoDriver.put(filePath, putFileRef)
+    
