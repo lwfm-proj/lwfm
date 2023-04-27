@@ -10,9 +10,11 @@ import multiprocessing
 import time
 import pickle
 import json
+import math
 from typing import Callable
 
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from pathlib import Path
 
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
@@ -165,7 +167,15 @@ class LocalSiteRunDriver(SiteRunDriver):
         serializedStatuses = JobStatusSentinelClient().getStatuses()
         for serializedStatus in serializedStatuses:
             status = LocalJobStatus.deserialize(serializedStatus)
-            statuses.append(status)
+            startDate = datetime.fromtimestamp(math.ceil(startTime / 1000))
+            endDate = datetime.fromtimestamp(math.ceil(endTime / 1000))
+            statusDate = status.getEmitTime() - relativedelta(hours=8)
+            print("The start date of the range: {}".format(startDate))
+            print("The start date of the status: {}".format(statusDate))
+            print("The end date of the range: {}".format(endDate))
+            if statusDate > startDate and statusDate < endDate:
+                status.setEmitTime(statusDate)
+                statuses.append(status)
         return statuses
 
 #***********************************************************************************************************************************
