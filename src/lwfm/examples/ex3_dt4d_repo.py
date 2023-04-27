@@ -1,6 +1,6 @@
 
 from lwfm.base.Site import Site
-from lwfm.base.SiteFileRef import FSFileRef
+from lwfm.base.SiteFileRef import S3FileRef
 from py4dt4d.PyEngine import PyEngineUtil
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from pathlib import Path
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     resourceName = "testFile" + uuid
     metadata = {"foo" + uuid: "bar" + uuid}
 
-    putFileRef = FSFileRef()
+    putFileRef = S3FileRef()
     putFileRef.setName(resourceName)
     putFileRef.setMetadata(metadata)
 
@@ -29,13 +29,13 @@ if __name__ == '__main__':
 
     repoDriver.put(filePath, putFileRef)
 
-    getFileRef = FSFileRef()
+    getFileRef = S3FileRef()
     getFileRef.setMetadata(metadata)
 
     files = repoDriver.find(getFileRef)
 
     #There should only be one file with the metadata we provided so we can pass in the first file in the list to download.
-    getFilePath = Path(repoDriver.get(files[0], "/retrieved_file"))
+    getFilePath = Path(repoDriver.get(files[0], "/retrieved_file", True))
 
     if getFilePath.is_file():
       print("Successfully retrieved the file: " + str(getFilePath))
