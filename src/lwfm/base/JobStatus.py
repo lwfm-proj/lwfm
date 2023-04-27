@@ -12,6 +12,8 @@ from enum import Enum
 import logging
 from types import SimpleNamespace
 
+import os
+
 
 from datetime import datetime
 import pickle
@@ -62,19 +64,19 @@ class JobStatusValues(Enum):
             return False
 
     def isTerminalSuccess(self, stat):
-        if (isTerminal(stat) and (stat == self.COMPLETE)):
+        if (self.isTerminal(stat) and (stat == self.COMPLETE)):
             return True
         else:
             return False
 
     def isTerminalFailure(self, stat):
-        if (isTerminal(stat) and (stat == self.FAILED)):
+        if (self.isTerminal(stat) and (stat == self.FAILED)):
             return True
         else:
             return False
 
     def isTerminalCancelled(self, stat):
-        if (isTerminal(stat) and (stat == self.CANCELLED)):
+        if (self.isTerminal(stat) and (stat == self.CANCELLED)):
             return True
         else:
             return False
@@ -333,8 +335,9 @@ class JobStatus(LwfmBase):
 
     # zero out state-sensative fields
     def clear(self):
-        self.setReceivedTime(datetime.fromtimestamp(0))
-        self.setEmitTime(datetime.fromtimestamp(0))
+        zeroTime = 0 if os.name != 'nt' else 24*60*60 # Windows requires an extra day or we get an OS error
+        self.setReceivedTime(datetime.fromtimestamp(zeroTime))
+        self.setEmitTime(datetime.fromtimestamp(zeroTime))
         self.setNativeInfo("")
 
 

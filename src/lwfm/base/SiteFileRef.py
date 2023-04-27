@@ -31,7 +31,6 @@ class SiteFileRef(LwfmBase):
 
     # some files have identifiers other than a name, some might just return the name
     def getId(self) -> str:
-        print("getting ID")
         return LwfmBase._getArg(self, _SiteFileRefFields.ID.value)
 
     def setId(self, id: str) -> None:
@@ -88,11 +87,11 @@ class _FSFileRefFields(Enum):
 
 
 class FSFileRef(SiteFileRef):
-    def getId(self) -> str:
-        return self.getName()
+    #def getId(self) -> str:
+    #    return self.getName()
 
-    def setId(self, id: str) -> None:
-        self.setName(id)
+    #def setId(self, id: str) -> None:
+    #    self.setName(id)
 
     def getPath(self) -> str:
         return LwfmBase._getArg(self, _FSFileRefFields.PATH.value)

@@ -1,29 +1,58 @@
-import os
-import pickle
+import requests
 
-from pathlib import Path
 
-# This is a quick and dirty implementation of a MetaRepo
-# This will store info about files as you put/get, so they
-# may be retrieved later, even persisting across sessions.
+# This communicates with a MetaRepo2 API. The user will have to set the domain
+# first, at which point notate and find will remain available. If the user has NOT
+# set the domain, no errors are issued, because this is a valid state. You may not
+# want to be using an external Metarepo in a particular workflow
 
-# The MetaRepo is persisted in the form of a pickle file stored at ~/.lwfm/metarepo
-# Note that we should switch from pickle to psycopg at some point for performance
+_domain = None
 
 class MetaRepo:
+    # We put everything in classes because ???
+
     @staticmethod
-    def notate(fileRef):
-    # Given a fileRef, add it to the MetaRepo
-        metaRepo = MetaRepo._getMetaRepo()
-        if metaRepo is None:
-            print("Could not Notate fileRef")
+    def setDomain(domain):
+        # Before we can set a file, we need to pick a domain
+        global _domain
+        _domain = domain
+        
+    @staticmethod
+    def getDomain():
+        global _domain
+        return _domain
+
+    @staticmethod
+    def notate(fileRef, siteClass, siteMetadata, targetClass, targetMetadata, token):
+        # Given a fileRef, add it to the MetaRepo
+        # The user must supply a site and target information, so Metarepo knows how to
+        # process the metasheet
+        global _domain
+        if _domain is None:
             return
-        metaRepo.append(fileRef)
-        MetaRepo._saveMetaRepo(metaRepo)
+        
+        metasheet = {}
+        metasheet["docSetId"] = [] # No concept of set IDs in lwfm for the moment, but should be added
+        metasheet["displayName"] = fileRef.getName()
+        metasheet["userMetadata"] = fileRef.getMetadata()
+
+        metasheet["siteClass"] = siteClass
+        metasheet["siteMetadata"] = siteMetadata
+        
+        metasheet["targetClass"] = targetClass
+        metasheet["targetMetadata"] = targetMetadata
+        
+        r = requests.post(f"http://{_domain}/notate", json=metasheet,
+                         headers={"Authorization": f"Bearer {token}"})
+        if not r.status_code == 200:
+            print(r.text)
         
     @staticmethod
     def find(fileRef):
-    # Given an incomplete fileRef, search through the MetaRepo for matching files
+        global _domain
+        if _domain is None:
+            return
+
         fileList = []
 
         metaRepo = MetaRepo._getMetaRepo()
@@ -36,37 +65,4 @@ class MetaRepo:
                 continue
             fileList.append(file)
         return fileList
-
-
-#************************************************************************************************************************************
-
-    @staticmethod
-    def _getMetaRepoPath():
-        directory = str(Path.home()) + str(Path("/.lwfm/"))
-        if not os.path.exists(directory):
-            os.mkdir(directory)
-        filePath = str(Path(directory + "/metarepo"))
-        return filePath
-
-    @staticmethod
-    def _getMetaRepo():
-        filePath = MetaRepo._getMetaRepoPath()
-        if not os.path.exists(filePath):
-            return []
-        
-        try:
-            with open(filePath, 'rb') as metaFile:
-                metaRepo = pickle.load(metaFile)
-                return metaRepo
-        except Exception as e: # There's a pickle.unpickling exception, but pickle.load can throw any number of different exceptions
-            print("Error loading MetaRepo: %s" % e)
-            
-    @staticmethod
-    def _saveMetaRepo(metaRepo):
-        filePath = MetaRepo._getMetaRepoPath()
-        try:
-            with open(filePath, 'wb') as metaFile:
-                pickle.dump(metaRepo, metaFile)
-        except Exception as e: # There's a pickle.pickling exception, but pickle.load can throw any number of different exceptions
-            print("Error saving MetaRepo: %s" % e)
-
+    
