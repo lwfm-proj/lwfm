@@ -165,6 +165,8 @@ class LocalSiteRunDriver(SiteRunDriver):
     def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
         statuses = []
         serializedStatuses = JobStatusSentinelClient().getStatuses()
+        if serializedStatuses is None:
+            serializedStatuses = []
         for serializedStatus in serializedStatuses:
             status = LocalJobStatus.deserialize(serializedStatus)
             startDate = datetime.fromtimestamp(math.ceil(startTime / 1000))
