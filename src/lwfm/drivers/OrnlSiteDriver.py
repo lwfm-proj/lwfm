@@ -17,7 +17,6 @@ from lwfm.base.SiteFileRef import SiteFileRef
 from lwfm.base.JobDefn import JobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.base.JobEventHandler import JobEventHandler
-from lwfm.base.MetaRepo import MetaRepo
 
 
 class OrnlSite(Site):
@@ -57,8 +56,8 @@ class OrnlSiteAuthDriver(SiteAuthDriver):
     _client = None
     
     @classmethod
-    def _get_client(cls):
-        if cls._client is None:
+    def _get_client(cls, force=False):
+        if cls._client is None or force:
             cls._client = paramiko.SSHClient()
             cls._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             username = input("ORNL Username: ")
@@ -71,7 +70,7 @@ class OrnlSiteAuthDriver(SiteAuthDriver):
     def login(self, force: bool=False) -> bool:
         # We need a class method so we can treat the connection for each endpoint as a singleton
         try:
-            self.__class__._get_client()
+            self.__class__._get_client(force)
             retVal = True
         except Exception as e:
             print(f"Could not log in: {e}")
@@ -99,8 +98,8 @@ class OrnlSiteRunDriver(SiteRunDriver):
     authDriver = None
     machine = 'ornl'
 
-    def _getSession(self):
-        self.authDriver.login()
+    def _getSession(self, force=False):
+        self.authDriver.login(force)
         return self.authDriver._client
 
     def submitJob(self, jdefn: JobDefn=None, parentContext: JobContext = None) -> JobStatus:
@@ -116,7 +115,16 @@ class OrnlSiteRunDriver(SiteRunDriver):
         # Submit the job
         ssh = self._getSession()
         bsubFile = jdefn.getEntryPoint()
-        ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(f"source /etc/profile; bsub {bsubFile}")
+        try:
+            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(f"source /etc/profile; bsub {bsubFile}")
+        except ConnectionResetError: # Our connection had to reset, so let's try to log in again
+            ssh = self._getSession(force=True)
+            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(f"source /etc/profile; bsub {bsubFile}")
+        except paramiko.ChannelException:
+            ssh = self._getSession(force=True)
+            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(f"source /etc/profile; bsub {bsubFile}")
+
+            
         ssh_stdout = ssh_stdout.read().decode() # Read from the stream and convert to a normal string
         ssh_stderr = ssh_stderr.read().decode()
 
@@ -142,7 +150,14 @@ class OrnlSiteRunDriver(SiteRunDriver):
         # Check the status
         ssh = self._getSession()
         jobId = jobContext.getNativeId()
-        ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("source /etc/profile; bjobs " + jobId + " | tail -n1 | awk '{print $3}'")
+        try:
+            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("source /etc/profile; bjobs " + jobId + " | tail -n1 | awk '{print $3}'")
+        except ConnectionResetError: # Our connection had to reset, so let's try to log in again
+            ssh = self._getSession(force=True)
+            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("source /etc/profile; bjobs " + jobId + " | tail -n1 | awk '{print $3}'")
+        except paramiko.ChannelException:
+            ssh = self._getSession(force=True)
+            ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("source /etc/profile; bjobs " + jobId + " | tail -n1 | awk '{print $3}'")
         status = ssh_stdout.read().decode().strip()
 
         # Construct our status message
