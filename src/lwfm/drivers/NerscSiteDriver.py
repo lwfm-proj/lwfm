@@ -94,9 +94,10 @@ class NerscSiteAuthDriver(SiteAuthDriver):
             return False
 
         try:
+            private_key = authProps['private_key'].strip() # In case the user includes a newline in their token
             session = OAuth2Session(
                 authProps['client_id'],
-                authProps['private_key'],
+                private_key,
                 PrivateKeyJWT(authProps['token_url']),
                 grant_type="client_credentials",
                 token_endpoint=authProps['token_url']
