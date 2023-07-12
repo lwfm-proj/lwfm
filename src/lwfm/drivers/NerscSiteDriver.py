@@ -185,7 +185,7 @@ class NerscSiteRunDriver(SiteRunDriver):
         # Construct our status message
         jstatus = NerscJobStatus(parentContext)
         jstatus.setNativeStatusStr(j['status'].upper())
-        jstatus.setNativeId(j['jobid'])
+        jstatus.getJobContext().setNativeId(j['jobid'])
         jstatus.setEmitTime(datetime.utcnow())
         jstatus.getJobContext().setSiteName(self.machine)
         return jstatus
@@ -213,7 +213,7 @@ class NerscSiteRunDriver(SiteRunDriver):
         # Construct our status message
         jstatus = NerscJobStatus()
         jstatus.setNativeStatusStr(j['state'].split(' ')[0]) # Cancelled jobs appear in the form "CANCELLED by user123", so make sure to just grab the beginning
-        jstatus.setNativeId(jobContext.getNativeId())
+        jstatus.getJobContext().setNativeId(jobContext.getNativeId())
         jstatus.setEmitTime(datetime.utcnow())
         jstatus.getJobContext().setSiteName(self.machine)
         return jstatus
