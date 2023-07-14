@@ -338,6 +338,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
 
         # Construct our URL
         remotePath = siteRef.getPath()
+        if not remotePath[0] == '/': # We need the remote path to start with a slash
+            remotePath = '/' + remotePath
         url = NERSC_URLS.NERSC_GET_URL.value + self.machine + remotePath
 
         # Emit our info status before hitting the API
