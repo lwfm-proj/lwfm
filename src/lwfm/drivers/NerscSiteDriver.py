@@ -189,6 +189,7 @@ class NerscSiteRunDriver(SiteRunDriver):
         jstatus.getJobContext().setNativeId(j['jobid'])
         jstatus.setEmitTime(datetime.utcnow())
         jstatus.getJobContext().setSiteName(self.machine)
+        jstatus.emit()
         return jstatus
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
@@ -228,6 +229,7 @@ class NerscSiteRunDriver(SiteRunDriver):
         jstatus.getJobContext().setNativeId(jobContext.getNativeId())
         jstatus.setEmitTime(datetime.utcnow())
         jstatus.getJobContext().setSiteName(self.machine)
+        jstatus.emit()
         return jstatus
 
     def cancelJob(self, jobContext: JobContext) -> bool:

@@ -115,7 +115,7 @@ class LocalSiteRunDriver(SiteRunDriver):
         thread = multiprocessing.Process(target=self._runJob, args=[jdefn, jstatus])
         thread.start()
         self._pendingJobs[jstatus.getJobContext().getId()] = thread
-
+        jstatus.emit()
         return jstatus
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
@@ -124,6 +124,7 @@ class LocalSiteRunDriver(SiteRunDriver):
             status = LocalJobStatus(jobContext)
         else:
             status = JobStatus.deserialize(blob)
+        jstatus.emit()
         return status
 
     def cancelJob(self, jobContext: JobContext) -> bool:
