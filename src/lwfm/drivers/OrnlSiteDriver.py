@@ -140,6 +140,7 @@ class OrnlSiteRunDriver(SiteRunDriver):
             logging.error(f"Job {bsubFile} failed: {ssh_stderr}")
         jstatus.setEmitTime(datetime.utcnow())
         jstatus.getJobContext().setSiteName(self.machine)
+        jstatus.emit()
         return jstatus
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
@@ -166,6 +167,7 @@ class OrnlSiteRunDriver(SiteRunDriver):
         jstatus.getJobContext().setNativeId(jobId)
         jstatus.setEmitTime(datetime.utcnow())
         jstatus.getJobContext().setSiteName(self.machine)
+        jstatus.emit()
         return jstatus
 
     def cancelJob(self, jobContext: JobContext) -> bool:
