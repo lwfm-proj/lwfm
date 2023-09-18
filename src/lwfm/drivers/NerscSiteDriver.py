@@ -73,7 +73,6 @@ class NerscJobStatus(JobStatus):
             "SUSPENDED"     : JobStatusValues.CANCELLED  ,
             "DEADLINE"      : JobStatusValues.CANCELLED  ,
             "TIMEOUT"       : JobStatusValues.CANCELLED  ,
-            "INFO"          : JobStatusValues.INFO       ,
             })
 
 

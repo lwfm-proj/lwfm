@@ -163,67 +163,22 @@ class LocalSiteRunDriver(SiteRunDriver):
     def listEventHandlers(self) -> [JobEventHandler]:
         raise NotImplementedError()
 
-    from datetime import timedelta
-    _now = datetime.now().astimezone()
-    _then = _now - timedelta(minutes=5, seconds=3, milliseconds = 527)
-    import uuid
-    parent = uuid.uuid4()
-    child1 = uuid.uuid4()
-    child2 = uuid.uuid4()
-    child3 = uuid.uuid4()
     def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
         statuses = []
-        
-        parent = self.parent
-        child1 = self.child1
-        child2 = self.child2
-        child3 = self.child3
-        
-        context = JobContext()
-        context.setId(child1)
-        context.setNativeId(child1)
-        context.setParentJobId(parent)
-        context.setOriginJobId(parent)
-        context.setName("Genesis Interface")
-        context.setSiteName("local")
-        context.setUser('223079353')
-        context.setGroup('')
-        
-        status = JobStatus(context)
-        status.setStatus(JobStatusValues.COMPLETE)
-        status.setEmitTime(self._then)
-        statuses.append(status)
-        
-        context = JobContext()
-        context.setId(child2)
-        context.setNativeId(child2)
-        context.setParentJobId(parent)
-        context.setOriginJobId(parent)
-        context.setName("Genesis")
-        context.setSiteName("dt4d")
-        context.setUser('223079353')
-        context.setGroup('')
-        context.setComputeType('hpc1r03e05n02*4')
-        
-        status = JobStatus(context)
-        status.setStatus(JobStatusValues.COMPLETE)
-        status.setEmitTime(self._then)
-        statuses.append(status)
-
-        context = JobContext()
-        context.setId(child3)
-        context.setNativeId(child3)
-        context.setParentJobId(child2)
-        context.setOriginJobId(parent)
-        context.setName("Post-Processor")
-        context.setSiteName("local")
-        context.setUser('223079353')
-        context.setGroup('')
-        
-        status = JobStatus(context)
-        status.setStatus(JobStatusValues.RUNNING)
-        status.setEmitTime(self._now)
-        statuses.append(status)
+        serializedStatuses = JobStatusSentinelClient().getStatuses()
+        if serializedStatuses is None:
+            serializedStatuses = []
+        for serializedStatus in serializedStatuses:
+            status = LocalJobStatus.deserialize(serializedStatus)
+            startDate = datetime.fromtimestamp(math.ceil(startTime / 1000))
+            endDate = datetime.fromtimestamp(math.ceil(endTime / 1000))
+            statusDate = status.getEmitTime() - relativedelta(hours=8)
+            print("The start date of the range: {}".format(startDate))
+            print("The start date of the status: {}".format(statusDate))
+            print("The end date of the range: {}".format(endDate))
+            if statusDate > startDate and statusDate < endDate:
+                status.setEmitTime(statusDate)
+                statuses.append(status)
         return statuses
 
 #***********************************************************************************************************************************
