@@ -54,7 +54,7 @@ class NERSC_URLS(Enum):
 class NerscJobStatus(JobStatus):
     def __init__(self, jcontext: JobContext = None):
         super(NerscJobStatus, self).__init__(jcontext)
-        self.setSiteName("nersc")
+        self.getJobContext().setSiteName("nersc")
         self.setStatusMap({
             "OK"            : JobStatusValues.PENDING    ,
             "NEW"           : JobStatusValues.PENDING    ,
@@ -73,6 +73,7 @@ class NerscJobStatus(JobStatus):
             "SUSPENDED"     : JobStatusValues.CANCELLED  ,
             "DEADLINE"      : JobStatusValues.CANCELLED  ,
             "TIMEOUT"       : JobStatusValues.CANCELLED  ,
+            "INFO"          : JobStatusValues.INFO       ,
             })
 
 
@@ -94,9 +95,10 @@ class NerscSiteAuthDriver(SiteAuthDriver):
             return False
 
         try:
+            private_key = authProps['private_key'].strip() # In case the user includes a newline in their token
             session = OAuth2Session(
                 authProps['client_id'],
-                authProps['private_key'],
+                private_key,
                 PrivateKeyJWT(authProps['token_url']),
                 grant_type="client_credentials",
                 token_endpoint=authProps['token_url']
@@ -184,9 +186,10 @@ class NerscSiteRunDriver(SiteRunDriver):
         # Construct our status message
         jstatus = NerscJobStatus(parentContext)
         jstatus.setNativeStatusStr(j['status'].upper())
-        jstatus.setNativeId(j['jobid'])
+        jstatus.getJobContext().setNativeId(j['jobid'])
         jstatus.setEmitTime(datetime.utcnow())
-        jstatus.setSiteName(self.machine)
+        jstatus.getJobContext().setSiteName(self.machine)
+        jstatus.emit()
         return jstatus
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
@@ -194,27 +197,39 @@ class NerscSiteRunDriver(SiteRunDriver):
             logging.error("No machine found. Please use the setMachine() method before trying to check a NERSC job status.")
             return False
 
-        # Construct our URL
-        url = NERSC_URLS.NERSC_STATUS_URL.value + self.machine + "/" + jobContext.getNativeId()
+        # The job status endpoint doesn't work for finished jobs, so we can't actually use it
+        # Instead, call sacct -X directly
+        url = NERSC_URLS.NERSC_CMD_URL.value + self.machine
+        jobId = jobContext.getNativeId()
+        command = f"sacct -X | grep {jobId} | awk '{{print $6}}'"
 
         # Check the status
         session = self._getSession()
-        data = {"sacct" : True} # We can use either sacct or squeue for info, sacct seems to work a fail a bit less often
-        r = session.get(url, data=data)
-        if not r.status_code == requests.codes.ok:
-            logging.error("Error getting job status")
+        data = {"executable" : command}
+        r = session.post(url, data=data)
+        task_id = r.json()["task_id"]
+
+        # Wait until our command has finished
+        status = 'new'
+        while not status == 'completed':
+            task_url = "https://api.nersc.gov/api/v1.2/tasks/" + task_id
+            r = session.get(task_url)
+            status = r.json()['status']
+            time.sleep(2)
+        j = json.loads(r.json()['result']) # 'result' is a JSON formatted string, so we need to convert again
+        j = j['output'].strip() # Get the actual status value
+
+        if not j: # If there's no status, then the job wasn't found
+            logging.error(f"Job not found: {jobId}")
             return False
-        if not r.json()['output']:
-            logging.error("Job not found.")
-            return False
-        j = r.json()['output'][0]
 
         # Construct our status message
         jstatus = NerscJobStatus()
-        jstatus.setNativeStatusStr(j['state'].split(' ')[0]) # Cancelled jobs appear in the form "CANCELLED by user123", so make sure to just grab the beginning
-        jstatus.setNativeId(jobContext.getNativeId())
+        jstatus.setNativeStatusStr(j.split(' ')[0]) # Cancelled jobs appear in the form "CANCELLED by user123", so make sure to just grab the beginning
+        jstatus.getJobContext().setNativeId(jobContext.getNativeId())
         jstatus.setEmitTime(datetime.utcnow())
-        jstatus.setSiteName(self.machine)
+        jstatus.getJobContext().setSiteName(self.machine)
+        jstatus.emit()
         return jstatus
 
     def cancelJob(self, jobContext: JobContext) -> bool:
@@ -277,7 +292,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
             iAmAJob = True
             jobContext = JobContext()
         jstatus = NerscJobStatus(jobContext)
-        jstatus.setSiteName(machine)
+        jstatus.getJobContext().setSiteName(self.machine)
         if (iAmAJob):
             # emit the starting job status sequence
             jstatus.emit(JobStatusValues.PENDING.value)
@@ -318,7 +333,7 @@ class NerscSiteRepoDriver(SiteRepoDriver):
             iAmAJob = True
             jobContext = JobContext()
         jstatus = NerscJobStatus(jobContext)
-        jstatus.setSiteName(machine)
+        jstatus.getJobContext().setSiteName(self.machine)
         if (iAmAJob):
             # emit the starting job status sequence
             jstatus.emit(JobStatusValues.PENDING.value)
@@ -326,6 +341,8 @@ class NerscSiteRepoDriver(SiteRepoDriver):
 
         # Construct our URL
         remotePath = siteRef.getPath()
+        if not remotePath[0] == '/': # We need the remote path to start with a slash
+            remotePath = '/' + remotePath
         url = NERSC_URLS.NERSC_GET_URL.value + self.machine + remotePath
 
         # Emit our info status before hitting the API

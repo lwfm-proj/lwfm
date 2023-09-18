@@ -23,7 +23,7 @@ class MetaRepo:
         return _domain
 
     @staticmethod
-    def notate(fileRef, siteClass, siteMetadata, targetClass, targetMetadata, token):
+    def notate(fileRef, siteClass=None, siteMetadata=None, targetClass=None, targetMetadata=None, token=None):
         # Given a fileRef, add it to the MetaRepo
         # The user must supply a site and target information, so Metarepo knows how to
         # process the metasheet
