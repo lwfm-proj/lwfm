@@ -267,11 +267,13 @@ class DT4DSiteRunDriver(SiteRunDriver):
         # runtime is going to take the job through its states.  to get the state into lwfm, we need to poll the site.
         #retval = JobStatusSentinelClient().setTerminalSentinel(context.getId(), context.getParentJobId(), context.getOriginJobId(),
         #                                                       context.getNativeId(), "dt4d")
+        status.emit()
         return status
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
         stat =  _getJobStatus(jobContext)
         status = DT4DJobStatus.deserialize(stat)
+        status.emit()
         return status
 
     def cancelJob(self, nativeJobId: str) -> bool:
