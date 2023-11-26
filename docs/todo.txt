@@ -14,6 +14,9 @@ Arch: PSI/J
     - Launcher: e.g. mpirun
     - Job: attach JobSpec & ResourceSpec, set launcher, submit & wait or set job status callback python func
     - Job Status: state (https://exaworks.org/psij-python/docs/v/0.9.3/.generated/tree.html#psij.JobState) + history
+    - Job State = enum 
+    - ProcessReaper - polls processes being tracked to completion, uses nodelist file to track deleted at end of run; starting the executor
+        starts the singleton reaper 
 
 Arch: lwfm 
     - morph triggers into futures, complex joins, retries  
@@ -37,6 +40,60 @@ Arch: General Model
 	    - record metadata at time of production (in situ) - fire & forget - domain specific AI assist on
  		    decoration?  (fairdo)
 	    - data staging tasks (see parsl w taskvine) 
+
+
+* * * * * * * * * * * * * 
+
+PSI/J  
+    - make an Executor (e.g. slurm)
+    - make a JobSpec (executable, args, in/out)
+    - make ResourceSpec (e.g. #nodes)
+    - make a Job - set the JobSpec, ResourceSpec, launcher (e.g. mpirun)
+    - submit the job 
+    - sit on job.wait() 
+
+lwfm 
+    - make a Site with a Run subsystem 
+    - make a JobDefn (executable)
+    - make a JobContext (id)
+    - submit the job 
+    - poll for completion status 
+
+* psij
+    - JobSpec: executable, args, run directory, display name, environment vars, std in out & err paths, handle to ResourceSpec, 
+        attributes (e.g. wall time), pre-launch script, post-launch script, handle to Launcher (e.g. mpirun) - there's an assumption here
+        that there's a unix-like OS here, so its not "site specific" because only unix-like sites are supported 
+    - ResourceSpec: #node, #proc, #gpu, etc. - (compute site specific)
+    - Job: id, native id, handle to JobSpec, handle to on status change callback, handle to JobSpec, JobStatus (with own canonical states: 
+        new, queued, active, completed, cancelled, failed, ), methods: set callback, wait, cancel
+
+* lwfm 
+    - JobDefn: display name, compute type ("resource", can also represent a sub-Site), 
+        entry point ("executable", but not necessarily a path to an exe... we permit any 
+        struct here and let Site.Run decide how to handle), 
+        job args (any args to be interpreted by the Site.Run - different Sites might use these differently...) - 
+        thus the JobDefn, like psij.ResourceSpec, is potentially Site specific 
+    - RepoJobDefn: subclass of JobDefn to support data movement jobs 
+    - JobStatus: job id, native job id, has a JobContext with parent & originator job ids, ref to to the site which produced this status
+    - lwfm does not have its own "Job" class specifically - the Job fields from psij are in the lwfm.JobStatus. 
+        psij also adds the status callback (github issue list suggests psij.Job.wait() doesn't work for all states)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+* * * * * * * * * * * * * 
 
 Questions: 
     - how important is long-term reproducibility vs. (meta)data storage 
@@ -88,7 +145,11 @@ Use Cases
 
 
 
+C++ interface should have Repo method for fire & forget output annotion, Run interface to launch other jobs vs. scheduler, etc.
 
+
+data movement jobs
+jobs decorated with requirements, sites decorated with capabilities 
 
 
 
