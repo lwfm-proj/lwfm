@@ -109,16 +109,12 @@ class JobContext(LwfmBase):
 
     """
 
-    def __init__(self, parentContext = None):
+    def __init__(self):
         super(JobContext, self).__init__(None)
         self.setId(_IdGenerator.generateId())
         self.setNativeId(self.getId())
-        if (parentContext is not None):
-            self.setParentJobId(parentContext.getParentJobId())
-            self.setOriginJobId(parentContext.getOriginJobId())
-        else:
-            self.setParentJobId("")                     # a seminal job has no parent
-            self.setOriginJobId(self.getId())           # a seminal job is its own originator
+        self.setParentJobId("")                     # a seminal job would have no parent - it may be set later at runtime
+        self.setOriginJobId(self.getId())           # a seminal job would be its own originator - it may be set later 
         self.setName(self.getId())
         self.setComputeType("")
         self.setSiteName("")
@@ -349,6 +345,10 @@ class JobStatus(LwfmBase):
         try:
             jssc = JobStatusSentinelClient()
             jssc.emitStatus(self.getJobContext().getId(), self.getStatus().value, self.serialize())
+            # put a little wait in to avoid a race condition where the status is emitted and then immediately queried
+            # or two status messages are emitted in rapid succession and they appear out of order
+            import time
+            time.sleep(5)
             self.clear()
             return True
         except Exception as ex:

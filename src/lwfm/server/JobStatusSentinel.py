@@ -32,7 +32,7 @@ class JobStatusSentinel:
         self._timer.start()
 
     def checkEvents(self):
-        print("*** waking up to check events num waiting handlers = " + str(len(self._eventHandlerMap)))
+        #print("*** waking up to check events num waiting handlers = " + str(len(self._eventHandlerMap)))
         # Run through each event, checking the status
         for key in list(self._eventHandlerMap):
             handler = self._eventHandlerMap[key]
@@ -46,8 +46,8 @@ class JobStatusSentinel:
                 context.setId(jobId)
                 context.setNativeId(jobId)
                 jobStatus = runDriver.getJobStatus(context)
-                if ((handler._getArg( _EventHandlerFields.FIRE_DEFN.value) == "") or
-                    (handler._getArg( _EventHandlerFields.FIRE_DEFN.value) is None)):
+                if ((handler._getArg( _JobEventHandlerFields.FIRE_DEFN.value) == "") or
+                    (handler._getArg( _JobEventHandlerFields.FIRE_DEFN.value) is None)):
                     # if we are in a terminal state, "run the handler" which means "evict" the job from checking
                     # in the future - we have seen its terminal state
                     # we do have a target context, which gives us the parent and origin job ids

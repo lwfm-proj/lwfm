@@ -79,6 +79,38 @@ lwfm
         psij also adds the status callback (github issue list suggests psij.Job.wait() doesn't work for all states)
 
 
+(base) :~/src/lwfm-proj$ . lwfm/dev/start-mw.sh 
+
+
+A -> B -> C use case (pseudocode)
+    - synchronous: make & run A and wait for it, then repeat for B and then C
+            # run job B after job A
+            jobA = makeJob(A)
+            jobA.submit()
+            jobA.wait()
+            # repeat for B and C
+            jobB = makeJob(B)  etc.
+    - asynchronous control flow: downstream jobs B and C may of may not have control and/or data flow dependencies; if 
+        they have no control flow dependency, they can be run simultaneous.  if they have a control flow 
+        dependency A triggers B.  
+            jobA = makeJob(A)
+            jobB = makeJob(B)
+            setJobTrigger(jobB, jobA)
+            jobA.submit()
+    - asynchronous join: same as a control flow dependency, but B is dependent on a set of upstream A 
+            jobA1 = makeJob(A)
+            jobA2 = makeJob(A)
+            jobB = makeJob(B)
+            setJobTrigger(jobB, [jobA1, jobA2])
+            jobA1.submit()
+            jobA2.submit()
+    - asynchronous data flow: if two jobs have a data flow dependency, the creation of data with a metadata
+        signature (potenially but not necessarily by job A) triggers the running of B.
+            
+
+
+
+
 
 
 

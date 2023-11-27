@@ -11,6 +11,9 @@ from lwfm.store.RunStore import RunJobStatusStore
 import logging
 
 app = Flask(__name__)
+app.logger.disabled = True
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 jss = JobStatusSentinel()
 
 # most recent status

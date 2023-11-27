@@ -24,10 +24,8 @@ if __name__ == '__main__':
     # a "local" Site login is generally a no-op
     site.getAuthDriver().login()
 
-    logging.info("login successful")
-
     # what named computing resources are available on this site?
-    logging.info("compute types = " + str(site.getRunDriver().listComputeTypes()))
+    logging.info("The site " + siteName + " has compute types = " + str(site.getRunDriver().listComputeTypes()))
 
     # define the Job - use all Job defaults except the actual command to execute
     jobDefn = JobDefn()

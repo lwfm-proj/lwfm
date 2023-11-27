@@ -124,7 +124,7 @@ class LocalSiteRunDriver(SiteRunDriver):
             status = LocalJobStatus(jobContext)
         else:
             status = JobStatus.deserialize(blob)
-        jstatus.emit()
+        status.emit()
         return status
 
     def cancelJob(self, jobContext: JobContext) -> bool:

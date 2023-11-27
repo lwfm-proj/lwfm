@@ -25,11 +25,11 @@ if __name__ == '__main__':
     site.getAuthDriver().login()
 
     # we'll have three Jobs in total, one's completion firing the next.  A -> B -> C
-    # we'll run Job C (a data move) when Job B finishes after Job A finishes - so we'll a priori generate the job ids to trigger off
+    # we'll run Job C (a data move) when Job B finishes after Job A finishes 
 
-    jobContextA = JobContext()              # make an id for job A - we'll make a trigger off it
-    jobContextB = JobContext(jobContextA)   # job A is the parent of B - we'll make an id for B since we'll trigger off it
-    jobContextC = JobContext(jobContextB)   # in this example, we'll pre-make the context of job C so we can show it
+    jobContextA = JobContext()             
+    jobContextB = JobContext()   
+    jobContextC = JobContext()   
 
     # define job A - sit-in for some kind of "real" pre-processing
     jobDefnA = JobDefn()
