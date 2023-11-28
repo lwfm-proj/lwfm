@@ -36,7 +36,7 @@ if __name__ == '__main__':
     # the run is generally asynchronous - on a remote HPC-type Site certainly,
     # and even in a local Site the "local" driver can implement async runs (which in fact it does),
     # so expect this Job status to be "pending"
-    logging.info("job " + status.getJobContext().getId() + " " + status.getStatus().value)
+    logging.info("hello world job " + status.getJobContext().getId() + " " + status.getStatus().value)
 
     # how could we tell the async job has finished? one way is to synchronously wait on its end status
     # (another way is asynchronous triggering, which we'll demonstrate in a separate example)
@@ -45,4 +45,4 @@ if __name__ == '__main__':
     while (not status.isTerminal()):
         time.sleep(15)
         status = site.getRunDriver().getJobStatus(context)
-    logging.info("job " + status.getJobContext().getId() + " " + status.getStatus().value)
+    logging.info("hello world job " + status.getJobContext().getId() + " " + status.getStatus().value)

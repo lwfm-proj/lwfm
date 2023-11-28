@@ -32,15 +32,16 @@ class JobStatusSentinel:
         self._timer.start()
 
     def checkEvents(self):
-        #print("*** waking up to check events num waiting handlers = " + str(len(self._eventHandlerMap)))
         # Run through each event, checking the status
         for key in list(self._eventHandlerMap):
             handler = self._eventHandlerMap[key]
+            jobId = handler._getArg( _JobEventHandlerFields.JOB_ID.value)
             site = handler._getArg( _JobEventHandlerFields.JOB_SITE_NAME.value)
+            logging.error("Checking event found for job " + jobId + " on site " + site)
             # Local jobs can instantly emit their own statuses, on demand
             if site != "local":
+                logging.info("Inside if site != local")
                 # Get the job's status
-                jobId = handler._getArg( _JobEventHandlerFields.JOB_ID.value)
                 runDriver = Site.getSiteInstanceFactory(site).getRunDriver()
                 context = JobContext()
                 context.setId(jobId)

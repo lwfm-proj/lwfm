@@ -117,7 +117,7 @@ class JobContext(LwfmBase):
         self.setOriginJobId(self.getId())           # a seminal job would be its own originator - it may be set later 
         self.setName(self.getId())
         self.setComputeType("")
-        self.setSiteName("")
+        self.setSiteName("local")                   # default to local
 
     def setId(self, idValue: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.ID.value, idValue)
@@ -348,7 +348,7 @@ class JobStatus(LwfmBase):
             # put a little wait in to avoid a race condition where the status is emitted and then immediately queried
             # or two status messages are emitted in rapid succession and they appear out of order
             import time
-            time.sleep(5)
+            time.sleep(1)
             self.clear()
             return True
         except Exception as ex:

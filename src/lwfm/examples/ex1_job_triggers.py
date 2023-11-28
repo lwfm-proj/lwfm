@@ -54,12 +54,10 @@ if __name__ == '__main__':
     # then set C to fire when B finishes
     # the "job context" is tracking the digital thread of the related jobs
     # set a trigger, a "future" - when job A gets to complete, run B
-    #site.setEventHandler(jobContextA.getId(), siteName, JobStatusValues.COMPLETE.value, jobDefnB, siteName, jobContextB)
-    site.getRunDriver().setEventHandler(jobContextA, JobStatusValues.COMPLETE, None, jobDefnB, jobContextB, None)
+    site.getRunDriver().setEventHandler(jobContextA, JobStatusValues.COMPLETE, None, jobDefnB, jobContextB, siteName)
     # set another trigger - when job B gets to complete, run C.  note we don't really need to specify context C,
     # but we will so we can use it in this demo
-    #site.setEventHandler(jobContextB.getId(), siteName, JobStatusValues.COMPLETE.value, jobDefnC, siteName, jobContextC)
-    site.getRunDriver().setEventHandler(jobContextB, JobStatusValues.COMPLETE, None, jobDefnC, jobContextC, None)
+    site.getRunDriver().setEventHandler(jobContextB, JobStatusValues.COMPLETE, None, jobDefnC, jobContextC, siteName)
 
     # run job A which initiates the A -> B -> C sequence
     status = site.getRunDriver().submitJob(jobDefnA, jobContextA)
