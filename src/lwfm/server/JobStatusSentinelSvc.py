@@ -37,7 +37,7 @@ def emitStatus():
     # store it locally for convenience
     _jobStatusCache[jobId] = statusObj
     _jobStatusHistory.append(statusObj)
-    key = JobEventHandler(jobId, None, jobStatus, None, None, None).getKey()
+    key = JobEventHandler(jobId, jobStatus, None, None).getKey()
     jss.runHandler(key, statusObj) # This will check to see if the handler is in the JSS store, and run if so
     return '', 200
 
@@ -51,6 +51,17 @@ def getStatus(jobId : str):
             print("*** exception from stat.serialize() " + str(ex))
             return ""
     except:
+        return ""
+
+@app.route('/site/jobId/<jobId>')
+def getSiteByJobId(jobId : str):
+    try:
+        print("getSiteByJobId() jobId = " + jobId)
+        status = _jobStatusCache[jobId]
+        siteName = status.getJobContext().getSiteName()
+        return siteName
+    except ex1 as Exception:
+        print("*** exception from getSiteByJobId() " + str(ex1))
         return ""
 
 @app.route('/all/statuses')

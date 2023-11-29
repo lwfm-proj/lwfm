@@ -146,14 +146,12 @@ class LocalSiteRunDriver(SiteRunDriver):
         return ["local"]
 
 
-    def setEventHandler(self, jobContext: JobContext, jobStatus: JobStatusValues, statusFilter: Callable,
-                        newJobDefn: JobDefn, newJobContext: JobContext, newSiteName: str) -> JobEventHandler:
-        if (newSiteName is None):
+    # TODO add back callable filter, docs 
+    def setEventHandler(self, jeh: JobEventHandler) -> JobStatus:
+        if (jeh.getTargetSiteName() is None):
             newSiteName = "local"
-        logging.error("in LocalSiteDriver.setEventHandler - jobSiteName = " + jobContext.getSiteName() + " & newSiteName = " 
-                      + newSiteName)
-        JobStatusSentinelClient().setEventHandler(jobContext.getId(), jobContext.getSiteName(), jobStatus.value,
-                                                  newJobDefn, newSiteName, newJobContext)
+        #JobStatusSentinelClient().setEventHandler(jobId, jobStatus.value, newJobDefn, newSiteName)
+        JobStatusSentinelClient().setEventHandler(jeh.getJobId(), None, None, None)
 
 
     def unsetEventHandler(self, jeh: JobEventHandler) -> bool:

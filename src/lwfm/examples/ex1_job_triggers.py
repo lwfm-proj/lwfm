@@ -11,6 +11,7 @@ from lwfm.base.Site import Site
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+from lwfm.base.JobEventHandler import JobEventHandler
 
 # This Site name can be an argument - name maps to a Site class implementation,
 # either one provided with this sdk, or one user-authored.
@@ -23,14 +24,7 @@ if __name__ == '__main__':
     # one Site for this example - construct an interface to the Site
     site = Site.getSiteInstanceFactory(siteName)
     site.getAuthDriver().login()
-
-    # we'll have three Jobs in total, one's completion firing the next.  A -> B -> C
-    # we'll run Job C (a data move) when Job B finishes after Job A finishes 
-
-    jobContextA = JobContext()             
-    jobContextB = JobContext()   
-    jobContextC = JobContext()   
-
+ 
     # define job A - sit-in for some kind of "real" pre-processing
     jobDefnA = JobDefn()
     jobDefnA.setEntryPoint("echo Job A output pwd = `pwd`")
@@ -49,22 +43,22 @@ if __name__ == '__main__':
     jobDefnC.setLocalRef(Path(dataFile))
     jobDefnC.setSiteRef(FSFileRef.siteFileRefFromPath(os.path.expanduser('~')))
 
-    # set job B to run when job A finishes - i.e., "when the job running async on the named site and represented by the provided
-    # canonical job id reaches the state specified, run the given job definition on the named target site in a given job context"
-    # then set C to fire when B finishes
-    # the "job context" is tracking the digital thread of the related jobs
-    # set a trigger, a "future" - when job A gets to complete, run B
-    site.getRunDriver().setEventHandler(jobContextA, JobStatusValues.COMPLETE, None, jobDefnB, jobContextB, siteName)
-    # set another trigger - when job B gets to complete, run C.  note we don't really need to specify context C,
-    # but we will so we can use it in this demo
-    site.getRunDriver().setEventHandler(jobContextB, JobStatusValues.COMPLETE, None, jobDefnC, jobContextC, siteName)
+    # submit job A which gives us the job id we need to set up the event handler for job B 
+    statusA = site.getRunDriver().submitJob(jobDefnA)
+    print("job A " + statusA.getJobContext().getId() + " " + statusA.getStatus().value) 
 
-    # run job A which initiates the A -> B -> C sequence
-    status = site.getRunDriver().submitJob(jobDefnA, jobContextA)
+    # when job A gets to the COMPLETE state, fire job B on the named site; registering it gives us the job id we need 
+    # et up the event handler for job C
+    statusB = site.getRunDriver().setEventHandler(
+        JobEventHandler(statusA.getJobContext().getId(), JobStatusValues.COMPLETE, jobDefnB, siteName))
+    
+    # when job B gets to the COMPLETE state, fire job C on the named site
+    statusC = site.getRunDriver().setEventHandler(
+        JobEventHandler(statusB.getJobContext().getId(), JobStatusValues.COMPLETE, jobDefnC, siteName))
 
     # for the purposes of this example, let's wait synchronously on the conclusion of job C
-    status = site.getRunDriver().getJobStatus(jobContextC)
-    while (not status.isTerminal()):
+    statusC = site.getRunDriver().getJobStatus(statusC.getJobContext())
+    while (not statusC.isTerminal()):
         time.sleep(15)
-        status = site.getRunDriver().getJobStatus(jobContextC)
-    logging.info("job C " + status.getJobContext().getId() + " " + status.getStatus().value)
+        statusC = site.getRunDriver().getJobStatus(statusC.getJobContext())
+    logging.info("job C " + statusC.getJobContext().getId() + " " + statusC.getStatus().value)

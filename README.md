@@ -1,8 +1,8 @@
 # lwfm
 
-"Local Workflow Manager"
+"Lightweight Work Flow Manager"
 
-An implementation of a 4-part framework for locally-managed inter-site workflow interoperability.
+A lightweight implementation of a 4-part framework for locally-managed inter-site workflow interoperability.
 
 In a nutshell...
 
@@ -18,5 +18,5 @@ The work is based on a paper presented by A. Gallo et al at the Smoky Mountains 
 
 More detailed documentation about the implementation is presented in a Word doc in this git project.
 
-The initial implementation is the work of A. Gallo & D. Hughes, with the sponsorship of GE Research.
+The initial implementation is the work of A. Gallo, D. Hughes, G. McBride with the sponsorship of GE Research.
 

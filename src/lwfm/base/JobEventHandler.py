@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 
 class _JobEventHandlerFields(Enum):
     ID               = "id"                             # handler id
-    JOB_ID           = "jobId"
+    JOB_ID           = "jobId"                          # lwfm canonical job id
     JOB_SITE_NAME    = "jobSiteName"
     JOB_STATUS       = "jobStatus"
     FIRE_DEFN        = "fireDefn"
@@ -53,18 +53,18 @@ class JobEventHandler(LwfmBase):
     To implement this functionality, the rule must be able to save state.  Registrar provides a means for the rule function
     to post back tracking information.
 
+    TODO update this doc to reflect the current implementation
     """
 
-    def __init__(self,
-                 jobId: str, jobSiteName: str, jobStatus: str, fireDefn: str, targetSiteName: str,  targetContext: JobContext):
+    def __init__(self, jobId: str, jobStatus: str, fireDefn: str, targetSiteName: str):
         super(JobEventHandler, self).__init__(None)
         self._setId(_IdGenerator.generateId())
         LwfmBase._setArg(self, _JobEventHandlerFields.JOB_ID.value, jobId)
-        LwfmBase._setArg(self, _JobEventHandlerFields.JOB_SITE_NAME.value, jobSiteName)
+        LwfmBase._setArg(self, _JobEventHandlerFields.JOB_SITE_NAME.value, None)
         LwfmBase._setArg(self, _JobEventHandlerFields.JOB_STATUS.value, jobStatus)
         LwfmBase._setArg(self, _JobEventHandlerFields.FIRE_DEFN.value, fireDefn)
         LwfmBase._setArg(self, _JobEventHandlerFields.TARGET_SITE_NAME.value, targetSiteName)
-        LwfmBase._setArg(self, _JobEventHandlerFields.TARGET_CONTEXT.value, targetContext)
+        LwfmBase._setArg(self, _JobEventHandlerFields.TARGET_CONTEXT.value, None)
 
     def _setId(self, idValue: str) -> None:
         LwfmBase._setArg(self, _JobEventHandlerFields.ID.value, idValue)
@@ -72,12 +72,21 @@ class JobEventHandler(LwfmBase):
     def getId(self) -> str:
         return LwfmBase._getArg(self, _JobEventHandlerFields.ID.value)
 
+    def setJobId(self, idValue: str) -> None:
+        LwfmBase._setArg(self, _JobEventHandlerFields.JOB_ID.value, idValue)
+
+    def getJobId(self) -> str:
+        return LwfmBase._getArg(self, _JobEventHandlerFields.JOB_ID.value)
+    
     def getJobSiteName(self) -> str:
         return LwfmBase._getArg(self, _JobEventHandlerFields.JOB_SITE_NAME.value)
 
     def getFireDefn(self) -> str:
         return LwfmBase._getArg(self, _JobEventHandlerFields.FIRE_DEFN.value)
 
+    def setFireDefn(self, fireDefn: str) -> None:
+        return LwfmBase._setArg(self, _JobEventHandlerFields.FIRE_DEFN.value, fireDefn)
+    
     def getTargetSiteName(self) -> str:
         return LwfmBase._getArg(self, _JobEventHandlerFields.TARGET_SITE_NAME.value)
 

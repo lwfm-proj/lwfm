@@ -30,9 +30,15 @@ class JobStatusSentinelClient:
             return response.text
 
 
-    # returns the "key" for the trigger, a compound of the job id, status, etc.
-    def setEventHandler(self, jobId: str, jobSiteName: str, jobStatus: str,
-                        fireDefn: JobDefn, targetSiteName: str, targetContext = None) -> str:
+    # TODO - docs 
+    def setEventHandler(self, jobId: str, jobStatus: str, fireDefn: JobDefn, targetSiteName: str) -> str:
+        # get the status for the referenced job - it will tell us about the job's context
+        
+        jobSiteName = self.getSiteName(jobId)
+        if (jobSiteName is None):
+            # oops, we don't know about this job
+            return None
+        
         payload = {}
         payload["jobId"] = jobId
         payload["jobSiteName"] = jobSiteName
@@ -40,22 +46,17 @@ class JobStatusSentinelClient:
         if (fireDefn is not None) and (targetSiteName is not None):
             payload["fireDefn"] = pickle.dumps(fireDefn, 0).decode() # Use protocol 0 so we can easily convert to an ASCII string
             payload["targetSiteName"] = targetSiteName
-            if (targetContext is not None):
-                try:
-                    payload["targetContext"] = targetContext.serialize()
-                except Exception as ex:
-                    logging.error(ex)
-                    return None
-            else:
-                payload["targetContext"] = ""
         else:
             payload["fireDefn"] = ""
             payload["targetSiteName"] = ""
-            payload["targetContext"] = ""
+        print("About to call set for the handler")
         response = requests.post(f'{self.getUrl()}/set', payload)
+        print("back from set")
         if response.ok:
+            print("response is ok")
             return response.text
         else:
+            print("response is bad")
             logging.error(response.text)
             return None
 
@@ -114,6 +115,13 @@ class JobStatusSentinelClient:
                 statuses =  json.loads(str(response.text))
                 return statuses
         else:
+            return None      
+
+    def getSiteName(self, jobId):
+        response = requests.get(f'{self.getUrl()}/site/jobId/{jobId}')
+        if response.ok:
+            return response.text
+        else:
             return None
 
     def getWorkflowUrl(self, jobContext) -> str:
@@ -124,12 +132,5 @@ class JobStatusSentinelClient:
 
 # test
 if __name__ == '__main__':
+    pass 
 
-    # basic client test - assumes the JSS Svc is running and exposing an HTTP API
-    jssClient = JobStatusSentinelClient()
-    logging.info("*** " + str(jssClient.listActiveHandlers()))
-    logging.info("*** " + str(jssClient.unsetAllEventHandlers()))
-    handlerId = jssClient.setEventHandler("123", "nersc", "INFO", "{jobDefn}", "nersc")
-    logging.info("*** " + handlerId)
-    logging.info("*** " + str(jssClient.listActiveHandlers()))
-    logging.info("*** " + str(jssClient.unsetEventHandler(handlerId)))
