@@ -12,7 +12,7 @@ import logging
 import threading
 
 from lwfm.base.JobDefn import JobDefn
-from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, getJobStatus   
 from lwfm.base.Site import Site
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
 from lwfm.base.JobEventHandler import JobEventHandler, _JobEventHandlerFields
@@ -37,7 +37,7 @@ class JobStatusSentinel:
             handler = self._eventHandlerMap[key]
             jobId = handler._getArg( _JobEventHandlerFields.JOB_ID.value)
             site = handler._getArg( _JobEventHandlerFields.JOB_SITE_NAME.value)
-            logging.error("Checking event found for job " + jobId + " on site " + site)
+            logging.error("Checking event found for job " + jobId + " on site " + str(site))
             # Local jobs can instantly emit their own statuses, on demand
             if site != "local":
                 logging.info("Inside if site != local")
@@ -72,12 +72,28 @@ class JobStatusSentinel:
 
 
     # Regsiter an event handler with the sentinel.  When a jobId running on a job Site emits a particular Job Status, fire
-    # the given JobDefn (serialized) at the target Site.  Return the handler id.
-    def setEventHandler(self, jobId: str, jobSiteName: str, jobStatus: str,
-                        fireDefn: str, targetSiteName: str, targetContext: JobContext) -> str:
-        eventHandler = JobEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetContext)
-        self._eventHandlerMap[eventHandler.getKey()] = eventHandler
-        return eventHandler.getKey()
+    # the given JobDefn (serialized) at the target Site.  Return the new job id.
+    # TODO update doc
+    def setEventHandler(self, jobId: str, jobStatus: str, fireDefn: str, targetSiteName: str) -> str:
+        try: 
+            eventHandler = JobEventHandler(jobId, jobStatus, fireDefn, targetSiteName)
+            inStatus = getJobStatus(jobId)
+            print("inStatus: " + str(inStatus))
+            newJobContext = JobContext()   # will assign a new job id
+            newJobContext.setParentJobId(inStatus.getJobContext().getId())
+            newJobContext.setOriginJobId(inStatus.getJobContext().getOriginJobId())
+            newJobContext.setSiteName(targetSiteName)
+            # set the job context under which the new job will run
+            eventHandler.getTargetContext(newJobContext)
+            # store the event handler in the cache  
+            self._eventHandlerMap[eventHandler.getKey()] = eventHandler
+            # fire the initial status showing the new job pending 
+            newStatus = JobStatus(newJobContext)
+            newStatus.setStatus(JobStatusValues.PENDING)
+            newStatus.emit()
+            return eventHandler.getTargetContext().getId()
+        except Exception as ex:
+            print(ex)
 
     def unsetEventHandler(self, handlerId: str) -> bool:
         try:
@@ -99,24 +115,29 @@ class JobStatusSentinel:
         return handlers
 
     def runHandler(self, handlerId, jobStatus):
-        # unset the event handler ASAP to help prevent race conditions
-        if handlerId not in self._eventHandlerMap:
+        try:
+            # unset the event handler ASAP to help prevent race conditions
+            if handlerId not in self._eventHandlerMap:
+                return False
+            handler = self._eventHandlerMap[handlerId]
+            self.unsetEventHandler(handlerId)
+
+            if (handler._getArg( _JobEventHandlerFields.FIRE_DEFN.value) == ""):
+                # we have no defn to fire - we've just been tracking status
+                return True
+
+            # Run in a thread instead of a subprocess so we don't have to make assumptions about the environment
+            site = Site.getSiteInstanceFactory(handler._getArg( _JobEventHandlerFields.TARGET_SITE_NAME.value))
+            runDriver = site.getRunDriver().__class__
+            jobContext = handler._getArg(_JobEventHandlerFields.TARGET_CONTEXT.value)
+            jobContext.setOriginJobId(jobStatus.getJobContext().getOriginJobId())
+            # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
+            thread = threading.Thread(target = runDriver._submitJob,
+                                    args = (handler._getArg( _JobEventHandlerFields.FIRE_DEFN.value),jobContext,) )
+        except Exception as ex:
+            logging.error("Could not prepare to run job: " + ex)
             return False
-        handler = self._eventHandlerMap[handlerId]
-        self.unsetEventHandler(handlerId)
-
-        if (handler._getArg( _JobEventHandlerFields.FIRE_DEFN.value) == ""):
-            # we have no defn to fire - we've just been tracking status
-            return True
-
-        # Run in a thread instead of a subprocess so we don't have to make assumptions about the environment
-        site = Site.getSiteInstanceFactory(handler._getArg( _JobEventHandlerFields.TARGET_SITE_NAME.value))
-        runDriver = site.getRunDriver().__class__
-        jobContext = handler._getArg(_JobEventHandlerFields.TARGET_CONTEXT.value)
-        jobContext.setOriginJobId(jobStatus.getJobContext().getOriginJobId())
-        # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
-        thread = threading.Thread(target = runDriver._submitJob,
-                                  args = (handler._getArg( _JobEventHandlerFields.FIRE_DEFN.value),jobContext,) )
+        
         try:
             thread.start()
         except Exception as ex:

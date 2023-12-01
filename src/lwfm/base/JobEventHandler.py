@@ -2,9 +2,7 @@
 from enum import Enum
 
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
-from lwfm.base.JobStatus import JobStatus, JobContext
-
-from abc import ABC, abstractmethod
+from lwfm.base.JobStatus import JobContext
 
 
 class _JobEventHandlerFields(Enum):
@@ -77,6 +75,9 @@ class JobEventHandler(LwfmBase):
 
     def getJobId(self) -> str:
         return LwfmBase._getArg(self, _JobEventHandlerFields.JOB_ID.value)
+    
+    def getStatus(self) -> str:
+        return LwfmBase._getArg(self, _JobEventHandlerFields.JOB_STATUS.value)
     
     def getJobSiteName(self) -> str:
         return LwfmBase._getArg(self, _JobEventHandlerFields.JOB_SITE_NAME.value)

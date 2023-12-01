@@ -1,7 +1,7 @@
 import pickle
-import requests
 import logging
 import json
+import requests 
 
 from lwfm.base.JobDefn import JobDefn
 
@@ -32,16 +32,8 @@ class JobStatusSentinelClient:
 
     # TODO - docs 
     def setEventHandler(self, jobId: str, jobStatus: str, fireDefn: JobDefn, targetSiteName: str) -> str:
-        # get the status for the referenced job - it will tell us about the job's context
-        
-        jobSiteName = self.getSiteName(jobId)
-        if (jobSiteName is None):
-            # oops, we don't know about this job
-            return None
-        
         payload = {}
         payload["jobId"] = jobId
-        payload["jobSiteName"] = jobSiteName
         payload["jobStatus"] = jobStatus
         if (fireDefn is not None) and (targetSiteName is not None):
             payload["fireDefn"] = pickle.dumps(fireDefn, 0).decode() # Use protocol 0 so we can easily convert to an ASCII string
@@ -49,14 +41,12 @@ class JobStatusSentinelClient:
         else:
             payload["fireDefn"] = ""
             payload["targetSiteName"] = ""
-        print("About to call set for the handler")
         response = requests.post(f'{self.getUrl()}/set', payload)
-        print("back from set")
+        print("*** response.text: " + response.text)
         if response.ok:
-            print("response is ok")
+            # this is the job id of the registered job 
             return response.text
         else:
-            print("response is bad")
             logging.error(response.text)
             return None
 
@@ -88,10 +78,10 @@ class JobStatusSentinelClient:
                 'statusBlob': statusBlob}
         response = requests.post(f'{self.getUrl()}/emit', data=data)
         if response.ok:
-            return None
+            return 
         else:
             logging.error(response)
-            return None
+            return   
 
     def getStatusBlob(self, jobId) -> str:
         response = requests.get(f'{self.getUrl()}/status/{jobId}')
@@ -103,7 +93,8 @@ class JobStatusSentinelClient:
                     return response.text
             else:
                 return None
-        except:
+        except Exception as ex:
+            logging.error(ex)
             return None
 
     def getStatuses(self):

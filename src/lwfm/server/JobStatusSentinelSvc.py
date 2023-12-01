@@ -2,6 +2,7 @@
 #************************************************************************************************************************************
 # Flask app
 
+import stat
 from flask import Flask, request, jsonify
 import pickle
 from lwfm.server.JobStatusSentinel import JobStatusSentinel
@@ -31,12 +32,18 @@ def emitStatus():
     jobId = request.form['jobId']
     jobStatus = request.form['jobStatus']
     statusBlob = request.form['statusBlob']
-    statusObj = JobStatus.deserialize(statusBlob)
+    try:
+        statusObj = JobStatus.deserialize(statusBlob)
+    except Exception as ex:
+        print("exception deserializing statusBlob")
+        print(ex)
+        return '', 400
     # persist it for posterity
     RunJobStatusStore().write(statusObj)
     # store it locally for convenience
     _jobStatusCache[jobId] = statusObj
     _jobStatusHistory.append(statusObj)
+    # TODO 
     key = JobEventHandler(jobId, jobStatus, None, None).getKey()
     jss.runHandler(key, statusObj) # This will check to see if the handler is in the JSS store, and run if so
     return '', 200
@@ -47,7 +54,7 @@ def getStatus(jobId : str):
         stat = _jobStatusCache[jobId]
         try:
             return stat.serialize()
-        except ex as Exception:
+        except Exception as ex:
             print("*** exception from stat.serialize() " + str(ex))
             return ""
     except:
@@ -60,8 +67,8 @@ def getSiteByJobId(jobId : str):
         status = _jobStatusCache[jobId]
         siteName = status.getJobContext().getSiteName()
         return siteName
-    except ex1 as Exception:
-        print("*** exception from getSiteByJobId() " + str(ex1))
+    except Exception as ex:
+        print("*** exception from getSiteByJobId() " + str(ex))
         return ""
 
 @app.route('/all/statuses')
@@ -73,7 +80,7 @@ def getAllStatuses():
             try:
                 status = _jobStatusCache[jobId]
                 statuses.append(status.toJSON())
-            except ex as Exception:
+            except Exception as ex:
                 print("*** exception from stat.serialize() " + str(ex))
                 return ""
     except Exception as e:
@@ -81,26 +88,20 @@ def getAllStatuses():
         return ""
     return jsonify(statuses)
 
+
 @app.route('/set', methods = ['POST'])
 def setHandler():
+    print("here in server set")
     jobId = request.form['jobId']
-    jobSiteName = request.form['jobSiteName']
     jobStatus = request.form['jobStatus']
     try:
         fireDefn = pickle.loads(request.form['fireDefn'].encode())
-    except:
+    except Exception as ex:
+        print(ex)   # TODO loggging 
         fireDefn = ""
     targetSiteName = request.form['targetSiteName']
-    targetContextStr = request.form['targetContext']
-    if (targetContextStr == ""):
-        targetContext = JobContext()
-    else:
-        targetContext = JobContext.deserialize(targetContextStr)
-    targetContext.setParentJobId(jobId)
-    # set the origin
-    handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetContext)
-    return handlerId
-
+    print("ready to call jss.setEventHandler")
+    return jss.setEventHandler(jobId, jobStatus, fireDefn, targetSiteName)
 
 @app.route('/setTerminal', methods = ['POST'])
 def setTerminal():
@@ -111,7 +112,7 @@ def setTerminal():
       nativeId = request.form['nativeId']
       siteName = request.form['siteName']
       targetContext = JobContext()
-    except ex as Exception:
+    except Exception as ex:
       print(str(ex))
     targetContext.setId(jobId)
     targetContext.setParentJobId(parentId)

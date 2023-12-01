@@ -3,6 +3,7 @@
 # assumes the lwfm job status service is running
 
 import logging
+from operator import call
 import os
 from pathlib import Path
 import time
@@ -10,7 +11,7 @@ import time
 from lwfm.base.Site import Site
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
-from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, callJobStatus
 from lwfm.base.JobEventHandler import JobEventHandler
 
 # This Site name can be an argument - name maps to a Site class implementation,
@@ -45,20 +46,26 @@ if __name__ == '__main__':
 
     # submit job A which gives us the job id we need to set up the event handler for job B 
     statusA = site.getRunDriver().submitJob(jobDefnA)
-    print("job A " + statusA.getJobContext().getId() + " " + statusA.getStatus().value) 
+    print("statusA says id = " + statusA.getJobId())
+    print("statusA says status = " + statusA.getStatusValue())
 
+    # for fun, read it back 
+    statusA = callJobStatus(statusA.getJobId())
+    print("from the call, status = " + statusA.getStatusValue())
+        
     # when job A gets to the COMPLETE state, fire job B on the named site; registering it gives us the job id we need 
     # et up the event handler for job C
-    statusB = site.getRunDriver().setEventHandler(
-        JobEventHandler(statusA.getJobContext().getId(), JobStatusValues.COMPLETE, jobDefnB, siteName))
+    #statusB = site.getRunDriver().setEventHandler(
+    #    JobEventHandler(statusA.getJobId(), JobStatusValues.COMPLETE, jobDefnB, siteName))
+    #print("job B when it runs will have job id " + statusB.getJobId())
     
     # when job B gets to the COMPLETE state, fire job C on the named site
-    statusC = site.getRunDriver().setEventHandler(
-        JobEventHandler(statusB.getJobContext().getId(), JobStatusValues.COMPLETE, jobDefnC, siteName))
+    #statusC = site.getRunDriver().setEventHandler(
+    #    JobEventHandler(statusB.getJobContext().getId(), JobStatusValues.COMPLETE, jobDefnC, siteName))
 
     # for the purposes of this example, let's wait synchronously on the conclusion of job C
-    statusC = site.getRunDriver().getJobStatus(statusC.getJobContext())
-    while (not statusC.isTerminal()):
-        time.sleep(15)
-        statusC = site.getRunDriver().getJobStatus(statusC.getJobContext())
-    logging.info("job C " + statusC.getJobContext().getId() + " " + statusC.getStatus().value)
+    #statusC = site.getRunDriver().getJobStatus(statusC.getJobContext())
+    #while (not statusC.isTerminal()):
+    #    time.sleep(15)
+    #    statusC = site.getRunDriver().getJobStatus(statusC.getJobContext())
+    #logging.info("job C " + statusC.getJobContext().getId() + " " + statusC.getStatus().value)

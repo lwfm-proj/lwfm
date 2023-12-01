@@ -10,7 +10,6 @@
 
 from enum import Enum
 import logging
-from types import SimpleNamespace
 
 import os
 
@@ -59,8 +58,9 @@ class JobStatusValues(Enum):
                 return True
             else:
                 return False
-        except:
+        except Exception as ex:
             logging.error("Exception thrown determining status value for stat=" + str(stat))
+            logging.error(ex)
             return False
 
     def isTerminalSuccess(self, stat):
@@ -261,6 +261,9 @@ class JobStatus(LwfmBase):
     def setJobContext(self, jobContext: JobContext) -> None:
         self.jobContext = jobContext
 
+    def getJobId(self) -> str:
+        return self.jobContext.getId()
+
     def setStatus(self, status: JobStatusValues) -> None:
         LwfmBase._setArg(self, _JobStatusFields.STATUS.value, status)
 
@@ -302,7 +305,7 @@ class JobStatus(LwfmBase):
         try:
             ms = int(LwfmBase._getArg(self, _JobStatusFields.EMIT_TIME.value))
             return datetime.utcfromtimestamp(ms//1000).replace(microsecond=ms%1000*1000)
-        except:
+        except Exception as ex:
             # TODO
             return datetime.now()
 
@@ -386,7 +389,7 @@ class JobStatus(LwfmBase):
     @staticmethod
     def makeRepoInfo(verb: RepoOp, success: bool, fromPath: str, toPath: str) -> str:
         return ("[" + verb.value + "," + str(success) + "," + fromPath + "," + toPath + "]")
-
+    
     def toString(self) -> str:
         s = ("" + str(self.getJobContext().getId()) + "," + str(self.getJobContext().getParentJobId()) + "," +
              str(self.getJobContext().getOriginJobId()) + "," +
@@ -395,6 +398,20 @@ class JobStatus(LwfmBase):
         if (self.getStatus() == JobStatusValues.INFO):
             s += "," + str(self.getNativeInfo())
         return s
+
+
+@staticmethod
+def callJobStatus(jobId: str) -> JobStatus:
+    try:
+        jssc = JobStatusSentinelClient()
+        statusBlob = jssc.getStatusBlob(jobId)
+        if statusBlob:
+            return JobStatus.deserialize(statusBlob)
+        else:
+            return None
+    except Exception as ex:
+        logging.error(str(ex))
+        return None
 
 
 #************************************************************************************************************************************

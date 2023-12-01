@@ -202,6 +202,8 @@ A JobDefn defines the static job - what will be executed when the job is run, fo
 arguments".  And it names a symbolic resouce - a compute type - on which the job must run.  An arbitrary args list is 
 supported. A subclass of JobDefn is the RepoJobDefn which is a convenience mechansim for data movement jobs.
 
+A JobEventHandler is a registered JobDefn which will be submitted using the 
+
 Thus in lwfm a "job" has two representations - one static (the JobDefn) and one dynamic (the JobContext with its running
 list of JobStatus).
 

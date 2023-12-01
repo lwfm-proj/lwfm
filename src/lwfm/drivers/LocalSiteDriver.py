@@ -20,7 +20,7 @@ from pathlib import Path
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
-from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, callJobStatus
 from lwfm.base.JobEventHandler import JobEventHandler
 from lwfm.base.MetaRepo import MetaRepo
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
@@ -117,6 +117,7 @@ class LocalSiteRunDriver(SiteRunDriver):
         self._pendingJobs[jstatus.getJobContext().getId()] = thread
         return jstatus
 
+
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
         blob = JobStatusSentinelClient().getStatusBlob(jobContext.getId())
         if (blob is None):
@@ -124,6 +125,7 @@ class LocalSiteRunDriver(SiteRunDriver):
         else:
             status = JobStatus.deserialize(blob)
         return status
+
 
     def cancelJob(self, jobContext: JobContext) -> bool:
         # Find the locally running thread and kill it
@@ -150,8 +152,11 @@ class LocalSiteRunDriver(SiteRunDriver):
     def setEventHandler(self, jeh: JobEventHandler) -> JobStatus:
         if (jeh.getTargetSiteName() is None):
             newSiteName = "local"
-        #JobStatusSentinelClient().setEventHandler(jobId, jobStatus.value, newJobDefn, newSiteName)
-        JobStatusSentinelClient().setEventHandler(jeh.getJobId(), None, None, None)
+        #return getJobStatus(JobStatusSentinelClient().setEventHandler(jeh.getJobId(), jeh.getStatus().value, 
+        #                                                              jeh.getFireDefn(), jeh.getTargetSiteName()))
+        jobId = JobStatusSentinelClient().setEventHandler(jeh.getJobId(), jeh.getStatus().value, 
+                                                          jeh.getFireDefn(), jeh.getTargetSiteName())
+        print("*** job id is " + jobId)
 
 
     def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
