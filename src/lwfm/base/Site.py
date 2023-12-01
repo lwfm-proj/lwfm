@@ -72,11 +72,11 @@ class SiteRunDriver(ABC):
         # This helper function, not a member of the public interface, lets Python threading instantiate a
         # SiteRunDriver of the correct subtype on demand
         runDriver = cls()
-        runDriver.submitJob(jdefn, jobContext)
+        runDriver.submitJob(jdefn, jobContext, True)
 
 
     @abstractmethod
-    def submitJob(self, jobDefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
+    def submitJob(self, jobDefn: JobDefn, parentContext: JobContext = None, fromEvent: bool = False) -> JobStatus:
         """
         Submit the job for execution on this Site.  It is an implementation detail of the Site what that means - everything
         from pseudo-immediate command line execution, to scheduling on an HPC system.  The caller should assume the run is

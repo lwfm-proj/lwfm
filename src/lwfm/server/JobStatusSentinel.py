@@ -1,4 +1,7 @@
 
+# TODO logging vs. print 
+
+
 # The Job Status Sentinel watches for Job Status events and fires a JobDefn to a Site when an event of interest occurs.
 # The service exposes a way to set/unset event handlers, list jobs currently being watched.
 # The service must have some persistence to allow for very long running jobs.
@@ -12,7 +15,7 @@ import logging
 import threading
 
 from lwfm.base.JobDefn import JobDefn
-from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, getJobStatus   
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus   
 from lwfm.base.Site import Site
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
 from lwfm.base.JobEventHandler import JobEventHandler, _JobEventHandlerFields
@@ -77,14 +80,13 @@ class JobStatusSentinel:
     def setEventHandler(self, jobId: str, jobStatus: str, fireDefn: str, targetSiteName: str) -> str:
         try: 
             eventHandler = JobEventHandler(jobId, jobStatus, fireDefn, targetSiteName)
-            inStatus = getJobStatus(jobId)
-            print("inStatus: " + str(inStatus))
+            inStatus = fetchJobStatus(jobId)
             newJobContext = JobContext()   # will assign a new job id
             newJobContext.setParentJobId(inStatus.getJobContext().getId())
             newJobContext.setOriginJobId(inStatus.getJobContext().getOriginJobId())
             newJobContext.setSiteName(targetSiteName)
             # set the job context under which the new job will run
-            eventHandler.getTargetContext(newJobContext)
+            eventHandler.setTargetContext(newJobContext)
             # store the event handler in the cache  
             self._eventHandlerMap[eventHandler.getKey()] = eventHandler
             # fire the initial status showing the new job pending 
@@ -99,7 +101,8 @@ class JobStatusSentinel:
         try:
             self._eventHandlerMap.pop(handlerId)
             return True
-        except:
+        except Exception as ex:
+            print(ex)
             return False
 
     def unsetAllEventHandlers(self) -> None:

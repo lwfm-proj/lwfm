@@ -90,10 +90,16 @@ class JobEventHandler(LwfmBase):
     
     def getTargetSiteName(self) -> str:
         return LwfmBase._getArg(self, _JobEventHandlerFields.TARGET_SITE_NAME.value)
+    
+    def setTargetSiteName(self, targetSiteName: str) -> None:
+        return LwfmBase._setArg(self, _JobEventHandlerFields.TARGET_SITE_NAME.value, targetSiteName)
 
     def getTargetContext(self) -> str:
         return LwfmBase._getArg(self, _JobEventHandlerFields.TARGET_CONTEXT.value)
 
+    def setTargetContext(self, targetContext: JobContext) -> None:
+        return LwfmBase._setArg(self, _JobEventHandlerFields.TARGET_CONTEXT.value, targetContext)
+    
     def getHandlerId(self) -> str:
         return self.getKey()
 

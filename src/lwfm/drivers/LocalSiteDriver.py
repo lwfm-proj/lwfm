@@ -20,7 +20,7 @@ from pathlib import Path
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
-from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, callJobStatus
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus
 from lwfm.base.JobEventHandler import JobEventHandler
 from lwfm.base.MetaRepo import MetaRepo
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
@@ -102,14 +102,15 @@ class LocalSiteRunDriver(SiteRunDriver):
             #Emit FAILED status
             jobStatus.emit(JobStatusValues.FAILED.value)
 
-    def submitJob(self, jdefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
+    def submitJob(self, jdefn: JobDefn, parentContext: JobContext = None, fromEvent: bool = False) -> JobStatus:
         if (parentContext is None):
             parentContext = JobContext()
         # In local jobs, we spawn the job in a new child process
         jstatus = LocalJobStatus(parentContext)
 
-        # Let the sentinel know the job is ready
-        jstatus.emit(JobStatusValues.PENDING.value)
+        # Let the sentinel know the job is ready unless this is from an event (in which case the sentinel already knows)
+        if (not fromEvent):
+            jstatus.emit(JobStatusValues.PENDING.value)
 
         # Run the job in a new thread so we can wrap it in a bit more code
         thread = multiprocessing.Process(target=self._runJob, args=[jdefn, jstatus])
@@ -119,12 +120,7 @@ class LocalSiteRunDriver(SiteRunDriver):
 
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
-        blob = JobStatusSentinelClient().getStatusBlob(jobContext.getId())
-        if (blob is None):
-            status = LocalJobStatus(jobContext)
-        else:
-            status = JobStatus.deserialize(blob)
-        return status
+        return fetchJobStatus(jobContext.getId())
 
 
     def cancelJob(self, jobContext: JobContext) -> bool:
@@ -151,12 +147,10 @@ class LocalSiteRunDriver(SiteRunDriver):
     # TODO add back callable filter, docs 
     def setEventHandler(self, jeh: JobEventHandler) -> JobStatus:
         if (jeh.getTargetSiteName() is None):
-            newSiteName = "local"
-        #return getJobStatus(JobStatusSentinelClient().setEventHandler(jeh.getJobId(), jeh.getStatus().value, 
-        #                                                              jeh.getFireDefn(), jeh.getTargetSiteName()))
-        jobId = JobStatusSentinelClient().setEventHandler(jeh.getJobId(), jeh.getStatus().value, 
-                                                          jeh.getFireDefn(), jeh.getTargetSiteName())
-        print("*** job id is " + jobId)
+            jeh.setTargetSiteName("local")
+        newJobId = JobStatusSentinelClient().setEventHandler(jeh.getJobId(), jeh.getStatus().value, 
+                                                            jeh.getFireDefn(), jeh.getTargetSiteName())
+        return fetchJobStatus(newJobId)
 
 
     def unsetEventHandler(self, jeh: JobEventHandler) -> bool:

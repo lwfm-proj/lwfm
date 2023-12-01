@@ -42,7 +42,6 @@ class JobStatusSentinelClient:
             payload["fireDefn"] = ""
             payload["targetSiteName"] = ""
         response = requests.post(f'{self.getUrl()}/set', payload)
-        print("*** response.text: " + response.text)
         if response.ok:
             # this is the job id of the registered job 
             return response.text

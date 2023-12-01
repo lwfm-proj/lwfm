@@ -1,4 +1,4 @@
-
+# TODO logging vs. print 
 #************************************************************************************************************************************
 # Flask app
 
@@ -91,7 +91,6 @@ def getAllStatuses():
 
 @app.route('/set', methods = ['POST'])
 def setHandler():
-    print("here in server set")
     jobId = request.form['jobId']
     jobStatus = request.form['jobStatus']
     try:
@@ -100,8 +99,8 @@ def setHandler():
         print(ex)   # TODO loggging 
         fireDefn = ""
     targetSiteName = request.form['targetSiteName']
-    print("ready to call jss.setEventHandler")
     return jss.setEventHandler(jobId, jobStatus, fireDefn, targetSiteName)
+
 
 @app.route('/setTerminal', methods = ['POST'])
 def setTerminal():

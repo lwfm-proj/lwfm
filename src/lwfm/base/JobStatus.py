@@ -401,7 +401,7 @@ class JobStatus(LwfmBase):
 
 
 @staticmethod
-def callJobStatus(jobId: str) -> JobStatus:
+def fetchJobStatus(jobId: str) -> JobStatus:
     try:
         jssc = JobStatusSentinelClient()
         statusBlob = jssc.getStatusBlob(jobId)
