@@ -231,7 +231,6 @@ class JobStatus(LwfmBase):
     """
 
     statusMap:          dict = None                             # maps native status to canonical status
-    #statusHistory:      dict = None                             # history of status messages, not copied by copy constructor
     jobContext:         JobContext = None                       # job id tracking info
 
     def __init__(self, jobContext: JobContext):
@@ -270,11 +269,6 @@ class JobStatus(LwfmBase):
     def getStatus(self) -> JobStatusValues:
         return LwfmBase._getArg(self, _JobStatusFields.STATUS.value)
 
-    def isTerminal(self) -> bool:
-        return ( (self.getStatus() == JobStatusValues.COMPLETE) or
-                 (self.getStatus() == JobStatusValues.FAILED)   or
-                 (self.getStatus() == JobStatusValues.CANCELLED) )
-
     def getStatusValue(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.STATUS.value).value
 
@@ -306,7 +300,7 @@ class JobStatus(LwfmBase):
             ms = int(LwfmBase._getArg(self, _JobStatusFields.EMIT_TIME.value))
             return datetime.utcfromtimestamp(ms//1000).replace(microsecond=ms%1000*1000)
         except Exception as ex:
-            # TODO
+            logging.error("Can't determine emit time " + str(ex))
             return datetime.now()
 
     def setReceivedTime(self, receivedTime: datetime) -> None:
@@ -321,16 +315,6 @@ class JobStatus(LwfmBase):
 
     def getNativeInfo(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.NATIVE_INFO.value)
-
-#    def setStatusHistory(self, history: dict) -> None:
-#        self._statusHistory = history
-#
-#    def getStatusHistory(self) -> dict:
-#        return self._statusHistory
-
-    def serialize(self):
-        return pickle.dumps(self, 0)
-
 
     # zero out state-sensative fields
     def clear(self):
@@ -376,8 +360,9 @@ class JobStatus(LwfmBase):
 
     def serialize(self):
         out_bytes = pickle.dumps(self, 0)
-        out_str = out_bytes.decode(encoding='ascii')
-        return out_str
+        return out_bytes 
+        # out_str = out_bytes.decode(encoding='ascii')
+        # return out_str
 
     @staticmethod
     def deserialize(s: str):
@@ -398,6 +383,14 @@ class JobStatus(LwfmBase):
         if (self.getStatus() == JobStatusValues.INFO):
             s += "," + str(self.getNativeInfo())
         return s
+
+    def wait(self): # return JobStatus when the job is done
+        status = self
+        while (not status.isTerminal()):
+            import time
+            time.sleep(15)
+            status = fetchJobStatus(status.getJobId())
+        return status
 
 
 @staticmethod

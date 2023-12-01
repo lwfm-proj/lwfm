@@ -5,12 +5,11 @@
 import logging
 import os
 from pathlib import Path
-import time
 
 from lwfm.base.Site import Site
-from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
+from lwfm.base.SiteFileRef import FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
-from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus
+from lwfm.base.JobStatus import JobStatusValues, fetchJobStatus
 from lwfm.base.JobEventHandler import JobEventHandler
 
 # This Site name can be an argument - name maps to a Site class implementation,
@@ -63,10 +62,7 @@ if __name__ == '__main__':
         JobEventHandler(statusB.getJobId(), JobStatusValues.COMPLETE, jobDefnC, siteName))
     print("job C when it runs will have job id " + statusC.getJobId())
 
-
     # for the purposes of this example, let's wait synchronously on the conclusion of job C
-    #statusC = site.getRunDriver().getJobStatus(statusC.getJobContext())
-    #while (not statusC.isTerminal()):
-    #    time.sleep(15)
-    #    statusC = site.getRunDriver().getJobStatus(statusC.getJobContext())
-    #logging.info("job C " + statusC.getJobContext().getId() + " " + statusC.getStatus().value)
+    print("waiting for job C to complete")
+    statusC = statusC.wait()
+    print("statusC says terminal status = " + statusC.getStatusValue())

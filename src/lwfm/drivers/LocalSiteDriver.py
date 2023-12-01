@@ -11,7 +11,6 @@ import time
 import pickle
 import json
 import math
-from typing import Callable
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -144,7 +143,6 @@ class LocalSiteRunDriver(SiteRunDriver):
         return ["local"]
 
 
-    # TODO add back callable filter, docs 
     def setEventHandler(self, jeh: JobEventHandler) -> JobStatus:
         if (jeh.getTargetSiteName() is None):
             jeh.setTargetSiteName("local")
