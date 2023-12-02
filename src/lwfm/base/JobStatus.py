@@ -1,10 +1,8 @@
 
 # Job Status: a record of a state of the job's execution.  The job may go through many states in its lifetime - on the actual
 # runtime Site the job status will be expressed in terms of their native status codes.  In lwfm, we desire canonical status
-# messages so job chaining is permitted.  Its the role of the Site's Run subsystem to produce these datagrams in their
-# canonical form, though we leave room to express the native info too.  There is no firm state transition / state machine for
-# job status - while "PENDING" means "submitted to run but not yet running", and "COMPLETE" means "job is done done stick a fork
-# in it", in truth the Site is free to emit whateever status code it desires at any moment.  Some status codes might be emitted
+# messages so job chaining is permitted across sites.  Its the role of the Site's Run subsystem to produce these datagrams in their
+# canonical form, though we leave room to express the native info too.  Some status codes might be emitted
 # more than once (e.g. "INFO").  We provide a mechanism to track the job's parent-child relationships.
 
 
@@ -414,20 +412,3 @@ def fetchJobStatus(jobId: str) -> JobStatus:
         logging.error(str(ex))
         return None
 
-
-#************************************************************************************************************************************
-
-
-# test
-if __name__ == '__main__':
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.DEBUG)
-    status = JobStatus()
-    statusMap = {
-        "NODE_FAIL" : JobStatusValues.FAILED
-        }
-    status.setStatusMap(statusMap)
-    status.setNativeStatusStr("NODE_FAIL")
-    status.setEmitTime(datetime.utcnow())
-
-    logging.info(status.serialize())

@@ -22,6 +22,7 @@ class JobEventHandler(LwfmBase):
     lwfm canonical set.
     We can set event handlers - on canonical status strings -
         "when job <j1> running on Site <s1> reaches <state>, execute job <j2> on Site <s2>"
+
     We can also set event handlers which fire after interrogating the body of the message.  The user must provide the implementation
     of that filter.  An example use case - a Site emits an INFO status message when data is put using the Site.Repo interface, and
     the body of the message includes the metadata used in the put.  If the metadata meets certain user-supplied filters, the
@@ -30,9 +31,8 @@ class JobEventHandler(LwfmBase):
     This struct and potential derrived classes provide the means to describe the conditions under which a given job should fire
     as a result of an upstream event or events, and when it fires, where and how.
 
-    Implementations of the Run.Registrar component provide a means to accept these JobEventHandler descriptors and monitor the
-    job status message traffic to determine when to fire them.
-
+    Implementations of the Run subsystem provide a means to accept these JobEventHandler descriptors and monitor the
+    job status message traffic to determine when to fire them.  lwfm provides a reference implementation of this functionality.
 
     Some example event handler rules:
         - job or set of jobs (to reach some state (or one or a set of states) completely or set in partial within some timeframe)
@@ -48,10 +48,8 @@ class JobEventHandler(LwfmBase):
         - target site: the site on which the job defn will fire
         - target context: the JobContext for digital threading to use when the job fires, if one is provided
 
-    To implement this functionality, the rule must be able to save state.  Registrar provides a means for the rule function
-    to post back tracking information.
-
-    TODO update this doc to reflect the current implementation
+    To implement this functionality, the rule might need to able to save state.  The Run subsystem by virtue of the status
+    message provides a means for the rule function to post back tracking information.
     """
 
     def __init__(self, jobId: str, jobStatus: str, fireDefn: str, targetSiteName: str):
