@@ -8,7 +8,6 @@
 # to object oriented programming, a site can also model specific compute configurations as subclasses of its Site class.
 
 from enum import Enum
-import logging
 
 from pathlib import Path
 
@@ -111,10 +110,10 @@ class RepoJobDefn(JobDefn):
     def getLocalRef(self) -> Path:
         return Path(LwfmBase._getArg(self, _JobDefnFields.REPO_LOCAL_REF.value))
 
-    def setSiteRef(self, siteRef: SiteFileRef) -> None:
+    def setSiteFileRef(self, siteRef: SiteFileRef) -> None:
         LwfmBase._setArg(self, _JobDefnFields.REPO_SITE_REF.value, siteRef)
 
-    def getSiteRef(self) -> SiteFileRef:
+    def getSiteFileRef(self) -> SiteFileRef:
         return LwfmBase._getArg(self, _JobDefnFields.REPO_SITE_REF.value)
 
 

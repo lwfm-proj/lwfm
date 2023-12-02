@@ -29,7 +29,7 @@ if __name__ == '__main__':
     jobDefnA.setEntryPoint("echo Job A output pwd = `pwd`")
 
     # define job B - sit-in for some kind of "real" data-generating application
-    dataFile = "/tmp/date.out"
+    dataFile = "/tmp/ex1_date.out"
     jobDefnB = JobDefn()
     jobDefnB.setEntryPoint("echo date = `date` > " + dataFile)
 
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     jobDefnC = RepoJobDefn()
     jobDefnC.setRepoOp(RepoOp.PUT)
     jobDefnC.setLocalRef(Path(dataFile))
-    jobDefnC.setSiteRef(FSFileRef.siteFileRefFromPath(os.path.expanduser('~')))
+    jobDefnC.setSiteFileRef(FSFileRef.siteFileRefFromPath(os.path.expanduser('~')))
 
     # submit job A which gives us the job id we need to set up the event handler for job B 
     statusA = site.getRunDriver().submitJob(jobDefnA)
@@ -65,4 +65,4 @@ if __name__ == '__main__':
     # for the purposes of this example, let's wait synchronously on the conclusion of job C
     print("waiting for job C to complete")
     statusC = statusC.wait()
-    print("statusC says terminal status = " + statusC.getStatusValue())
+    print(statusC.toShortString())

@@ -3,7 +3,6 @@
 # assumes the lwfm job status service is running
 
 import logging
-import time
 
 from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn
