@@ -1,6 +1,5 @@
 
-from abc import ABC, abstractmethod
-import logging
+from abc import ABC
 import uuid
 
 
@@ -13,7 +12,7 @@ class _IdGenerator:
 
 
 # Many base classes extend LwfmBase to permit the passing of arbitrary name=value maps in addition to the fixed parameters
-# specified by various classes in the object model.
+# specified by various classes in the object model.  This aids in generalization and serialization.
 class LwfmBase(ABC):
 
     args: dict = None    # most class attributes backed by getters and setters are handled as values in this dict
@@ -37,13 +36,3 @@ class LwfmBase(ABC):
             args = dict()
         self.args = dict(args)
 
-
-#************************************************************************************************************************************
-
-# test
-if __name__ == '__main__':
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.DEBUG)
-    base = LwfmBase()
-    base._setArg("foo", "bar")
-    logging.info(base._getArg("foo"))

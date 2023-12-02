@@ -21,13 +21,6 @@ flask run -p 3000 &
 trap 'pkill flask' SIGINT
 trap 'pkill flask' SIGKILL
 
-
-# wait for the service to start
-#sleep 15
-# run a hello world job to test
-#echo "Running hello world job to test"
-#python lwfm/src/lwfm/examples/ex0_hello_world.py 
-
 # tail the status log file
 echo "Tailing the status log file..."
 tail -f ~/.lwfm/run_job_status_store.txt 

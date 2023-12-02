@@ -12,6 +12,7 @@ from enum import Enum
 import logging
 
 import os
+import time
 
 
 from datetime import datetime
@@ -334,7 +335,6 @@ class JobStatus(LwfmBase):
             jssc.emitStatus(self.getJobContext().getId(), self.getStatus().value, self.serialize())
             # put a little wait in to avoid a race condition where the status is emitted and then immediately queried
             # or two status messages are emitted in rapid succession and they appear out of order
-            import time
             time.sleep(1)
             self.clear()
             return True
@@ -384,11 +384,19 @@ class JobStatus(LwfmBase):
             s += "," + str(self.getNativeInfo())
         return s
 
-    def wait(self): # return JobStatus when the job is done
+    def wait(self) -> 'JobStatus': # return JobStatus when the job is done
         status = self
+        increment = 3
+        sum = 1
+        max = 60
+        maxmax = 6000  
         while (not status.isTerminal()):
-            import time
-            time.sleep(15)
+            time.sleep(sum) 
+            # keep increasing the sleep time until we hit max, then keep sleeping max
+            if (sum < max):
+                sum += increment
+            elif (sum < maxmax):
+                sum += max
             status = fetchJobStatus(status.getJobId())
         return status
 
