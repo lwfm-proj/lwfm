@@ -93,12 +93,12 @@ def getAllStatuses():
 def setHandler():
     jobId = request.form['jobId']
     jobStatus = request.form['jobStatus']
+    targetSiteName = request.form['targetSiteName']
     try:
         fireDefn = pickle.loads(request.form['fireDefn'].encode())
     except Exception as ex:
         print(ex)   # TODO loggging 
         fireDefn = ""
-    targetSiteName = request.form['targetSiteName']
     return jss.setEventHandler(jobId, jobStatus, fireDefn, targetSiteName)
 
 

@@ -40,10 +40,8 @@ class JobStatusSentinel:
             handler = self._eventHandlerMap[key]
             jobId = handler._getArg( _JobEventHandlerFields.JOB_ID.value)
             site = handler._getArg( _JobEventHandlerFields.JOB_SITE_NAME.value)
-            logging.error("Checking event found for job " + jobId + " on site " + str(site))
             # Local jobs can instantly emit their own statuses, on demand
             if site != "local":
-                logging.info("Inside if site != local")
                 # Get the job's status
                 runDriver = Site.getSiteInstanceFactory(site).getRunDriver()
                 context = JobContext()
@@ -66,7 +64,7 @@ class JobStatusSentinel:
                         key = JobEventHandler(jobId, None, "<<TERMINAL>>", None, None, None).getKey()
                         self.unsetEventHandler(key)
                 else:
-                    key = JobEventHandler(jobId, None, jobStatus, None, None, None).getKey()
+                    key = JobEventHandler(jobId, jobStatus, None, None).getKey()
                     self.runHandler(key, jobStatus)
 
         # Timers only run once, so retrigger it
@@ -81,12 +79,14 @@ class JobStatusSentinel:
         try: 
             eventHandler = JobEventHandler(jobId, jobStatus, fireDefn, targetSiteName)
             inStatus = fetchJobStatus(jobId)
+            eventHandler.setJobSiteName(inStatus.getJobContext().getSiteName())
             newJobContext = JobContext()   # will assign a new job id
             newJobContext.setParentJobId(inStatus.getJobContext().getId())
             newJobContext.setOriginJobId(inStatus.getJobContext().getOriginJobId())
             newJobContext.setSiteName(targetSiteName)
             # set the job context under which the new job will run
             eventHandler.setTargetContext(newJobContext)
+            eventHandler.setTargetSiteName(targetSiteName)
             # store the event handler in the cache  
             self._eventHandlerMap[eventHandler.getKey()] = eventHandler
             # fire the initial status showing the new job pending 
@@ -136,7 +136,7 @@ class JobStatusSentinel:
             jobContext.setOriginJobId(jobStatus.getJobContext().getOriginJobId())
             # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
             thread = threading.Thread(target = runDriver._submitJob,
-                                    args = (handler._getArg( _JobEventHandlerFields.FIRE_DEFN.value),jobContext,) )
+                                    args = (handler._getArg( _JobEventHandlerFields.FIRE_DEFN.value),jobContext,True,) )
         except Exception as ex:
             logging.error("Could not prepare to run job: " + ex)
             return False

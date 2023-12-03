@@ -21,13 +21,18 @@ from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus
 from lwfm.base.JobEventHandler import JobEventHandler
-from lwfm.base.MetaRepo import MetaRepo
+from lwfm.base.MetaRepo import BasicMetaRepoImpl
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
+from lwfm.base.LwfmBase import LwfmBase
 
 
 # *************************************************************************************
 
+# TODO make more flexible with configuration
 SITE_NAME = "local"
+LwfmBase._shortJobIds = True
+metaRepo = BasicMetaRepoImpl()
+
 
 # *************************************************************************************
 
@@ -115,6 +120,8 @@ class LocalSiteRunDriver(SiteRunDriver):
     ) -> JobStatus:
         if parentContext is None:
             myContext = JobContext()
+        elif fromEvent:
+            myContext = parentContext
         else:
             # i am a child of the context given 
             myContext = JobContext.makeChildJobContext(parentContext)
@@ -198,6 +205,7 @@ class LocalSiteRunDriver(SiteRunDriver):
 
 
 class LocalSiteRepoDriver(SiteRepoDriver):
+
     def _copyFile(self, fromPath, toPath, jobContext):
         iAmOwnJob = False
         if jobContext is None:
@@ -236,10 +244,11 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         fromPath = localRef
         toPath = siteRef.getPath() + "/" + siteRef.getName()
         if not self._copyFile(fromPath, toPath, jobContext):
-            return False
-        # return success result
-        # MetaRepo.notate(siteRef)
-        return FSFileRef.siteFileRefFromPath(toPath)
+            return None
+        siteFileRef = FSFileRef.siteFileRefFromPath(toPath)
+        metaRepo.notate(siteFileRef)
+        return siteFileRef
+
 
     def get(
         self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None
@@ -253,7 +262,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         return Path(str(toPath) + "/" + Path(fromPath).name)
 
     def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
-        return MetaRepo.find(siteRef)
+        return metaRepo.find(siteRef)
 
 
 # *************************************************************************************
@@ -269,90 +278,3 @@ class LocalSite(Site):
         )
 
 
-# *************************************************************************************
-
-# test
-if __name__ == "__main__":
-    # assumes the lwfm job status service is running
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.INFO)
-
-    logging.info("***** login test")
-
-    # on local sites, login is a no-op
-    site = Site.getSiteInstanceFactory("local")
-    logging.info("site is " + site.getName())
-    site.getAuthDriver().login()
-    logging.info("auth is current = " + str(site.getAuthDriver().isAuthCurrent()))
-
-    logging.info("***** local job test")
-
-    # run a local 'pwd' as a job
-    jdefn = JobDefn()
-    jdefn.setEntryPoint("echo")
-    jdefn.setJobArgs(["pwd = `pwd`"])
-    status = site.getRunDriver().submitJob(jdefn)
-    logging.info("pwd job id = " + status.getJobContext().getId())
-    logging.info(
-        "pwd job status = " + str(status.getStatus())
-    )  # initial status will be pending - its async
-
-    logging.info("***** repo tests")
-
-    # ls a file
-    fileRef = FSFileRef()
-    fileRef.setPath(os.path.realpath(__file__))
-    logging.info("name of the file is " + site.getRepoDriver().find(fileRef).getName())
-    logging.info(
-        "size of the file is " + str(site.getRepoDriver().find(fileRef).getSize())
-    )
-
-    # ls a directory
-    fileRef.setPath(os.path.expanduser("~"))
-    fileRef = site.getRepoDriver().find(fileRef)
-    logging.info("size of the dir is " + str(fileRef.getSize()))
-    logging.info("time of the dir is " + str(fileRef.getTimestamp()))
-    logging.info("contents of the dir is " + str(fileRef.getDirContents()))
-
-    # put - run as a brand new job (note: this script itself is *not* a job, its just a script, so the job we
-    # run here is a seminal job
-    localFile = os.path.realpath(__file__)
-    destFileRef = FSFileRef.siteFileRefFromPath(os.path.expanduser("~"))
-    copiedFileRef = site.getRepoDriver().put(Path(localFile), destFileRef)
-    logging.info(copiedFileRef.getName() + " " + str(copiedFileRef.getTimestamp()))
-
-    # get - run as a brand new job, but this time, pre-generate the job context
-    fileRef = FSFileRef.siteFileRefFromPath(os.path.realpath(__file__))
-    destPath = Path(os.path.expanduser("~"))
-    copiedPath = site.getRepoDriver().get(fileRef, destPath, JobContext())
-    logging.info("get test: copied to: " + str(copiedPath))
-
-    logging.info("***** check status of async job")
-
-    # the above job was async... check its status
-    while True:
-        status = site.getRunDriver().getJobStatus(status.getJobContext())
-        if status.isTerminal():  # should have a terminal status by now...
-            logging.info("pwd job status = " + str(status.getStatus()))
-            break
-
-    logging.info("***** cancel job")
-
-    # cancel a job
-    jdefn = JobDefn()
-    jdefn.setEntryPoint("sleep 100")
-    status = site.getRunDriver().submitJob(jdefn)
-    logging.info("sleep job id = " + status.getJobContext().getId())
-    logging.info(
-        "sleep job status = " + str(status.getStatus())
-    )  # initial status will be pending - its async
-    # wait a little bit for the job to actually start and emit a running status, then we'll cancel it
-    time.sleep(10)
-    site.getRunDriver().cancelJob(status.getJobContext())
-    while True:
-        status = site.getRunDriver().getJobStatus(status.getJobContext())
-        if status.isTerminal():  # should have a terminal status by now...
-            logging.info("sleep job status = " + str(status.getStatus()))
-            break
-
-    logging.info("testing done")

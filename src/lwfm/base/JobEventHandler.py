@@ -79,6 +79,9 @@ class JobEventHandler(LwfmBase):
     
     def getJobSiteName(self) -> str:
         return LwfmBase._getArg(self, _JobEventHandlerFields.JOB_SITE_NAME.value)
+    
+    def setJobSiteName(self, jobSiteName: str) -> None:
+        return LwfmBase._setArg(self, _JobEventHandlerFields.JOB_SITE_NAME.value, jobSiteName)
 
     def getFireDefn(self) -> str:
         return LwfmBase._getArg(self, _JobEventHandlerFields.FIRE_DEFN.value)

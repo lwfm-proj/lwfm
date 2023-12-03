@@ -109,6 +109,12 @@ class JobContext(LwfmBase):
 
     def getId(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.ID.value)
+    
+    def setJobId(self, idValue: str) -> None:
+        self.setId(idValue) # alias
+
+    def getJobId(self) -> str:
+        return self.getId()    # alias
 
     def setNativeId(self, idValue: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.NATIVE_ID.value, idValue)

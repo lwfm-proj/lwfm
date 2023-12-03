@@ -14,9 +14,12 @@ fi
 
 export PYTHONPATH=lwfm/src
 
-# start a service to expose the middleware endpoints 
+# start a service to expose the Event Handler endpoints 
 export FLASK_APP=lwfm/src/lwfm/server/JobStatusSentinelSvc
 flask run -p 3000 & 
+
+# start the MetaRepo server
+cd MetaRepo2 && uvicorn src.metarepo:app --port 8000 & 
 
 trap 'pkill flask' SIGINT
 trap 'pkill flask' SIGKILL

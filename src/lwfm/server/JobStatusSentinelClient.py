@@ -82,7 +82,7 @@ class JobStatusSentinelClient:
             logging.error(response)
             return   
 
-    def getStatusBlob(self, jobId) -> str:
+    def getStatusBlob(self, jobId: str) -> str:
         response = requests.get(f'{self.getUrl()}/status/{jobId}')
         try:
             if response.ok:

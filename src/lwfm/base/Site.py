@@ -1,6 +1,6 @@
 # Site: Defines an abstract computing location which exposes canonical verbs for the Auth, Run, and Repo (and optionally Spin)
-# logical subsystems. The purpose of lwfm is to permit workflows which span Sites.  A new Site would inherit or implement a driver 
-# for each of the subsystems.  
+# logical subsystems. The purpose of lwfm is to permit workflows which span Sites.  A new Site would inherit or implement a driver
+# for each of the subsystems.
 
 from enum import Enum
 import logging
@@ -65,12 +65,12 @@ class SiteRunDriver(ABC):
     """
 
     @classmethod
-    def _submitJob(cls, jdefn, jobContext=None):
+    def _submitJob(cls, jdefn, jobContext=None, fromEvent=False):
         # This helper function, not a member of the public interface, lets Python threading instantiate a
         # SiteRunDriver of the correct subtype on demand.  It is used, for example, by the lwfm middleware's event handler mechanism
         # to reflectively instantiate a Site Run driver of the correct subtype, and then call its submitJob() method.
         runDriver = cls()
-        runDriver.submitJob(jdefn, jobContext, True)
+        runDriver.submitJob(jdefn, jobContext, fromEvent)
 
     @abstractmethod
     def submitJob(
@@ -95,7 +95,7 @@ class SiteRunDriver(ABC):
 
         Params:
             jobDefn - the definition of the job to run, might include the name of a script, include arguments for the run, etc.
-            parentContext - [optional - if none provided, one will be assigned and managed by the lwfm framework] information about the 
+            parentContext - [optional - if none provided, one will be assigned and managed by the lwfm framework] information about the
                 current JobContext which might be running, thus the job we are submitting will be tracked in the digital thread
             fromEvent - [optional] if not provided, assigned false; if true, the job is being submitted from an event handler, and thus
                 the first job status event has already been emitted and we need not emit another
@@ -108,8 +108,8 @@ class SiteRunDriver(ABC):
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
         """
         Check the status of a job running on this Site.  The JobContext is an attribute of the JobStatus, and contains the
-        canonical and Site-specific native job id.  The call to submitJob() will have returned an initial JobStatus. 
-        The implementation of getJobStatus() may use any portion of the JobContext to obtain the status of the job, as 
+        canonical and Site-specific native job id.  The call to submitJob() will have returned an initial JobStatus.
+        The implementation of getJobStatus() may use any portion of the JobContext to obtain the status of the job, as
         needed by the Site.
 
         Params:
@@ -130,7 +130,7 @@ class SiteRunDriver(ABC):
             jobContext - the context of the job, including the Site-native job id
         Returns:
             bool - true if a successful cancel, else false; callers should invoke the getJobStatus() method
-                to obtain final terminal status (e.g., the job might have completed successfully prior to the cancel being receieved, 
+                to obtain final terminal status (e.g., the job might have completed successfully prior to the cancel being receieved,
                 the cancel might not be instantaneous, etc.)
         """
         pass
@@ -138,7 +138,7 @@ class SiteRunDriver(ABC):
     @abstractmethod
     def listComputeTypes(self) -> [str]:
         """
-        List the compute types supported by the Site.  Comnpute types are specific runtime resources (if any) within the Site.  
+        List the compute types supported by the Site.  Comnpute types are specific runtime resources (if any) within the Site.
         The Site might not have any concept and return an empty list, or a list of one singular type of the Site.  Or, the Site
         might front a number of resources, and return a list of names.
 

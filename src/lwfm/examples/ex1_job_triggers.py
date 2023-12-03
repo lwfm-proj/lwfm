@@ -3,7 +3,6 @@
 # assumes the lwfm job status service is running
 
 import logging
-import os
 from pathlib import Path
 
 from lwfm.base.Site import Site
@@ -33,15 +32,19 @@ if __name__ == '__main__':
     jobDefnB = JobDefn()
     jobDefnB.setEntryPoint("echo date = `date` > " + dataFile)
 
-    # define job C - put the data "into management", whatever that means for the given site, and do it as an async Job
-    # does a "put" operation need to be structured in this way?  no.  if we want to do a Repo.put() within the context
-    # of an existing Job, just call Repo.put().  but since this is a common async operation, we provide a subclass of
+    # define job C - put the data "into management", whatever that means for the given site,
+    # and do it as an async Job does a "put" operation need to be structured in this way?  no.  
+    # if we want to do a Repo.put() within the context of an existing Job, just call Repo.put().  
+    # but since this is a common async operation, we provide a subclass of
     # JobDefn for this purpose.
     jobDefnC = RepoJobDefn()
     jobDefnC.setRepoOp(RepoOp.PUT)
     jobDefnC.setLocalRef(Path(dataFile))
-    jobDefnC.setSiteFileRef(FSFileRef.siteFileRefFromPath(os.path.expanduser('~')))
-
+    siteFileRef = FSFileRef()
+    siteFileRef.setPath("/tmp")
+    siteFileRef.setName("ex1_date.out" + ".copy")
+    jobDefnC.setSiteFileRef(siteFileRef)
+    
     # submit job A which gives us the job id we need to set up the event handler for job B 
     statusA = site.getRunDriver().submitJob(jobDefnA)
     print("statusA says id = " + statusA.getJobId())
@@ -51,8 +54,8 @@ if __name__ == '__main__':
     statusA = fetchJobStatus(statusA.getJobId())
     print("from the call, status = " + statusA.getStatusValue())
         
-    # when job A gets to the COMPLETE state, fire job B on the named site; registering it gives us the job id we need 
-    # to set up the event handler for job C
+    # when job A gets to the COMPLETE state, fire job B on the named site; registering it
+    # gives us the job id we need to set up the event handler for job C
     statusB = site.getRunDriver().setEventHandler(
         JobEventHandler(statusA.getJobId(), JobStatusValues.COMPLETE, jobDefnB, siteName))
     print("job B when it runs will have job id " + statusB.getJobId())

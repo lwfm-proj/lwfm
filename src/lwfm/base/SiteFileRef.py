@@ -93,13 +93,10 @@ class FSFileRef(SiteFileRef):
     """
     Since plain filesystem files are a common data entity, this subclass provides convenience mechanisms.
     """
-
-    #def getId(self) -> str:
-    #    return self.getName()
-
-    #def setId(self, id: str) -> None:
-    #    self.setName(id)
-
+    def setName(self, name: str) -> None:
+        super().setName(name)
+        super().setId(name)
+            
     def getPath(self) -> str:
         return LwfmBase._getArg(self, _FSFileRefFields.PATH.value)
 
