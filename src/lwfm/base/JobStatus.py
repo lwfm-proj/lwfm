@@ -1,10 +1,10 @@
-# Job Status: a record of a state of the job's execution.  The job may go through many states
-# in its lifetime - on the actual runtime Site the job status will be expressed in terms of 
-# their native status codes.  In lwfm, we desire canonical status messages so job chaining is 
-# permitted across sites.  Its the role of the Site's Run subsystem to produce these datagrams
-# in their canonical form, though we leave room to express the native info too.  Some status
-# codes might be emitted more than once (e.g. "INFO").  We provide a mechanism to track the job's
-# parent-child relationships.
+# Job Status: a record of a state of the job's execution.  The job may go through many 
+# states in its lifetime - on the actual runtime Site the job status will be expressed 
+# in terms of their native status codes.  In lwfm, we desire canonical status messages 
+# so job chaining is permitted across sites.  Its the role of the Site's Run subsystem 
+# to produce these datagrams in their canonical form, though we leave room to express 
+# the native info too.  Some status codes might be emitted more than once (e.g. "INFO").  
+# We provide a mechanism to track the job's parent-child relationships.
 
 
 from enum import Enum
@@ -390,9 +390,11 @@ class JobStatus(LwfmBase):
         return in_obj
 
     @staticmethod
-    def makeRepoInfo(verb: RepoOp, success: bool, fromPath: str, toPath: str) -> str:
+    def makeRepoInfo(verb: RepoOp, success: bool, fromPath: str, toPath: str,
+                     metadata: dict = {}) -> str:
         return (
-            "[" + verb.value + "," + str(success) + "," + fromPath + "," + toPath + "]"
+            "[" + verb.value + "," + str(success) + "," + fromPath + "," + toPath + 
+            "," + str(metadata) + "]"
         )
 
     def toShortString(self) -> str:

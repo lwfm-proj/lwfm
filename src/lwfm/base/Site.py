@@ -203,9 +203,10 @@ class SiteRunDriver(ABC):
 
 class SiteRepoDriver(ABC):
     """
-    Repo: Pemmits the movement of data objects to/from the Site.  The methods require a local file reference, and a reference to the
-    remote file - a SiteFileRef.  The SiteFileRef permits arbitrary name=value pairs because the Site might require them to
-    complete the transaction.
+    Repo: Pemmits the movement of data objects to/from the Site.  The methods require a 
+    local file reference, and a reference to the remote file - a SiteFileRef.  The 
+    SiteFileRef permits arbitrary name=value pairs because the Site might require them
+    to complete the transaction.
     """
 
     @abstractmethod
@@ -213,19 +214,22 @@ class SiteRepoDriver(ABC):
         self, localPath: Path, siteFileRef: SiteFileRef, jobContext: JobContext = None
     ) -> SiteFileRef:
         """
-        Take the local file by path and put it to the remote Site.  This might be implemented by the Site as a simple
-        filesystem copy, or it might be a checkin to a managed service - that's up to the Site.  If we're given a context,
+        Take the local file by path and put it to the remote Site.  This might be
+        implemented by the Site as a simple filesystem copy, or it might be a checkin
+        to a managed service - that's up to the Site.  If we're given a context,
         we use it, if not, we consider ourselves our own job.
 
         Params:
             localPath - a local file object
-            siteFileRef - a reference to an abstract "file" entity on the Site - this is the target of the put operation
-            jobContext - if we have a job context we wish to use (e.g. we are already inside a job and wish to indicate the
-                digital thread parent-child relationships) then pass the context in, else the put operation will be performed
-                as its own seminal job
+            siteFileRef - a reference to an abstract "file" entity on the Site - this is
+                the target of the put operation
+            jobContext - if we have a job context we wish to use (e.g. we are already
+                inside a job and wish to indicate the digital thread parent-child
+                relationships) then pass the context in, else the put operation will be
+                performed as its own seminal job
         Returns:
-            SiteFileRef - a refernce to the entity put on the Site; the Site might also raise any kind of exception depending on
-                the error case
+            SiteFileRef - a refernce to the entity put on the Site; the Site might also
+                raise any kind of exception depending on the error case
         """
         pass
 

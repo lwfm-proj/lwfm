@@ -21,9 +21,17 @@ flask run -p 3000 &
 # start the MetaRepo server
 cd MetaRepo2 && uvicorn src.metarepo:app --port 8000 & 
 
-trap 'pkill flask' SIGINT
-trap 'pkill flask' SIGKILL
+trap 'pkill flask; pkill tail' SIGINT
+trap 'pkill flask; pkill tail' SIGKILL
 
-# tail the status log file
+# tail the crude job status log file
 echo "Tailing the status log file..."
-tail -f ~/.lwfm/run_job_status_store.txt 
+tail -f ~/.lwfm/run_job_status_store.txt & 
+
+# tail the crude metarepo 
+echo "Tailing the metarepo log file..."
+tail -f ~/.lwfm/metarepo_store.txt  
+
+
+
+

@@ -151,18 +151,3 @@ class JobStatusSentinel:
     def exit(self):
         self._timer.cancel()
 
-
-#************************************************************************************************************************************
-
-# test
-if __name__ == '__main__':
-
-    # basic server list handling
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.INFO)
-    jss = JobStatusSentinel()
-    handlerId = jss.setEventHandler("123", None, JobStatusValues.INFO.value, None, None)
-    logging.info(str(jss.listActiveHandlers()))
-    jss.unsetEventHandler(handlerId)
-    logging.info(str(jss.listActiveHandlers()))
-    jss.exit()

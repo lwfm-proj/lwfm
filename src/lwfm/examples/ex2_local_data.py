@@ -27,6 +27,7 @@ def example2(site: Site):
     siteFileRef = FSFileRef()
     siteFileRef.setPath("/tmp")
     siteFileRef.setName("ex2_date.out" + ".copy")
+    siteFileRef.setMetadata({"myMetaField": "myMetaValue"})
     jobDefnB.setSiteFileRef(siteFileRef)
     statusB = site.getRunDriver().submitJob(jobDefnB, statusA.getJobContext())
     statusB = statusB.wait()

@@ -21,9 +21,9 @@ from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus
 from lwfm.base.JobEventHandler import JobEventHandler
-from lwfm.base.MetaRepo import BasicMetaRepoImpl
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 from lwfm.base.LwfmBase import LwfmBase
+from lwfm.store import BasicMetaRepoStore
 
 
 # *************************************************************************************
@@ -31,7 +31,6 @@ from lwfm.base.LwfmBase import LwfmBase
 # TODO make more flexible with configuration
 SITE_NAME = "local"
 LwfmBase._shortJobIds = True
-metaRepo = BasicMetaRepoImpl()
 
 
 # *************************************************************************************
@@ -206,7 +205,13 @@ class LocalSiteRunDriver(SiteRunDriver):
 
 class LocalSiteRepoDriver(SiteRepoDriver):
 
-    def _copyFile(self, fromPath, toPath, jobContext):
+    _metaRepo = None
+
+    def __init__(self):
+        super(LocalSiteRepoDriver, self).__init__()
+        self._metaRepo = BasicMetaRepoStore.BasicMetaRepoStore()
+
+    def _copyFile(self, fromPath, toPath, jobContext, metadata={}):
         iAmOwnJob = False
         if jobContext is None:
             iAmOwnJob = True
@@ -219,7 +224,8 @@ class LocalSiteRepoDriver(SiteRepoDriver):
             jstatus.emit(JobStatusValues.RUNNING.value)
 
         jstatus.setNativeInfo(
-            JobStatus.makeRepoInfo(RepoOp.PUT, False, str(fromPath), str(toPath))
+            JobStatus.makeRepoInfo(RepoOp.PUT, True, str(fromPath), str(toPath), 
+                                   metadata)
         )
         jstatus.emit(JobStatusValues.INFO.value)
 
@@ -243,11 +249,12 @@ class LocalSiteRepoDriver(SiteRepoDriver):
     ) -> SiteFileRef:
         fromPath = localRef
         toPath = siteRef.getPath() + "/" + siteRef.getName()
-        if not self._copyFile(fromPath, toPath, jobContext):
+        if not self._copyFile(fromPath, toPath, jobContext, siteRef.getMetadata()):
             return None
-        siteFileRef = FSFileRef.siteFileRefFromPath(toPath)
-        metaRepo.notate(siteFileRef)
-        return siteFileRef
+        newSiteFileRef = FSFileRef.siteFileRefFromPath(toPath)
+        newSiteFileRef.setMetadata(siteRef.getMetadata())
+        self._metaRepo.notate(newSiteFileRef)
+        return newSiteFileRef
 
 
     def get(
@@ -262,13 +269,13 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         return Path(str(toPath) + "/" + Path(fromPath).name)
 
     def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
-        return metaRepo.find(siteRef)
+        pass
+        #return metaRepo.find(siteRef)
 
 
 # *************************************************************************************
 
 _repoDriver = LocalSiteRepoDriver()
-
 
 class LocalSite(Site):
     # There are no required args to instantiate a local site.
