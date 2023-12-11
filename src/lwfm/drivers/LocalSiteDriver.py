@@ -91,7 +91,8 @@ class LocalSiteRunDriver(SiteRunDriver):
                         jdefn.getSiteFileRef(),
                         jobStatus.getJobContext(),
                     )
-                elif jdefn.getRepo() == RepoOp.GET:
+                elif jdefn.getRepoOp() == RepoOp.GET:
+                    print("in the deep logic i am a get")
                     _repoDriver.get(
                         jdefn.getSiteFileRef(),
                         jdefn.getLocalRef(),
@@ -211,7 +212,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         super(LocalSiteRepoDriver, self).__init__()
         self._metaRepo = BasicMetaRepoStore.BasicMetaRepoStore()
 
-    def _copyFile(self, fromPath, toPath, jobContext, metadata={}):
+    def _copyFile(self, fromPath, toPath, jobContext, direction, metadata={}):
         iAmOwnJob = False
         if jobContext is None:
             iAmOwnJob = True
@@ -224,7 +225,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
             jstatus.emit(JobStatusValues.RUNNING.value)
 
         jstatus.setNativeInfo(
-            JobStatus.makeRepoInfo(RepoOp.PUT, True, str(fromPath), str(toPath), 
+            JobStatus.makeRepoInfo(direction, True, str(fromPath), str(toPath), 
                                    metadata)
         )
         jstatus.emit(JobStatusValues.INFO.value)
@@ -248,8 +249,9 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None
     ) -> SiteFileRef:
         fromPath = localRef
-        toPath = siteRef.getPath() + "/" + siteRef.getName()
-        if not self._copyFile(fromPath, toPath, jobContext, siteRef.getMetadata()):
+        toPath = siteRef.getPath() + os.sep + siteRef.getName()
+        if not self._copyFile(fromPath, toPath, jobContext, RepoOp.PUT, 
+                              siteRef.getMetadata()):
             return None
         newSiteFileRef = FSFileRef.siteFileRefFromPath(toPath)
         newSiteFileRef.setMetadata(siteRef.getMetadata())
@@ -260,13 +262,13 @@ class LocalSiteRepoDriver(SiteRepoDriver):
     def get(
         self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None
     ) -> Path:
-        fromPath = siteRef.getPath()
+        fromPath = siteRef.getPath() + os.sep + siteRef.getName()
         toPath = localRef
-        if not self._copyFile(fromPath, toPath, jobContext):
+        if not self._copyFile(fromPath, toPath, jobContext, RepoOp.GET):
             return False
 
         # return success result
-        return Path(str(toPath) + "/" + Path(fromPath).name)
+        return Path(str(toPath + os.sep + siteRef.getName()))
 
     def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
         pass

@@ -2,6 +2,7 @@
 # An example of managing local data.
 
 import logging
+import os
 
 from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
@@ -32,6 +33,14 @@ def example2(site: Site):
     statusB = site.getRunDriver().submitJob(jobDefnB, statusA.getJobContext())
     statusB = statusB.wait()
     print("put job = " + statusB.toShortString())
+
+    # "get" the file from the site and place it locally
+    dir_name = "/tmp/getDir"
+    if not os.path.exists(dir_name):
+        # If not, create the directory
+        os.mkdir(dir_name)
+    localFilePath = site.getRepoDriver().get(siteFileRef, dir_name)
+    print("localFilePath = " + str(localFilePath))
 
 if __name__ == '__main__':
     logging.basicConfig()

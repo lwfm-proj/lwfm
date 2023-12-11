@@ -80,27 +80,39 @@ class SiteRunDriver(ABC):
         fromEvent: bool = False,
     ) -> JobStatus:
         """
-        Submit the job for execution on this Site.  It is an implementation detail of the Site what that means - everything
-        from pseudo-immediate command line execution, to scheduling on an HPC system.  The caller should assume the run is
-        asynchronous.  We would assume all Sites would implement this method.  Note that "compute type" is an optional member
-        of JobDefn, and might be used by the Site to direct the execution of the job.
+        Submit the job for execution on this Site.  It is an implementation detail of 
+        the Site what that means - everything from pseudo-immediate command line 
+        execution, to scheduling on an HPC system.  The caller should assume the run is
+        asynchronous.  We would assume all Sites would implement this method.  Note 
+        that "compute type" is an optional member of JobDefn, and might be used by the 
+        Site to direct the execution of the job.
 
-        [We note that both the JobDefn and the JobContext potentially contain a reference to a compute type.  Since the Job Context
-        is historical, and provided to give that historical context to the job we're about to run, its strongly suggested that
-        Site.Run implementations use the compute type named in the JobDef, if the concept is present at all on the Site.  We note also
-        that compute type and Site are relatively interchangeable - one can model a compute resource as a compute type, or as its
-        own Site, perhaps with a complete inherited Site driver imp]ementation.  e.g. NerscSiteDriver has two trivially subclassed
-        Sites - one for Cori (rest in peace) and one for Perlmutter.  This could have been impleted as one Site with two compute
+        [We note that both the JobDefn and the JobContext potentially contain a 
+        reference to a compute type.  Since the Job Context is historical, and provided 
+        to give that historical context to the job we're about to run, its strongly 
+        suggested that Site.Run implementations use the compute type named in the 
+        JobDef, if the concept is present at all on the Site.  We note also
+        that compute type and Site are relatively interchangeable - one can model a 
+        compute resource as a compute type, or as its own Site, perhaps with a complete 
+        inherited Site driver imp]ementation.  e.g. NerscSiteDriver has two trivially 
+        subclassed Sites - one for Cori (rest in peace) and one for Perlmutter.  This 
+        could have been impleted as one Site with two compute
         types.  The Site driver author is invited to use whichever model fits them best.]
 
         Params:
-            jobDefn - the definition of the job to run, might include the name of a script, include arguments for the run, etc.
-            parentContext - [optional - if none provided, one will be assigned and managed by the lwfm framework] information about the
-                current JobContext which might be running, thus the job we are submitting will be tracked in the digital thread
-            fromEvent - [optional] if not provided, assigned false; if true, the job is being submitted from an event handler, and thus
-                the first job status event has already been emitted and we need not emit another
+            jobDefn - the definition of the job to run, might include the name of a 
+                script, include arguments for the run, etc.
+            parentContext - [optional - if none provided, one will be assigned and 
+                managed by the lwfm framework] information about the
+                current JobContext which might be running, thus the job we are 
+                submitting will be tracked in the digital thread
+            fromEvent - [optional] if not provided, assigned false; if true, the job 
+                is being submitted from an event handler, and thus
+                the first job status event has already been emitted and we need not 
+                emit another
         Returns:
-            JobStatus - preliminary status, containing a JobContext including the canonical and Site-specific native job id
+            JobStatus - preliminary status, containing a JobContext including the 
+                canonical and Site-specific native job id
         """
         pass
 
@@ -198,8 +210,7 @@ class SiteRunDriver(ABC):
         pass
 
 
-# ***********************************************************************************************************************************
-
+# *************************************************************************************
 
 class SiteRepoDriver(ABC):
     """
@@ -221,8 +232,8 @@ class SiteRepoDriver(ABC):
 
         Params:
             localPath - a local file object
-            siteFileRef - a reference to an abstract "file" entity on the Site - this is
-                the target of the put operation
+            siteFileRef - a reference to an abstract "file" entity on the Site - 
+                this is the target of the put operation
             jobContext - if we have a job context we wish to use (e.g. we are already
                 inside a job and wish to indicate the digital thread parent-child
                 relationships) then pass the context in, else the put operation will be
@@ -244,11 +255,13 @@ class SiteRepoDriver(ABC):
         Params:
             siteFileRef - a reference to a data entity on the Site, the source of the get
             localPath - a local file object, the destination of the get
-            jobContext - if we have a job context we wish to use (e.g. we are already inside a job and wish to indicate the
-                digital thread parent-child relationships) then pass the context in, else the put operation will be performed
-                as its own seminal job
+            jobContext - if we have a job context we wish to use (e.g. we are already 
+                inside a job and wish to indicate the
+                digital thread parent-child relationships) then pass the context in, 
+                else the put operation will be performed as its own seminal job
         Returns:
-            Path - the reference to the local location of the gotten file; during the get, the Site might also raise any kind of
+            Path - the reference to the local location of the gotten file; during the 
+                get, the Site might also raise any kind of
                 exception depending on the error case
         """
         pass
@@ -384,12 +397,3 @@ class Site(LwfmBase):
     def getRepoDriver(self) -> SiteRepoDriver:
         return self._repoDriver
 
-
-# ***********************************************************************************************************************************
-
-# test
-if __name__ == "__main__":
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.DEBUG)
-    siteFoo = Site.getSiteInstanceFactory("local")
-    logging.info(siteFoo.getName())
