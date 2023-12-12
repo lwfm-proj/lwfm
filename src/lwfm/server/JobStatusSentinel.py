@@ -18,7 +18,7 @@ from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus   
 from lwfm.base.Site import Site
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
-from lwfm.base.JobEventHandler import JobEventHandler, _JobEventHandlerFields
+from lwfm.base.WorkflowEventTrigger import JobEventHandler, _JobEventHandlerFields
 
 
 #************************************************************************************************************************************

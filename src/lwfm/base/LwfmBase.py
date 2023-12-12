@@ -3,18 +3,17 @@ from abc import ABC
 import uuid
 
 
+# Many base classes extend LwfmBase to permit the passing of arbitrary name=value maps 
+# in addition to the fixed parameters specified by various classes in the object model.  
+# This aids in generalization and serialization.
 
-
-
-
-# Many base classes extend LwfmBase to permit the passing of arbitrary name=value maps in addition to the fixed parameters
-# specified by various classes in the object model.  This aids in generalization and serialization.
 class LwfmBase(ABC):
 
     _shortJobIds = False
 
 
-    args: dict = None    # most class attributes backed by getters and setters are handled as values in this dict
+    args: dict = None   # most class attributes backed by getters and setters are 
+                        # handled as values in this dict
 
     def __init__(self, args: dict):
         if (args is None):
@@ -36,8 +35,8 @@ class LwfmBase(ABC):
         self.args = dict(args)
 
 
-# UUID generator used to give jobs lwfm ids which obviates collisions between job sites.  Other objects in the system
-# may also benefit from this generator.
+# UUID generator used to give jobs lwfm ids which obviates collisions between job sites.  
+# Other objects in the system may also benefit from this generator.
 class _IdGenerator:
     @staticmethod
     def generateId():

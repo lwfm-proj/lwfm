@@ -6,7 +6,7 @@ import stat
 from flask import Flask, request, jsonify
 import pickle
 from lwfm.server.JobStatusSentinel import JobStatusSentinel
-from lwfm.base.JobEventHandler import JobEventHandler
+from lwfm.base.WorkflowEventTrigger import JobEventHandler
 from lwfm.base.JobStatus import JobStatus, JobContext
 from lwfm.store.RunStore import RunJobStatusStore
 import logging

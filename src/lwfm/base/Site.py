@@ -1,5 +1,6 @@
-# Site: Defines an abstract computing location which exposes canonical verbs for the Auth, Run, and Repo (and optionally Spin)
-# logical subsystems. The purpose of lwfm is to permit workflows which span Sites.  A new Site would inherit or implement a driver
+# Site: Defines an abstract computing location which exposes canonical verbs for the 
+# Auth, Run, and Repo (and optionally Spin) logical subsystems. The purpose of lwfm is 
+# to permit workflows which span Sites.  A new Site would inherit or implement a driver
 # for each of the subsystems.
 
 from enum import Enum
@@ -16,15 +17,17 @@ from lwfm.base.JobEventHandler import JobEventHandler
 from lwfm.base.SiteFileRef import SiteFileRef
 
 
-# ***********************************************************************************************************************************
+# *********************************************************************************
 
 
 class SiteAuthDriver(ABC):
     """
-    Auth: an interface for a Site's user authentication and authorization functiions.  Permits a Site to provide some kind of a
-    "login" be it programmatic, forced interactive, etc.  A given Site's implmentation of Auth might squirrel away some returned
-    token (should the Site use such things).  It could conceptually then provide a quicker "is the auth current" method.  We assume
-    the implementation of a Site's Run and Repo subsystems will, if needed, be provided access under the hood to the necessary
+    Auth: an interface for a Site's user authentication and authorization functiions.  
+    Permits a Site to provide some kind of a "login" be it programmatic, forced interactive, 
+    etc.  A given Site's implmentation of Auth might squirrel away some returned
+    token (should the Site use such things).  It could conceptually then provide a quicker 
+    "is the auth current" method.  We assume the implementation of a Site's Run and Repo 
+    subsystems will, if needed, be provided access under the hood to the necessary
     implementation details from the Auth subsystem.
     """
 
@@ -34,7 +37,8 @@ class SiteAuthDriver(ABC):
         Login to the Site using the Site's own mechanism for authenication and caching.
 
         Params:
-            force - if true, forces a login even if the Site detects that the current login is still viable
+            force - if true, forces a login even if the Site detects that the current 
+                login is still viable
         Returns:
             bool - true if success, else false
         """
@@ -46,29 +50,35 @@ class SiteAuthDriver(ABC):
         Is the currently cached Site login info still viable?
 
         Returns:
-            bool - true if the login is still viable, else false; the Site might not cache, and thus always return false
+            bool - true if the login is still viable, else false; the Site might not cache, 
+                and thus always return false
         """
         pass
 
 
-# ************************************************************************************************************************************
+# *********************************************************************************
 
 
 class SiteRunDriver(ABC):
     """
-    Run: in its most basic form, the Run subsystem provides a mechanism to submit a job, cancel the job, and interrogate
-    the job's status.  The submitting of a job might, for some Sites, involve a batch scheduler.  Or, for some Sites (like a "local"
-    Site), the run might be immediate.  On submit of a job the method returns a JobStatus.  A job definition (JobDefn) is a description
-    of the job.  Its the role of the Site's Run subsystem to interpret the abstract JobDefn in the context of that Site.  Thus the
-    JobDefn permits arbitrary name=value pairs which might be necessary to submit a job at that Site.  The JobStatus returned is
-    canonical - the Site's own status name set is mapped into the lwfm canonical name set by the implementation of the Site.Run itself.
+    Run: in its most basic form, the Run subsystem provides a mechanism to submit a job, 
+    cancel the job, and interrogate the job's status.  The submitting of a job might, for 
+    some Sites, involve a batch scheduler.  Or, for some Sites (like a "local" Site), the 
+    run might be immediate.  On submit of a job the method returns a JobStatus.  A job 
+    definition (JobDefn) is a description of the job.  Its the role of the Site's Run 
+    subsystem to interpret the abstract JobDefn in the context of that Site.  Thus the
+    JobDefn permits arbitrary name=value pairs which might be necessary to submit a job 
+    at that Site.  The JobStatus returned is canonical - the Site's own status name set 
+    is mapped into the lwfm canonical name set by the implementation of the Site.Run itself.
     """
 
     @classmethod
     def _submitJob(cls, jdefn, jobContext=None, fromEvent=False):
-        # This helper function, not a member of the public interface, lets Python threading instantiate a
-        # SiteRunDriver of the correct subtype on demand.  It is used, for example, by the lwfm middleware's event handler mechanism
-        # to reflectively instantiate a Site Run driver of the correct subtype, and then call its submitJob() method.
+        # This helper function, not a member of the public interface, lets Python threading 
+        # instantiate a SiteRunDriver of the correct subtype on demand.  It is used, for 
+        # example, by the lwfm middleware's event handler mechanism
+        # to reflectively instantiate a Site Run driver of the correct subtype, and then 
+        # call its submitJob() method.
         runDriver = cls()
         runDriver.submitJob(jdefn, jobContext, fromEvent)
 
@@ -119,10 +129,11 @@ class SiteRunDriver(ABC):
     @abstractmethod
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
         """
-        Check the status of a job running on this Site.  The JobContext is an attribute of the JobStatus, and contains the
-        canonical and Site-specific native job id.  The call to submitJob() will have returned an initial JobStatus.
-        The implementation of getJobStatus() may use any portion of the JobContext to obtain the status of the job, as
-        needed by the Site.
+        Check the status of a job running on this Site.  The JobContext is an attribute 
+        of the JobStatus, and contains the canonical and Site-specific native job id.  
+        The call to submitJob() will have returned an initial JobStatus.
+        The implementation of getJobStatus() may use any portion of the JobContext to 
+        obtain the status of the job, as needed by the Site.
 
         Params:
             jobContext - the context of the executing job, including the native job id
@@ -134,15 +145,17 @@ class SiteRunDriver(ABC):
     @abstractmethod
     def cancelJob(self, jobContext: JobContext) -> bool:
         """
-        Cancel the job, which might be in a queued state, or might already be running.  Its up to to the Site how to
-        handle the cancel, including not doing it.  The JobContext is obtained from the JobStatus returned by the call to
+        Cancel the job, which might be in a queued state, or might already be running.  
+        Its up to to the Site how to handle the cancel, including not doing it.  The 
+        JobContext is obtained from the JobStatus returned by the call to
         submitJob(), or any call to getJobStatus().
 
         Params:
             jobContext - the context of the job, including the Site-native job id
         Returns:
-            bool - true if a successful cancel, else false; callers should invoke the getJobStatus() method
-                to obtain final terminal status (e.g., the job might have completed successfully prior to the cancel being receieved,
+            bool - true if a successful cancel, else false; callers should invoke the 
+                getJobStatus() method to obtain final terminal status (e.g., the job 
+                might have completed successfully prior to the cancel being receieved,
                 the cancel might not be instantaneous, etc.)
         """
         pass
@@ -150,9 +163,10 @@ class SiteRunDriver(ABC):
     @abstractmethod
     def listComputeTypes(self) -> [str]:
         """
-        List the compute types supported by the Site.  Comnpute types are specific runtime resources (if any) within the Site.
-        The Site might not have any concept and return an empty list, or a list of one singular type of the Site.  Or, the Site
-        might front a number of resources, and return a list of names.
+        List the compute types supported by the Site.  Comnpute types are specific 
+        runtime resources (if any) within the Site. The Site might not have any concept 
+        and return an empty list, or a list of one singular type of the Site.  Or, the 
+        Site might front a number of resources, and return a list of names.
 
         Returns:
             [str] - a list of names, potentially empty or None
@@ -163,16 +177,20 @@ class SiteRunDriver(ABC):
     def setEventHandler(self, jeh: JobEventHandler) -> JobStatus:
         """
         Set a job to be submitted when a prior job event occurs.
-        A Site does not need to have a concept of these event handlers (most won't) and is free to throw a NotImplementedError.
-        The local lwfm site will provide an implementation of event handling middleware through its own Site.Run interface, and thus
-        permit cross-Site workflow job chaining.
-        Asking a Site to run a job on a Site other than itself (siteName = None) is free to raise a NotImplementedError, though
-        it might be possible in some cases, and the lwfm Local site will permit it.
+        A Site does not need to have a concept of these event handlers (most won't) and 
+        is free to throw a NotImplementedError. The local lwfm site will provide an 
+        implementation of event handling middleware through its own Site.Run interface, 
+        and thus permit cross-Site workflow job chaining.
+        Asking a Site to run a job on a Site other than itself (siteName = None) is free 
+        to raise a NotImplementedError, though it might be possible in some cases, and the 
+        lwfm Local site will permit it.
 
         Params:
-            jeh - the JobEventHandler to be set containg information about the triggering event and the job to be submitted when fired
+            jeh - the JobEventHandler to be set containg information about the triggering 
+                event and the job to be submitted when fired
         Returns:
-            JobStatus - the status of the job which will be submitted when the event occurs, initially in the PENDING state
+            JobStatus - the status of the job which will be submitted when the event occurs, 
+                initially in the PENDING state
         """
         pass
 
@@ -184,15 +202,16 @@ class SiteRunDriver(ABC):
         Params:
             JobEventHandler - a previously set handler
         Returns:
-            bool - success, fail, or raise NotImplementedError if the Site has no concept of event handlers
+            bool - success, fail, or raise NotImplementedError if the Site has no concept 
+                of event handlers
         """
         pass
 
     @abstractmethod
     def listEventHandlers(self) -> [JobEventHandler]:
         """
-        List the JobEventHandler registrations the Site is holding, or an empty list, or raise NotImplementedError if the
-        Site doesn't support event handlers.
+        List the JobEventHandler registrations the Site is holding, or an empty list, or 
+        raise NotImplementedError if the Site doesn't support event handlers.
         """
         pass
 
@@ -272,29 +291,34 @@ class SiteRepoDriver(ABC):
         Get info about the file/dir on the remote site
 
         Params:
-            siteFileRef - a reference to an abstract "file" entity on the Site, may be specialized partially (e.g. wildcards) though
+            siteFileRef - a reference to an abstract "file" entity on the Site, may be 
+                specialized partially (e.g. wildcards) though
                 it is up to the Site to determine how to implement this search
         Returns:
-            [SiteFileRef] - the instantiated file reference(s) (not the file, but the references), including the size, timestamp
-                info, and other arbitrary metadata; may be a single file reference, or a list, or none
+            [SiteFileRef] - the instantiated file reference(s) (not the file, but the 
+                references), including the size, timestamp info, and other arbitrary 
+                metadata; may be a single file reference, or a list, or none
         """
         pass
 
 
-# ************************************************************************************************************************************
-# Spin: vaporware.  In theory some Sites would expose mechanisms to create (provision) and destroy various kinds of computing
-# devices.  These might be single nodes, or entire turnkey cloud-bases HPC systems.  Spin operations are modeled as jobs in
-# order to permit sequential workflows which spin up resources, send them jobs, and then spin them down as part of an
-# autonomous operation.  Basic verbs include: show cafeteria, spin up, spin down.  Spins would be wrapped as Jobs allowing normal
-# status interogation.
+# **********************************************************************************
+# Spin: vaporware.  In theory some Sites would expose mechanisms to create (provision) 
+# and destroy various kinds of computing devices.  These might be single nodes, or entire 
+# turnkey cloud-bases HPC systems.  Spin operations are modeled as jobs in
+# order to permit sequential workflows which spin up resources, send them jobs, and then 
+# spin them down as part of a autonomous operation.  Basic verbs include: show cafeteria, 
+# spin up, spin down.  Spins would be wrapped as Jobs allowing normal status interogation.
 
 
-# ***********************************************************************************************************************************
-# Site: the Site is simply a name and the getters and setters for its Auth, Run, Repo subsystems.
+# *********************************************************************************
+# Site: the Site is simply a name and the getters and setters for its Auth, Run, Repo 
+# subsystems.
 #
-# The Site factory utility method returns the Python class which implements the interfaces for the named Site.
-# ~/.lwfm/sites.txt can be used to augment the list of sites provided here with a user's own custom Site implementations.
-# In the event of a name collision between the user's sites.txt and those hardcoded here, the user's sites.txt config trumps.
+# The Site factory utility method returns the Python class which implements the interfaces 
+# for the named Site.  ~/.lwfm/sites.txt can be used to augment the list of sites provided 
+# here with a user's own custom Site implementations.  In the event of a name collision 
+# between the user's sites.txt and those hardcoded here, the user's sites.txt config trumps.
 
 
 # LwfmBase field list
@@ -307,8 +331,9 @@ class Site(LwfmBase):
     _runDriver: SiteRunDriver = None
     _repoDriver: SiteRepoDriver = None
 
-    # pre-defined Sites and their associated driver implementations, each which implements Auth, Run, Repo, [Spin]
-    # these mappings can be extended in the ~/.lwfm/sites.txt configuration
+    # pre-defined Sites and their associated driver implementations, each which implements 
+    # Auth, Run, Repo, [Spin]  these mappings can be extended in the ~/.lwfm/sites.txt 
+    # configuration
     _SITES = {
         "local": "lwfm.drivers.LocalSiteDriver.LocalSite",
         "nersc": "lwfm.drivers.NerscSiteDriver.NerscSite",

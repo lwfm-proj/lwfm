@@ -5,13 +5,15 @@ import logging
 import time
 from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
-from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
+from lwfm.base.SiteFileRef import FSFileRef
+from lwfm.base.WorkflowEventTrigger import JobEventHandler
+from lwfm.base.JobStatus import JobStatusValues
 
 siteName = "local"
 
-def example3(site: Site):
+def example4(site: Site):
     # submit a job to create a file
-    dataFile = "/tmp/ex3_date.out"
+    dataFile = "/tmp/ex4_date.out"
     jobDefnA = JobDefn()
     jobDefnA.setEntryPoint("echo date = `date` > " + dataFile)
     statusA = site.getRunDriver().submitJob(jobDefnA)
@@ -26,19 +28,27 @@ def example3(site: Site):
     jobDefnB.setLocalRef(dataFile)
     siteFileRef = FSFileRef()
     siteFileRef.setPath("/tmp")
-    siteFileRef.setName("ex3_date.out" + ".copy")
+    siteFileRef.setName("ex4_date.out" + ".copy")
     time_str = str(int(time.time() * 1000))
-    siteFileRef.setMetadata({"myMetaField3": "myMetaValue-" + time_str})
+    siteFileRef.setMetadata({"myMetaField4": "myMetaValue-" + time_str})
     jobDefnB.setSiteFileRef(siteFileRef)
     statusB = site.getRunDriver().submitJob(jobDefnB, statusA.getJobContext())
+
+    # set a data trigger on the file - a job will run on the site when the file 
+    # put under management
+    jobDefnC = JobDefn()
+    jobDefnC.setEntryPoint("echo date = `date` > /tmp/ex4_date.out.triggered")
+    statusC = site.getRunDriver().setEventHandler(
+        JobEventHandler(None, JobStatusValues.INFO, jobDefnC, siteName)
+    )
+
+    # put the file, which will fire the trigger job
     statusB = statusB.wait()
     print("put job = " + statusB.toShortString())
+    statusC = statusC.wait()
+    print("trigger job = " + statusC.toShortString())
 
-    # "get" the file by metadata  
-    siteFileRef = SiteFileRef()
-    siteFileRef.setMetadata({"myMetaField3": "myMetaValue-" + time_str})
-    foundSiteFileRefs = site.getRepoDriver().find(siteFileRef)
-    print("found site file ref = " + str(foundSiteFileRefs))
+
 
 
 if __name__ == '__main__':
@@ -50,4 +60,4 @@ if __name__ == '__main__':
     # a "local" Site login is generally a no-op
     site.getAuthDriver().login()
 
-    example3(site)
+    example4(site)

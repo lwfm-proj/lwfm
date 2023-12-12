@@ -20,7 +20,7 @@ from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus
-from lwfm.base.JobEventHandler import JobEventHandler
+from lwfm.base.WorkflowEventTrigger import JobEventHandler
 from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.store import BasicMetaRepoStore

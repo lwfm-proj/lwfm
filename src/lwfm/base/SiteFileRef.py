@@ -1,10 +1,10 @@
 
-# SiteFileRef: an abstract representation of a data object (a "file") on a Site.  The Site's Repo subsystem might back that
-# with a normal filesystem, or it might back it with something fancier like an object store.  Its the role of the Site's Repo
+# SiteFileRef: an abstract representation of a data object (a "file") on a Site.  The 
+# Site's Repo subsystem might back that with a normal filesystem, or it might back it 
+# with something fancier like an object store.  Its the role of the Site's Repo
 # subsystem to interpret the SiteFileRef in its own implementation-detail terms.
 
 
-from abc import abstractmethod
 from datetime import datetime
 from enum import Enum
 import os
@@ -12,16 +12,18 @@ import os
 from lwfm.base.LwfmBase import LwfmBase
 
 
-#************************************************************************************************************************************
+#************************************************************************************
 
 # A reference to a file object on the site, not the file object itself.
 # This might be a filesystem on a remote machine, or some other kind of managed repo.
 
 class _SiteFileRefFields(Enum):
     ID        = "id"            # sometimes the data entity has an id distinct from its name
-    NAME      = "filename"      # full name, whatever that means in the context of this managed repo 
+    NAME      = "filename"      # full name, whatever that means in the context of this 
+                                # managed repo 
     SIZE      = "size"  
-    TIMESTAMP = "timestamp"     # the create timestamp, or last edit - this is up to the Repo driver 
+    TIMESTAMP = "timestamp"     # the create timestamp, or last edit - this is up to the 
+                                # Repo driver 
     IS_FILE   = "isFile"
     METADATA  = "metadata"      # a dict of name=value metadata pairs about this data entity
 
@@ -64,9 +66,8 @@ class SiteFileRef(LwfmBase):
     def setMetadata(self, metadata: dict) -> None:
         LwfmBase._setArg(self, _SiteFileRefFields.METADATA.value, metadata)
 
-
-    # path can mean many things... file system path, with or without host prefix, a link to some "repo", just the id,
-    # a metadata tuple, etc.
+    # path can mean many things... file system path, with or without host prefix, a 
+    # link to some "repo", just the id, a metadata tuple, etc.
     def getPath(self) -> str:
         pass
 
@@ -83,7 +84,7 @@ class SiteFileRef(LwfmBase):
         return self.getArgs().toString()
 
 
-#************************************************************************************************************************************
+#*********************************************************************************
 
 class _FSFileRefFields(Enum):
     PATH          = "path"
@@ -92,7 +93,8 @@ class _FSFileRefFields(Enum):
 
 class FSFileRef(SiteFileRef):
     """
-    Since plain filesystem files are a common data entity, this subclass provides convenience mechanisms.
+    Since plain filesystem files are a common data entity, this subclass provides 
+    convenience mechanisms.
     """
     def setName(self, name: str) -> None:
         super().setName(name)
@@ -132,7 +134,7 @@ class FSFileRef(SiteFileRef):
         return fileRef
 
 
-#************************************************************************************************************************************
+#********************************************************************************
 
 class _RemoteFSFileRefFields(Enum):
     HOST      = "host"
@@ -149,7 +151,7 @@ class RemoteFSFileRef(FSFileRef):
     def setHost(self, host: str) -> None:
         LwfmBase._setArg(self, _RemoteFSFileRefFields.HOST.value, host)
 
-#************************************************************************************************************************************
+#*********************************************************************************
 
 class S3FileRef(SiteFileRef):
     """

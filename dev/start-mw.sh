@@ -19,7 +19,7 @@ export FLASK_APP=lwfm/src/lwfm/server/JobStatusSentinelSvc
 flask run -p 3000 & 
 
 # start the MetaRepo server
-cd MetaRepo2 && uvicorn src.metarepo:app --port 8000 & 
+#cd MetaRepo2 && uvicorn src.metarepo:app --port 8000 & 
 
 trap 'pkill flask; pkill tail' SIGINT
 trap 'pkill flask; pkill tail' SIGKILL

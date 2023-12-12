@@ -30,19 +30,21 @@ class _JobStatusFields(Enum):
     )
     EMIT_TIME = "emitTime"
     RECEIVED_TIME = "receivedTime"
-    ID = "id"  # canonical job id
-    NATIVE_ID = "nativeId"  # Run implementation native job id
-    NAME = "name"  # optional human-readable job name
-    PARENT_JOB_ID = "parentJobId"  # immediate predecessor of this job, if any - seminal job has no parent
+    ID = "id"                       # canonical job id
+    NATIVE_ID = "nativeId"          # Run implementation native job id
+    NAME = "name"                   # optional human-readable job name
+    PARENT_JOB_ID = "parentJobId"   # immediate predecessor of this job, if any - 
+                                    # seminal job has no parent
     ORIGIN_JOB_ID = (
-        "originJobId"  # oldest ancestor - a seminal job is its own originator
+        "originJobId"               # oldest ancestor - a seminal job is its own originator
     )
-    SET_ID = "setId"  # optional id of a set if the job is part of a set
-    NATIVE_INFO = "nativeInfo"  # any additional info the native Run wants to put in the status message
-    SITE_NAME = "siteName"  # name of the Site which emitted the message
-    COMPUTE_TYPE = "computeType"  # a named resource on the Site, if any
-    GROUP = "group"  # a group id that the job belongs to, if any
-    USER = "user"  # a user id of the user that submitted the job, if any
+    SET_ID = "setId"                # optional id of a set if the job is part of a set
+    NATIVE_INFO = "nativeInfo"      # any additional info the native Run wants to put in 
+                                    # the status message
+    SITE_NAME = "siteName"          # name of the Site which emitted the message
+    COMPUTE_TYPE = "computeType"    # a named resource on the Site, if any
+    GROUP = "group"                 # a group id that the job belongs to, if any
+    USER = "user"                   # a user id of the user that submitted the job, if any
 
 
 # The canonical set of status codes.  Run implementations will have their own sets, and
@@ -64,8 +66,8 @@ class JobStatusValues(Enum):
 class JobContext(LwfmBase):
     """
     The runtime execution context of the job.  It contains the id of the job and references
-    to its parent jobs, if any.
-    A Job Status can reference a Job Context, and then augument it with updated job status information.
+    to its parent jobs, if any.  A Job Status can reference a Job Context, and then augument 
+    it with updated job status information.
 
     Attributes:
 
@@ -77,14 +79,16 @@ class JobContext(LwfmBase):
 
     native id - the Site-generated job id
 
-    parent job id - a lwfm generated id, the immediate parent of this job, if any; a seminal job has no parent
+    parent job id - a lwfm generated id, the immediate parent of this job, if any; a 
+        seminal job has no parent
 
     origin job id - the elest parent in the job chain; a seminal job is its own originator
 
-    name - the job can have an optional name for human consumption, else the name is the lwfm job id
+    name - the job can have an optional name for human consumption, else the name is the 
+        lwfm job id
 
-    site name - the job is running (or has been submitted to the Site for queuing), therefore the Site
-        name is known
+    site name - the job is running (or has been submitted to the Site for queuing), 
+        therefore the Site name is known
 
     compute type - if the Site distinguishes compute types, it can be noted here
 
@@ -188,6 +192,15 @@ class JobContext(LwfmBase):
 
     @staticmethod
     def makeChildJobContext(jobContext: 'JobContext') -> 'JobContext':
+        """
+        Make a new JobContext which is a child of the given JobContext.
+
+        Args:
+            jobContext (JobContext): the parent JobContext
+
+        Returns:
+            JobContext: the child JobContext
+        """
         childContext = JobContext()
         childContext.setParentJobId(jobContext.getId())
         childContext.setOriginJobId(jobContext.getOriginJobId())
@@ -202,15 +215,16 @@ class JobContext(LwfmBase):
 
 class JobStatus(LwfmBase):
     """
-    Over the lifetime of the running job, it may emit many status messages.  (Or, more specifically,
-    lwfm might poll the remote Site for an updated status of a job it is tracking.)
+    Over the lifetime of the running job, it may emit many status messages.  (Or, more 
+    specifically, lwfm might poll the remote Site for an updated status of a job it is 
+    tracking.)
 
-    The Job Status references the Job Context of the running job, which contains the id of the job
-    and other originating information.
+    The Job Status references the Job Context of the running job, which contains the id 
+    of the job and other originating information.
 
-    The Job Status is then augmented with the updated status info.  Like job ids, which come in
-    canonical lwfm and Site-specific forms (and we track both), so do job status strings - there's
-    the native job status, and the mapped canonical status.
+    The Job Status is then augmented with the updated status info.  Like job ids, which 
+    come in canonical lwfm and Site-specific forms (and we track both), so do job status 
+    strings - there's the native job status, and the mapped canonical status.
 
     Attributes:
 
@@ -220,17 +234,19 @@ class JobStatus(LwfmBase):
 
     native status - the current native status string
 
-    emit time - the timestamp when the Site emitted the status - the Site driver will need to
-    populate this value
+    emit time - the timestamp when the Site emitted the status - the Site driver will 
+        need to populate this value
 
-    received time - the timestamp when lwfm received the Job Status from the Site; this can be
-        used to study latency in status receipt (which is by polling)
+    received time - the timestamp when lwfm received the Job Status from the Site; this 
+        can be used to study latency in status receipt (which is by polling)
 
-    native info - the Site may inject Site-specific status information into the Job Status message
+    native info - the Site may inject Site-specific status information into the Job Status 
+        message
 
-    status map - a constant, the mapping of Site-native status strings to canonical status strings;
-        native lwfm local jobs will use the literal mapping, and Site drivers will implement Job Status
-        subclasses which provide their own Site-to-canonical mapping.
+    status map - a constant, the mapping of Site-native status strings to canonical 
+        status strings; native lwfm local jobs will use the literal mapping, and Site \
+        drivers will implement Job Status subclasses which provide their own 
+        Site-to-canonical mapping.
 
     """
 
@@ -348,9 +364,10 @@ class JobStatus(LwfmBase):
             jssc.emitStatus(
                 self.getJobContext().getId(), self.getStatus().value, self.serialize()
             )
-            # put a little wait in to avoid a race condition where the status is emitted and then
-            # immediately queried or two status messages are emitted in rapid succession and they
-            # appear out of order
+            # TODO: is there a better way to do this?
+            # put a little wait in to avoid a race condition where the status is emitted 
+            # and then immediately queried or two status messages are emitted in rapid 
+            # succession and they appear out of order
             time.sleep(1)
             self.clear()
             return True
@@ -428,6 +445,8 @@ class JobStatus(LwfmBase):
             s += "," + str(self.getNativeInfo())
         return s
 
+    # Wait synchronously until the job reaches a terminal state, then return that state.
+    # Uses a progressive sleep time to avoid polling too frequently.
     def wait(self) -> "JobStatus":  # return JobStatus when the job is done
         status = self
         increment = 3
@@ -447,6 +466,16 @@ class JobStatus(LwfmBase):
 
 @staticmethod
 def fetchJobStatus(jobId: str) -> JobStatus:
+    """
+    Given a canonical job id, fetch the latest Job Status from the lwfm service.
+    The service may need to call on the host site to obtain up-to-date status.
+
+    Args:
+        jobId (str): canonical job id
+
+    Returns:
+        JobStatus: Job Status object, or None if the job is not found
+    """
     try:
         jssc = JobStatusSentinelClient()
         statusBlob = jssc.getStatusBlob(jobId)
