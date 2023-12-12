@@ -7,6 +7,9 @@ from lwfm.base.SiteFileRef import SiteFileRef
 
 
 class BasicMetaRepoStore(MetaRepo):
+
+    storeFile = os.path.expanduser('~') + '/.lwfm/metarepo_store.txt'
+
     def __init__(self):
         super(BasicMetaRepoStore, self).__init__()
 
@@ -15,25 +18,16 @@ class BasicMetaRepoStore(MetaRepo):
     ):
         metasheet = {}
         metasheet["raw"] = siteFileRef.getArgs()
-        #metasheet["userMetadata"] = siteFileRef.getMetadata()
-        file_object = open(os.path.expanduser('~') + '/.lwfm/metarepo_store.txt', 'a+')
+        file_object = open(self.storeFile, 'a+')
         file_object.write(str(metasheet) + "\n")
         file_object.close()
 
 
-    def find(self, fileRef: SiteFileRef):
+    def find(self, fileRef: SiteFileRef) -> [SiteFileRef]:
         fileList = []
-
-        metaRepo = MetaRepo._getMetaRepo()
-        for file in metaRepo:
-            if fileRef.getId() is not None and file.getId() != fileRef.getId():
-                continue
-            if fileRef.getName() is not None and file.getName() != fileRef.getName():
-                continue
-            if (
-                fileRef.getMetadata() is not None
-                and file.getMetadata() != fileRef.getMetadata()
-            ):
-                continue
-            fileList.append(file)
+        print("going to look for " + str(fileRef.getMetadata()))
+        with open(self.storeFile, 'r') as file:
+            for line in file:
+                if (str(fileRef.getMetadata()) in line):
+                    fileList.append(line)
         return fileList

@@ -67,11 +67,9 @@ class SiteFileRef(LwfmBase):
 
     # path can mean many things... file system path, with or without host prefix, a link to some "repo", just the id,
     # a metadata tuple, etc.
-    @abstractmethod
     def getPath(self) -> str:
         pass
 
-    @abstractmethod
     def setPath(self, path: str) -> None:
         pass
 
@@ -80,6 +78,9 @@ class SiteFileRef(LwfmBase):
 
     def setIsFile(self, isFile: bool) -> None:
         LwfmBase._setArg(self, _SiteFileRefFields.IS_FILE.value, isFile)
+
+    def toString(self) -> str:
+        return self.getArgs().toString()
 
 
 #************************************************************************************************************************************

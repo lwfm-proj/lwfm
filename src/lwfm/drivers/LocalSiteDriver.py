@@ -270,9 +270,9 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         # return success result
         return Path(str(toPath + os.sep + siteRef.getName()))
 
-    def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
-        pass
-        #return metaRepo.find(siteRef)
+
+    def find(self, siteFileRef: SiteFileRef) -> [SiteFileRef]:
+        return self._metaRepo.find(siteFileRef)
 
 
 # *************************************************************************************
