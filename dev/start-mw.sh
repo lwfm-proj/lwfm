@@ -15,7 +15,7 @@ fi
 export PYTHONPATH=lwfm/src
 
 # start a service to expose the Event Handler endpoints 
-export FLASK_APP=lwfm/src/lwfm/server/JobStatusSentinelSvc
+export FLASK_APP=lwfm/src/lwfm/server/WorkflowEventSvc
 flask run -p 3000 & 
 
 # start the MetaRepo server

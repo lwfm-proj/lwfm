@@ -20,7 +20,7 @@ import json
 
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
 from lwfm.base.JobDefn import RepoOp
-from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
+from lwfm.server.WorkflowEventClient import WorkflowEventClient
 
 
 class _JobStatusFields(Enum):
@@ -360,8 +360,8 @@ class JobStatus(LwfmBase):
             self.setNativeStatusStr(status)
         self.setEmitTime(datetime.utcnow())
         try:
-            jssc = JobStatusSentinelClient()
-            jssc.emitStatus(
+            wfec = WorkflowEventClient()
+            wfec.emitStatus(
                 self.getJobContext().getId(), self.getStatus().value, self.serialize()
             )
             # TODO: is there a better way to do this?
@@ -477,8 +477,8 @@ def fetchJobStatus(jobId: str) -> JobStatus:
         JobStatus: Job Status object, or None if the job is not found
     """
     try:
-        jssc = JobStatusSentinelClient()
-        statusBlob = jssc.getStatusBlob(jobId)
+        wfec = WorkflowEventClient()
+        statusBlob = wfec.getStatusBlob(jobId)
         if statusBlob:
             return JobStatus.deserialize(statusBlob)
         else:

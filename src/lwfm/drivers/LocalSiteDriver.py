@@ -20,8 +20,8 @@ from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus
-from lwfm.base.WorkflowEventTrigger import JobEventHandler
-from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
+from lwfm.base.WorkflowEventTrigger import WorkflowEventTrigger, JobEventTrigger
+from lwfm.server.WorkflowEventClient import WorkflowEventClient
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.store import BasicMetaRepoStore
 
@@ -165,26 +165,26 @@ class LocalSiteRunDriver(SiteRunDriver):
     def listComputeTypes(self) -> [str]:
         return ["local"]
 
-    def setEventHandler(self, jeh: JobEventHandler) -> JobStatus:
-        if jeh.getTargetSiteName() is None:
-            jeh.setTargetSiteName("local")
-        newJobId = JobStatusSentinelClient().setEventHandler(
-            jeh.getJobId(),
-            jeh.getStatus().value,
-            jeh.getFireDefn(),
-            jeh.getTargetSiteName(),
+    def setWorkflowEventTrigger(self, jet: WorkflowEventTrigger) -> JobStatus:
+        if jet.getTargetSiteName() is None:
+            jet.setTargetSiteName("local")
+        newJobId = WorkflowEventClient().setEventTrigger(
+            jet.getJobId(),
+            jet.getStatus().value,
+            jet.getFireDefn(),
+            jet.getTargetSiteName(),
         )
         return fetchJobStatus(newJobId)
 
-    def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
+    def unsetWorkflowEventTrigger(self, jet: JobEventTrigger) -> bool:
         raise NotImplementedError()
 
-    def listEventHandlers(self) -> [JobEventHandler]:
+    def listWorkflowEventTriggers(self) -> [JobEventTrigger]:
         raise NotImplementedError()
 
     def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
         statuses = []
-        serializedStatuses = JobStatusSentinelClient().getStatuses()
+        serializedStatuses = WorkflowEventClient().getStatuses()
         if serializedStatuses is None:
             serializedStatuses = []
         for serializedStatus in serializedStatuses:

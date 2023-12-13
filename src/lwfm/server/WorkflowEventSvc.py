@@ -1,12 +1,12 @@
 # TODO logging vs. print 
-#************************************************************************************************************************************
+#***********************************************************************************
 # Flask app
 
 import stat
 from flask import Flask, request, jsonify
 import pickle
-from lwfm.server.JobStatusSentinel import JobStatusSentinel
-from lwfm.base.WorkflowEventTrigger import JobEventHandler
+from lwfm.server.WorkflowEventProcessor import WorkflowEventProcessor
+from lwfm.base.WorkflowEventTrigger import JobEventTrigger
 from lwfm.base.JobStatus import JobStatus, JobContext
 from lwfm.store.RunStore import RunJobStatusStore
 import logging
@@ -15,7 +15,7 @@ app = Flask(__name__)
 app.logger.disabled = True
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
-jss = JobStatusSentinel()
+wfep = WorkflowEventProcessor()
 
 # most recent status
 _jobStatusCache = {}
@@ -44,9 +44,15 @@ def emitStatus():
     _jobStatusCache[jobId] = statusObj
     _jobStatusHistory.append(statusObj)
     # TODO 
-    key = JobEventHandler(jobId, jobStatus, None, None).getKey()
-    jss.runHandler(key, statusObj) # This will check to see if the handler is in the JSS store, and run if so
-    return '', 200
+    try:
+        key = JobEventTrigger(jobId, jobStatus, None, None).getKey()
+        # This will check to see if there is a trigger and if so run it 
+        wfep.runTrigger(key, statusObj) 
+        return '', 200
+    except Exception as ex:
+        print("exception checking events")
+        print(ex)
+        return '', 400
 
 @app.route('/status/<jobId>')
 def getStatus(jobId : str):
@@ -90,7 +96,7 @@ def getAllStatuses():
 
 
 @app.route('/set', methods = ['POST'])
-def setHandler():
+def setTrigger():
     jobId = request.form['jobId']
     jobStatus = request.form['jobStatus']
     targetSiteName = request.form['targetSiteName']
@@ -99,7 +105,7 @@ def setHandler():
     except Exception as ex:
         print(ex)   # TODO loggging 
         fireDefn = ""
-    return jss.setEventHandler(jobId, jobStatus, fireDefn, targetSiteName)
+    return wfep.setEventTrigger(jobId, jobStatus, fireDefn, targetSiteName)
 
 
 @app.route('/setTerminal', methods = ['POST'])
@@ -117,25 +123,25 @@ def setTerminal():
     targetContext.setParentJobId(parentId)
     targetContext.setOriginJobId(originId)
     targetContext.setNativeId(nativeId)
-    jss.setEventHandler(nativeId, siteName, "<<TERMINAL>>", "", "", targetContext)
+    wfep.setEventHandler(nativeId, siteName, "<<TERMINAL>>", "", "", targetContext)
     return ""
 
 
 # unset a given handler
 @app.route('/unset/<handlerId>')
-def unsetHandler(handlerId : str):
-    return str(jss.unsetEventHandler(handlerId))
+def unsetTrigger(id : str):
+    return str(wfep.unsetEventTrigger(id))
 
 # unset all handers
 @app.route('/unsetAll')
-def unsetAllHandlers():
-    jss.unsetAllEventHandlers()
+def unsetAllTriggers():
+    wfep.unsetAllEventTriggers()
     return str(True)
 
 # list the ids of all active handers
 @app.route('/list')
-def listHandlers():
-    return str(jss.listActiveHandlers())
+def listTriggers():
+    return str(wfep.listActiveTriggers())
 
 def _getStatusHistory(jobId: str) -> []:
     results = []
@@ -174,5 +180,5 @@ def _buildWFThread(jobId: str) -> str:
 # get the digital thread for a given workflow - returns a JSON blob
 @app.route('/wfthread/<jobId>')
 def getWFThread(jobId: str):
-  thread = _buildWFThread(jobId)
-  return thread
+    thread = _buildWFThread(jobId)
+    return thread

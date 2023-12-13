@@ -13,7 +13,7 @@ import os
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobStatus import JobStatus, JobContext
 from lwfm.base.JobDefn import JobDefn
-from lwfm.base.JobEventHandler import JobEventHandler
+from lwfm.base.WorkflowEventTrigger import WorkflowEventTrigger
 from lwfm.base.SiteFileRef import SiteFileRef
 
 
@@ -174,7 +174,7 @@ class SiteRunDriver(ABC):
         pass
 
     @abstractmethod
-    def setEventHandler(self, jeh: JobEventHandler) -> JobStatus:
+    def setWorkflowEventTrigger(self, wfet: WorkflowEventTrigger) -> JobStatus:
         """
         Set a job to be submitted when a prior job event occurs.
         A Site does not need to have a concept of these event handlers (most won't) and 
@@ -186,7 +186,7 @@ class SiteRunDriver(ABC):
         lwfm Local site will permit it.
 
         Params:
-            jeh - the JobEventHandler to be set containg information about the triggering 
+            wfet - the WorkflowEventTrigger to be set containg information about the triggering 
                 event and the job to be submitted when fired
         Returns:
             JobStatus - the status of the job which will be submitted when the event occurs, 
@@ -195,12 +195,12 @@ class SiteRunDriver(ABC):
         pass
 
     @abstractmethod
-    def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
+    def unsetWorkflowEventTrigger(self, wfet: WorkflowEventTrigger) -> bool:
         """
         Unset an event handler.
 
         Params:
-            JobEventHandler - a previously set handler
+            WorkflowEventTrigger - a previously set handler
         Returns:
             bool - success, fail, or raise NotImplementedError if the Site has no concept 
                 of event handlers
@@ -208,9 +208,9 @@ class SiteRunDriver(ABC):
         pass
 
     @abstractmethod
-    def listEventHandlers(self) -> [JobEventHandler]:
+    def listWorkflowEventTriggers(self) -> [WorkflowEventTrigger]:
         """
-        List the JobEventHandler registrations the Site is holding, or an empty list, or 
+        List the WorkflowEventTrigger registrations the Site is holding, or an empty list, or 
         raise NotImplementedError if the Site doesn't support event handlers.
         """
         pass

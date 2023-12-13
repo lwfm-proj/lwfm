@@ -9,7 +9,7 @@ from lwfm.base.Site import Site
 from lwfm.base.SiteFileRef import FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatusValues, fetchJobStatus
-from lwfm.base.JobEventHandler import JobEventHandler
+from lwfm.base.WorkflowEventTrigger import JobEventTrigger 
 
 # This Site name can be an argument - name maps to a Site class implementation,
 # either one provided with this sdk, or one user-authored.
@@ -56,13 +56,13 @@ if __name__ == '__main__':
         
     # when job A gets to the COMPLETE state, fire job B on the named site; registering it
     # gives us the job id we need to set up the event handler for job C
-    statusB = site.getRunDriver().setEventHandler(
-        JobEventHandler(statusA.getJobId(), JobStatusValues.COMPLETE, jobDefnB, siteName))
+    statusB = site.getRunDriver().setWorkflowEventTrigger(
+        JobEventTrigger(statusA.getJobId(), JobStatusValues.COMPLETE, jobDefnB, siteName))
     print("job B when it runs will have job id " + statusB.getJobId())
     
     # when job B gets to the COMPLETE state, fire job C on the named site
-    statusC = site.getRunDriver().setEventHandler(
-        JobEventHandler(statusB.getJobId(), JobStatusValues.COMPLETE, jobDefnC, siteName))
+    statusC = site.getRunDriver().setWorkflowEventTrigger(
+        JobEventTrigger(statusB.getJobId(), JobStatusValues.COMPLETE, jobDefnC, siteName))
     print("job C when it runs will have job id " + statusC.getJobId())
 
     # for the purposes of this example, let's wait synchronously on the conclusion of job C

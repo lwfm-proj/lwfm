@@ -3,6 +3,9 @@ from enum import Enum
 from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
 from lwfm.base.JobStatus import JobContext
 
+
+#************************************************************************************
+
 class _WorkflowEventTriggerFields(Enum):
     ID = "id"                       # trigger id
 
@@ -17,9 +20,13 @@ class WorkflowEventTrigger(LwfmBase):
     def getId(self) -> str:
         return LwfmBase._getArg(self, _WorkflowEventTriggerFields.ID.value)
 
+#************************************************************************************
 
 class _JobEventTriggerFields(Enum):
-    JOB_ID = "jobId"                # lwfm canonical job id
+    # Event handling for a single job - job A reach a state implies the running of job B.  
+    # When this job running on the named site reaches the given status, fire the
+    # registered job defn on the named target site in the given runtime context.
+    JOB_ID = "jobId"                
     JOB_SITE_NAME = "jobSiteName"
     JOB_STATUS = "jobStatus"
     FIRE_DEFN = "fireDefn"
@@ -45,7 +52,7 @@ class JobEventTrigger(WorkflowEventTrigger):
     under which a given job should fire as a result of an upstream event or events, and 
     when it fires, where and how.
 
-    Implementations of the Run subsystem provide a means to accept these JobEventHandler 
+    Implementations of the Run subsystem provide a means to accept these WorkflowEventTrigger 
     descriptors and monitor the job status message traffic to determine when to fire them.  
     lwfm provides a reference implementation of this functionality.
 
@@ -73,7 +80,7 @@ class JobEventTrigger(WorkflowEventTrigger):
     """
 
     def __init__(self, jobId: str, jobStatus: str, fireDefn: str, targetSiteName: str):
-        super(JobEventTrigger, self).__init__(None)
+        super(JobEventTrigger, self).__init__()
         self._setId(_IdGenerator.generateId())
         LwfmBase._setArg(self, _JobEventTriggerFields.JOB_ID.value, jobId)
         LwfmBase._setArg(self, _JobEventTriggerFields.JOB_SITE_NAME.value, None)
@@ -136,3 +143,6 @@ class JobEventTrigger(WorkflowEventTrigger):
             + "."
             + LwfmBase._getArg(self, _JobEventTriggerFields.JOB_STATUS.value)
         )
+
+#************************************************************************************
+
