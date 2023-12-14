@@ -4,6 +4,7 @@ import json
 import requests
 
 from lwfm.base.JobDefn import JobDefn
+from lwfm.base.WorkflowEventTrigger import WorkflowEventTrigger
 
 
 class WorkflowEventClient:
@@ -12,40 +13,11 @@ class WorkflowEventClient:
     def getUrl(self):
         return self._JSS_URL
 
-    def setTerminalSentinel(
-        self, jobId: str, parentId: str, originId: str, nativeId: str, siteName: str
-    ) -> str:
-        payload = {}
-        payload["jobId"] = jobId
-        if parentId is not None:
-            payload["parentId"] = parentId
-        else:
-            payload["parentId"] = ""
-        payload["originId"] = originId
-        payload["nativeId"] = nativeId
-        payload["siteName"] = siteName
-        response = requests.post(f"{self.getUrl()}/setTerminal", payload)
-        if response.ok:
-            return response.text
-        else:
-            logging.error(response.text)
-            return response.text
-
     # TODO - docs
-    def setEventTrigger(
-        self, jobId: str, jobStatus: str, fireDefn: JobDefn, targetSiteName: str
-    ) -> str:
+    def setEventTrigger(self, wfet: WorkflowEventTrigger) -> str:
         payload = {}
-        payload["jobId"] = jobId
-        payload["jobStatus"] = jobStatus
-        if (fireDefn is not None) and (targetSiteName is not None):
-            # Use protocol 0 so we can easily convert to an ASCII string
-            payload["fireDefn"] = pickle.dumps(fireDefn, 0).decode()
-            payload["targetSiteName"] = targetSiteName
-        else:
-            payload["fireDefn"] = ""
-            payload["targetSiteName"] = ""
-        response = requests.post(f"{self.getUrl()}/set", payload)
+        payload["triggerObj"] = pickle.dumps(wfet, 0).decode()
+        response = requests.post(f"{self.getUrl()}/setWorkflowEvent", payload)
         if response.ok:
             # this is the job id of the registered job
             return response.text
@@ -119,9 +91,3 @@ class WorkflowEventClient:
     def getWorkflowUrl(self, jobContext) -> str:
         return "" + self.getUrl() + "/wfthread/" + jobContext.getId()
 
-
-# ***********************************************************************************
-
-# test
-if __name__ == "__main__":
-    pass

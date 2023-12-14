@@ -19,7 +19,8 @@ from pathlib import Path
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
-from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, fetchJobStatus
+from lwfm.base.JobContext import JobContext
 from lwfm.base.WorkflowEventTrigger import WorkflowEventTrigger, JobEventTrigger
 from lwfm.server.WorkflowEventClient import WorkflowEventClient
 from lwfm.base.LwfmBase import LwfmBase
@@ -168,12 +169,7 @@ class LocalSiteRunDriver(SiteRunDriver):
     def setWorkflowEventTrigger(self, jet: WorkflowEventTrigger) -> JobStatus:
         if jet.getTargetSiteName() is None:
             jet.setTargetSiteName("local")
-        newJobId = WorkflowEventClient().setEventTrigger(
-            jet.getJobId(),
-            jet.getStatus().value,
-            jet.getFireDefn(),
-            jet.getTargetSiteName(),
-        )
+        newJobId = WorkflowEventClient().setEventTrigger(jet)
         return fetchJobStatus(newJobId)
 
     def unsetWorkflowEventTrigger(self, jet: JobEventTrigger) -> bool:

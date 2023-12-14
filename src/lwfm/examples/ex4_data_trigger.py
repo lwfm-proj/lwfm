@@ -6,10 +6,12 @@ import time
 from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.SiteFileRef import FSFileRef
-from lwfm.base.WorkflowEventTrigger import JobEventHandler
-from lwfm.base.JobStatus import JobStatusValues
+from lwfm.base.WorkflowEventTrigger import DataEventTrigger
 
 siteName = "local"
+
+def myDataTrigger() -> bool:
+    True
 
 def example4(site: Site):
     # submit a job to create a file
@@ -35,11 +37,11 @@ def example4(site: Site):
     statusB = site.getRunDriver().submitJob(jobDefnB, statusA.getJobContext())
 
     # set a data trigger on the file - a job will run on the site when the file 
-    # put under management
+    # is put under management
     jobDefnC = JobDefn()
     jobDefnC.setEntryPoint("echo date = `date` > /tmp/ex4_date.out.triggered")
-    statusC = site.getRunDriver().setEventHandler(
-        JobEventHandler(None, JobStatusValues.INFO, jobDefnC, siteName)
+    statusC = site.getRunDriver().setWorkflowEventTrigger(
+        DataEventTrigger(myDataTrigger(), jobDefnC, siteName)
     )
 
     # put the file, which will fire the trigger job

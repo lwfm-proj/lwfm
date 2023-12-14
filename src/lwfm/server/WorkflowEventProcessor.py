@@ -10,7 +10,8 @@ from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJob
 from lwfm.base.Site import Site
 from lwfm.base.WorkflowEventTrigger import (
     _JobEventTriggerFields, 
-    JobEventTrigger 
+    JobEventTrigger,
+    WorkflowEventTrigger
 )
 
  
@@ -84,9 +85,8 @@ class WorkflowEventProcessor:
     # emits a particular Job Status, fire the given JobDefn (serialized) at the target 
     # Site.  Return the new job id.
     # TODO update doc
-    def setEventTrigger(
-        self, jobId: str, jobStatus: str, fireDefn: str, targetSiteName: str
-    ) -> str:
+    def setEventTrigger(wfet: WorkflowEventTrigger) -> str:
+        # self, jobId: str, jobStatus: str, fireDefn: str, targetSiteName: str
         try:
             eventHandler = JobEventTrigger(
                 jobId, jobStatus, fireDefn, targetSiteName
@@ -131,6 +131,7 @@ class WorkflowEventProcessor:
         return handlers
 
     def runTrigger(self, triggerId, jobStatus):
+        print("*** Here in run trigger " + triggerId + " " + jobStatus.toShortString())
         try:
             # unset the event handler ASAP to help prevent race conditions
             if triggerId not in self._eventHandlerMap:
@@ -162,7 +163,8 @@ class WorkflowEventProcessor:
                 ),
             )
         except Exception as ex:
-            logging.error("Could not prepare to run job: " + ex)
+            print("blew chunks")
+            logging.error("Could not prepare to run job: " + str(ex))
             return False
 
         try:

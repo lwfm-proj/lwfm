@@ -7,7 +7,9 @@ from flask import Flask, request, jsonify
 import pickle
 from lwfm.server.WorkflowEventProcessor import WorkflowEventProcessor
 from lwfm.base.WorkflowEventTrigger import JobEventTrigger
-from lwfm.base.JobStatus import JobStatus, JobContext
+from lwfm.base.JobStatus import JobStatus
+from lwfm.base import WorkflowEventTrigger
+
 from lwfm.store.RunStore import RunJobStatusStore
 import logging
 
@@ -95,37 +97,13 @@ def getAllStatuses():
     return jsonify(statuses)
 
 
-@app.route('/set', methods = ['POST'])
+@app.route('/setWorkflowEvent', methods = ['POST'])
 def setTrigger():
-    jobId = request.form['jobId']
-    jobStatus = request.form['jobStatus']
-    targetSiteName = request.form['targetSiteName']
     try:
-        fireDefn = pickle.loads(request.form['fireDefn'].encode())
+        return wfep.setEventTrigger(pickle.loads(request.form['triggerObj'].encode()))
     except Exception as ex:
         print(ex)   # TODO loggging 
-        fireDefn = ""
-    return wfep.setEventTrigger(jobId, jobStatus, fireDefn, targetSiteName)
-
-
-@app.route('/setTerminal', methods = ['POST'])
-def setTerminal():
-    try:
-      jobId = request.form['jobId']
-      parentId = request.form['parentId']
-      originId = request.form['originId']
-      nativeId = request.form['nativeId']
-      siteName = request.form['siteName']
-      targetContext = JobContext()
-    except Exception as ex:
-      print(str(ex))
-    targetContext.setId(jobId)
-    targetContext.setParentJobId(parentId)
-    targetContext.setOriginJobId(originId)
-    targetContext.setNativeId(nativeId)
-    wfep.setEventHandler(nativeId, siteName, "<<TERMINAL>>", "", "", targetContext)
-    return ""
-
+        return "", 400
 
 # unset a given handler
 @app.route('/unset/<handlerId>')

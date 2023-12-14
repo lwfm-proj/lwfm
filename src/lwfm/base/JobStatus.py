@@ -18,7 +18,8 @@ from datetime import datetime
 import pickle
 import json
 
-from lwfm.base.LwfmBase import LwfmBase, _IdGenerator
+from lwfm.base.LwfmBase import LwfmBase
+from lwfm.base.JobContext import JobContext
 from lwfm.base.JobDefn import RepoOp
 from lwfm.server.WorkflowEventClient import WorkflowEventClient
 
@@ -30,22 +31,7 @@ class _JobStatusFields(Enum):
     )
     EMIT_TIME = "emitTime"
     RECEIVED_TIME = "receivedTime"
-    ID = "id"                       # canonical job id
-    NATIVE_ID = "nativeId"          # Run implementation native job id
-    NAME = "name"                   # optional human-readable job name
-    PARENT_JOB_ID = "parentJobId"   # immediate predecessor of this job, if any - 
-                                    # seminal job has no parent
-    ORIGIN_JOB_ID = (
-        "originJobId"               # oldest ancestor - a seminal job is its own originator
-    )
-    SET_ID = "setId"                # optional id of a set if the job is part of a set
-    NATIVE_INFO = "nativeInfo"      # any additional info the native Run wants to put in 
-                                    # the status message
-    SITE_NAME = "siteName"          # name of the Site which emitted the message
-    COMPUTE_TYPE = "computeType"    # a named resource on the Site, if any
-    GROUP = "group"                 # a group id that the job belongs to, if any
-    USER = "user"                   # a user id of the user that submitted the job, if any
-
+    NATIVE_INFO = "nativeInfo"
 
 # The canonical set of status codes.  Run implementations will have their own sets, and
 # they must provide a mapping into these.
@@ -62,159 +48,10 @@ class JobStatusValues(Enum):
 
 # *************************************************************************************
 
-
-class JobContext(LwfmBase):
-    """
-    The runtime execution context of the job.  It contains the id of the job and references
-    to its parent jobs, if any.  A Job Status can reference a Job Context, and then augument 
-    it with updated job status information.
-
-    Attributes:
-
-    id - the lwfm id of the executing job.  This is distinct from the "native job id" below, 
-         which is the id of the job on the specific Site.  
-         If the Site is "lwfm local", then one might expect that the id and the native id
-         are the same, else one should assume they are not.  lwfm ids are generated as uuids.
-         Sites can use whatever mechanism they prefer.
-
-    native id - the Site-generated job id
-
-    parent job id - a lwfm generated id, the immediate parent of this job, if any; a 
-        seminal job has no parent
-
-    origin job id - the elest parent in the job chain; a seminal job is its own originator
-
-    name - the job can have an optional name for human consumption, else the name is the 
-        lwfm job id
-
-    site name - the job is running (or has been submitted to the Site for queuing), 
-        therefore the Site name is known
-
-    compute type - if the Site distinguishes compute types, it can be noted here
-
-    """
-
-    def __init__(self):
-        super(JobContext, self).__init__(None)
-        self.setId(_IdGenerator.generateId())
-        self.setNativeId(self.getId())
-        self.setParentJobId(
-            ""
-        )  # a seminal job would have no parent - it may be set later at runtime
-        self.setOriginJobId(
-            self.getId()
-        )  # a seminal job would be its own originator - it may be set later
-        self.setName(self.getId())
-        self.setComputeType("")
-        self.setSiteName("local")  # default to local
-
-    def setId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.ID.value, idValue)
-
-    def getId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.ID.value)
-    
-    def setJobId(self, idValue: str) -> None:
-        self.setId(idValue) # alias
-
-    def getJobId(self) -> str:
-        return self.getId()    # alias
-
-    def setNativeId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.NATIVE_ID.value, idValue)
-
-    def getNativeId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.NATIVE_ID.value)
-
-    def setParentJobId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.PARENT_JOB_ID.value, idValue)
-
-    def getParentJobId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.PARENT_JOB_ID.value)
-
-    def setOriginJobId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.ORIGIN_JOB_ID.value, idValue)
-
-    def getOriginJobId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.ORIGIN_JOB_ID.value)
-
-    def setJobSetId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.SET_ID.value, idValue)
-
-    def getJobSetId(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.SET_ID.value)
-
-    # job name
-    def setName(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.NAME.value, name)
-
-    # job name
-    def getName(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.NAME.value)
-
-    def setSiteName(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.SITE_NAME.value, name)
-
-    def getSiteName(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.SITE_NAME.value)
-
-    def setComputeType(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.COMPUTE_TYPE.value, name)
-
-    def getComputeType(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.COMPUTE_TYPE.value)
-
-    def setGroup(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.GROUP.value, name)
-
-    def getGroup(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.GROUP.value)
-
-    def setUser(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.USER.value, name)
-
-    def getUser(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.USER.value)
-
-    def toJSON(self):
-        return self.serialize()
-
-    def serialize(self):
-        out_bytes = pickle.dumps(self, 0)
-        out_str = out_bytes.decode(encoding="ascii")
-        return out_str
-
-    @staticmethod
-    def deserialize(s: str):
-        in_json = json.dumps(s)
-        in_obj = pickle.loads(json.loads(in_json).encode(encoding="ascii"))
-        return in_obj
-
-    @staticmethod
-    def makeChildJobContext(jobContext: 'JobContext') -> 'JobContext':
-        """
-        Make a new JobContext which is a child of the given JobContext.
-
-        Args:
-            jobContext (JobContext): the parent JobContext
-
-        Returns:
-            JobContext: the child JobContext
-        """
-        childContext = JobContext()
-        childContext.setParentJobId(jobContext.getId())
-        childContext.setOriginJobId(jobContext.getOriginJobId())
-        childContext.setGroup(jobContext.getGroup())
-        childContext.setUser(jobContext.getUser())
-        childContext.setSiteName(jobContext.getSiteName())  # by default the same site
-        # TODO what else to copy?
-        return childContext
-
-
-# *************************************************************************************
-
 class JobStatus(LwfmBase):
     """
+    TODO: cleanup docs
+
     Over the lifetime of the running job, it may emit many status messages.  (Or, more 
     specifically, lwfm might poll the remote Site for an updated status of a job it is 
     tracking.)
@@ -244,7 +81,7 @@ class JobStatus(LwfmBase):
         message
 
     status map - a constant, the mapping of Site-native status strings to canonical 
-        status strings; native lwfm local jobs will use the literal mapping, and Site \
+        status strings; native lwfm local jobs will use the literal mapping, and Site 
         drivers will implement Job Status subclasses which provide their own 
         Site-to-canonical mapping.
 

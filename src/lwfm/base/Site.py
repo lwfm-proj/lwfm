@@ -11,7 +11,8 @@ import os
 
 
 from lwfm.base.LwfmBase import LwfmBase
-from lwfm.base.JobStatus import JobStatus, JobContext
+from lwfm.base.JobStatus import JobStatus
+from lwfm.base.JobContext import JobContext
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.WorkflowEventTrigger import WorkflowEventTrigger
 from lwfm.base.SiteFileRef import SiteFileRef

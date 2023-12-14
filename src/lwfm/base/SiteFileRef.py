@@ -35,13 +35,6 @@ class SiteFileRef(LwfmBase):
     def __init__(self):
         super(SiteFileRef, self).__init__(None)
 
-    # some files have identifiers other than a name, some might just return the name
-    def getId(self) -> str:
-        return LwfmBase._getArg(self, _SiteFileRefFields.ID.value)
-
-    def setId(self, id: str) -> None:
-        LwfmBase._setArg(self, _SiteFileRefFields.ID.value, id)
-
     def getName(self) -> str:
         return LwfmBase._getArg(self, _SiteFileRefFields.NAME.value)
 
