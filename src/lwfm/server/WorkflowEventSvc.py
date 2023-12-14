@@ -2,13 +2,10 @@
 #***********************************************************************************
 # Flask app
 
-import stat
 from flask import Flask, request, jsonify
 import pickle
 from lwfm.server.WorkflowEventProcessor import WorkflowEventProcessor
-from lwfm.base.WorkflowEventTrigger import JobEventTrigger
 from lwfm.base.JobStatus import JobStatus
-from lwfm.base import WorkflowEventTrigger
 
 from lwfm.store.RunStore import RunJobStatusStore
 import logging
@@ -23,7 +20,7 @@ wfep = WorkflowEventProcessor()
 _jobStatusCache = {}
 
 # history - to be replaced with a real DB TODO
-_jobStatusHistory = []
+# _jobStatusHistory = []
 
 @app.route('/')
 def index():
@@ -32,7 +29,6 @@ def index():
 @app.route('/emit', methods=['POST'])
 def emitStatus():
     jobId = request.form['jobId']
-    jobStatus = request.form['jobStatus']
     statusBlob = request.form['statusBlob']
     try:
         statusObj = JobStatus.deserialize(statusBlob)
@@ -42,14 +38,14 @@ def emitStatus():
         return '', 400
     # persist it for posterity
     RunJobStatusStore().write(statusObj)
+    # TODO - no...
     # store it locally for convenience
     _jobStatusCache[jobId] = statusObj
-    _jobStatusHistory.append(statusObj)
+    # _jobStatusHistory.append(statusObj)
     # TODO 
     try:
-        key = JobEventTrigger(jobId, jobStatus, None, None).getKey()
-        # This will check to see if there is a trigger and if so run it 
-        wfep.runTrigger(key, statusObj) 
+        # This will check to see if there is a job trigger and if so run it 
+        wfep.runJobTrigger(statusObj) 
         return '', 200
     except Exception as ex:
         print("exception checking events")
@@ -65,7 +61,7 @@ def getStatus(jobId : str):
         except Exception as ex:
             print("*** exception from stat.serialize() " + str(ex))
             return ""
-    except:
+    except Exception:
         return ""
 
 @app.route('/site/jobId/<jobId>')
@@ -121,6 +117,8 @@ def unsetAllTriggers():
 def listTriggers():
     return str(wfep.listActiveTriggers())
 
+
+"""
 def _getStatusHistory(jobId: str) -> []:
     results = []
     for record in _jobStatusHistory:
@@ -142,9 +140,6 @@ def _buildThreadJson(jobId: str) -> str:
         # does this child have children?
         subkids = _getChildren(child.getJobContext().getId())
 
-
-
-
 def _buildWFThread(jobId: str) -> str:
     status = getStatus(jobId)
     # does the job have a parent?
@@ -160,3 +155,4 @@ def _buildWFThread(jobId: str) -> str:
 def getWFThread(jobId: str):
     thread = _buildWFThread(jobId)
     return thread
+"""

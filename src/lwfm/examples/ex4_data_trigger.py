@@ -10,7 +10,7 @@ from lwfm.base.WorkflowEventTrigger import DataEventTrigger
 
 siteName = "local"
 
-def myDataTrigger() -> bool:
+def myDataTriggerLogic() -> bool:
     True
 
 def example4(site: Site):
@@ -41,7 +41,7 @@ def example4(site: Site):
     jobDefnC = JobDefn()
     jobDefnC.setEntryPoint("echo date = `date` > /tmp/ex4_date.out.triggered")
     statusC = site.getRunDriver().setWorkflowEventTrigger(
-        DataEventTrigger(myDataTrigger(), jobDefnC, siteName)
+        DataEventTrigger(myDataTriggerLogic(), jobDefnC, siteName)
     )
 
     # put the file, which will fire the trigger job

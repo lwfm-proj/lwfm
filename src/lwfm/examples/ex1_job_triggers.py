@@ -57,12 +57,12 @@ if __name__ == '__main__':
     # when job A gets to the COMPLETE state, fire job B on the named site; registering it
     # gives us the job id we need to set up the event handler for job C
     statusB = site.getRunDriver().setWorkflowEventTrigger(
-        JobEventTrigger(statusA.getJobId(), JobStatusValues.COMPLETE, jobDefnB, siteName))
+        JobEventTrigger(statusA.getJobId(), JobStatusValues.COMPLETE.value, jobDefnB, siteName))
     print("job B when it runs will have job id " + statusB.getJobId())
     
     # when job B gets to the COMPLETE state, fire job C on the named site
     statusC = site.getRunDriver().setWorkflowEventTrigger(
-        JobEventTrigger(statusB.getJobId(), JobStatusValues.COMPLETE, jobDefnC, siteName))
+        JobEventTrigger(statusB.getJobId(), JobStatusValues.COMPLETE.value, jobDefnC, siteName))
     print("job C when it runs will have job id " + statusC.getJobId())
 
     # for the purposes of this example, let's wait synchronously on the conclusion of job C

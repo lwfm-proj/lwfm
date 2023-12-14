@@ -1,114 +1,123 @@
 # TODO logging vs. print
 
-# The Workflow Event Processor watches for Job Status events and fires a JobDefn to a 
+# The Workflow Event Processor watches for Job Status events and fires a JobDefn to a
 # Site when an event of interest occurs.
 
 import logging
+from math import e
 import threading
 
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus
 from lwfm.base.Site import Site
 from lwfm.base.WorkflowEventTrigger import (
-    _JobEventTriggerFields, 
+    _JobEventTriggerFields,
+    _WorkflowEventTriggerFields,
+    DataEventTrigger,
     JobEventTrigger,
-    WorkflowEventTrigger
+    JobSetEventTrigger,
+    WorkflowEventTrigger,
 )
 
- 
+
 # ************************************************************************************
 
 
 class WorkflowEventProcessor:
     _timer = None
     _eventHandlerMap = dict()
-    # TODO 
-    # We can make this adaptive later on, for now let's just wait five minutes between 
-    # cycling through the list
-    STATUS_CHECK_INTERVAL_SECONDS = 15  # 300
+    # TODO
+    # We can make this adaptive later on, for now let's just wait 15 sec between polls
+    STATUS_CHECK_INTERVAL_SECONDS = 15  
 
     def __init__(self):
         self._timer = threading.Timer(
             self.STATUS_CHECK_INTERVAL_SECONDS,
-            WorkflowEventProcessor.checkEvents,
+            WorkflowEventProcessor.checkEventTriggers,
             (self,),
         )
         self._timer.start()
 
-    def checkEvents(self):
+    def checkEventTriggers(self):
+        print("Checking event triggers...")
         # Run through each event, checking the status
-        for key in list(self._eventHandlerMap):
-            handler = self._eventHandlerMap[key]
-            jobId = handler._getArg(_JobEventTriggerFields.JOB_ID.value)
-            site = handler._getArg(_JobEventTriggerFields.JOB_SITE_NAME.value)
-            # Local jobs can instantly emit their own statuses, on demand
-            if site != "local":
-                # Get the job's status
-                runDriver = Site.getSiteInstanceFactory(site).getRunDriver()
-                context = JobContext()
-                context.setId(jobId)
-                context.setNativeId(jobId)
-                jobStatus = runDriver.getJobStatus(context)
-                if (
-                    handler._getArg(_JobEventTriggerFields.FIRE_DEFN.value) == ""
-                ) or (
-                    handler._getArg(_JobEventTriggerFields.FIRE_DEFN.value) is None
-                ):
-                    # if we are in a terminal state, "run the handler" which means "evict" 
-                    # the job from checking in the future - we have seen its terminal state
-                    # we do have a target context, which gives us the parent and origin job 
-                    # ids
-                    context = handler._getArg(
-                        _JobEventTriggerFields.TARGET_CONTEXT.value
-                    )
-                    jobStatus.setParentJobId(context.getParentJobId())
-                    jobStatus.setOriginJobId(context.getOriginJobId())
-                    jobStatus.setNativeId(context.getNativeId())
-                    jobStatus.getJobContext().setId(context.getId())
-                    jobStatus.emit()
-                    if jobStatus.isTerminal():
-                        # evict
-                        key = JobEventTrigger(
-                            jobId, None, "<<TERMINAL>>", None, None, None
-                        ).getKey()
-                        self.unsetEventTrigger(key)
-                else:
-                    key = JobEventTrigger(jobId, jobStatus, None, None).getKey()
-                    self.runTrigger(key, jobStatus)
-
+        for key in list(self._eventHandlerMap): 
+            # TODO assume for now that job events will be processed as events warrant
+            # if the key ends with "INFO.dt" then it is a data trigger
+            if not key.endswith("INFO.dt"):
+                continue
+            trigger = self._eventHandlerMap[key]
+            print("Checking trigger: " + str(trigger))
+            try:
+                passedFilter = trigger.getTriggerFilter() 
+                if (passedFilter()):
+                    # fire the trigger defn 
+                    print("Trigger passed filter, firing defn: " + str(trigger.getFireDefn()))
+                    
+            except Exception as ex: 
+                print("Exception checking trigger: " + str(ex))
+                continue
+    
         # Timers only run once, so retrigger it
         self._timer = threading.Timer(
-            self.STATUS_CHECK_INTERVAL_SECONDS, WorkflowEventProcessor.checkEvents, (self,)
+            self.STATUS_CHECK_INTERVAL_SECONDS,
+            WorkflowEventProcessor.checkEventTriggers,
+            (self,),
         )
         self._timer.start()
 
-    # Regsiter an event handler.  When a jobId running on a job Site 
-    # emits a particular Job Status, fire the given JobDefn (serialized) at the target 
+    def _initJobEventTrigger(self, wfet: JobEventTrigger) -> WorkflowEventTrigger:
+        inStatus = fetchJobStatus(wfet.getJobId())
+        wfet.setJobSiteName(inStatus.getJobContext().getSiteName())
+        # set the job context under which the new job will run
+        newJobContext = JobContext()  # will assign a new job id
+        newJobContext.setParentJobId(inStatus.getJobContext().getId())
+        newJobContext.setOriginJobId(inStatus.getJobContext().getOriginJobId())
+        newJobContext.setSiteName(wfet.getTargetSiteName())
+        wfet.setTargetContext(newJobContext)
+        # fire the initial status showing the new job pending
+        newStatus = JobStatus(newJobContext)
+        newStatus.setStatus(JobStatusValues.PENDING)
+        newStatus.emit()
+        return wfet
+
+    def _initDataEventTrigger(self, wfet: DataEventTrigger) -> WorkflowEventTrigger:
+        # TODO
+        print("do we have a trigger filter function? " + str(wfet.getTriggerFilter()))
+        # set the job context under which the new job will run
+        newJobContext = JobContext()  # will assign a new job id
+        newJobContext.setSiteName(wfet.getTargetSiteName())
+        wfet.setTargetContext(newJobContext)
+        # fire the initial status showing the new job pending
+        newStatus = JobStatus(newJobContext)
+        newStatus.setStatus(JobStatusValues.PENDING)
+        newStatus.emit()
+        return wfet
+
+    # Regsiter an event handler.  When a jobId running on a job Site
+    # emits a particular Job Status, fire the given JobDefn (serialized) at the target
     # Site.  Return the new job id.
-    # TODO update doc
-    def setEventTrigger(wfet: WorkflowEventTrigger) -> str:
-        # self, jobId: str, jobStatus: str, fireDefn: str, targetSiteName: str
+    # TODO update doc, logging
+    def setEventTrigger(self, wfet: WorkflowEventTrigger) -> str:
         try:
-            eventHandler = JobEventTrigger(
-                jobId, jobStatus, fireDefn, targetSiteName
-            )
-            inStatus = fetchJobStatus(jobId)
-            eventHandler.setJobSiteName(inStatus.getJobContext().getSiteName())
-            newJobContext = JobContext()  # will assign a new job id
-            newJobContext.setParentJobId(inStatus.getJobContext().getId())
-            newJobContext.setOriginJobId(inStatus.getJobContext().getOriginJobId())
-            newJobContext.setSiteName(targetSiteName)
-            # set the job context under which the new job will run
-            eventHandler.setTargetContext(newJobContext)
-            eventHandler.setTargetSiteName(targetSiteName)
+            # for debug  
+            # perform per event trigger type initialization
+            if isinstance(wfet, JobEventTrigger):
+                wfet = self._initJobEventTrigger(wfet)
+            elif isinstance(wfet, JobSetEventTrigger):
+                print("Setting JobSetEventTrigger... some other day")
+                return None
+            elif isinstance(wfet, DataEventTrigger):
+                wfet = self._initDataEventTrigger(wfet)
+            else:
+                print("Unknown type")
+                return None
             # store the event handler in the cache
-            self._eventHandlerMap[eventHandler.getKey()] = eventHandler
-            # fire the initial status showing the new job pending
-            newStatus = JobStatus(newJobContext)
-            newStatus.setStatus(JobStatusValues.PENDING)
-            newStatus.emit()
-            return eventHandler.getTargetContext().getId()
+            print("Storing event handler in cache for key: " + str(wfet.getKey()))
+            self._eventHandlerMap[wfet.getKey()] = wfet
+            return wfet.getTargetContext().getId()
         except Exception as ex:
             print(ex)
+            return None
 
     def unsetEventTrigger(self, handlerId: str) -> bool:
         try:
@@ -130,40 +139,43 @@ class WorkflowEventProcessor:
             handlers.append(key)
         return handlers
 
-    def runTrigger(self, triggerId, jobStatus):
-        print("*** Here in run trigger " + triggerId + " " + jobStatus.toShortString())
+    # TODO docs and logging
+    def runJobTrigger(self, jobStatus):
         try:
-            # unset the event handler ASAP to help prevent race conditions
-            if triggerId not in self._eventHandlerMap:
-                return False
-            handler = self._eventHandlerMap[triggerId]
-            self.unsetEventTrigger(triggerId)
+            # do i have a trigger for this job id and its current state?
+            # we can check in O(1) time
+            jobTrigger = JobEventTrigger(
+                jobStatus.getJobId(), jobStatus.getStatusValue()
+            )
+            if jobTrigger.getKey() in self._eventHandlerMap:
+                # we have a job trigger 
+                jobTrigger = self._eventHandlerMap[jobTrigger.getKey()]
+                # unset the event handler ASAP to help prevent race conditions
+                self.unsetEventTrigger(jobTrigger.getKey())
 
-            if handler._getArg(_JobEventTriggerFields.FIRE_DEFN.value) == "":
-                # we have no defn to fire - we've just been tracking status
+            if (jobTrigger.getFireDefn() is None) or (jobTrigger.getFireDefn() == ""):
+                # we have no defn to fire - we've just been tracking status (why? TODO)
                 return True
 
-            # Run in a thread instead of a subprocess so we don't have to make assumptions 
+            # Run in a thread instead of a subprocess so we don't have to make assumptions
             # about the environment
             site = Site.getSiteInstanceFactory(
-                handler._getArg(_JobEventTriggerFields.TARGET_SITE_NAME.value)
+                jobTrigger.getTargetSiteName()
             )
             runDriver = site.getRunDriver().__class__
-            jobContext = handler._getArg(
-                _JobEventTriggerFields.TARGET_CONTEXT.value
-            )
+            jobContext = jobTrigger.getTargetContext()
+
             jobContext.setOriginJobId(jobStatus.getJobContext().getOriginJobId())
             # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
             thread = threading.Thread(
                 target=runDriver._submitJob,
                 args=(
-                    handler._getArg(_JobEventTriggerFields.FIRE_DEFN.value),
+                    jobTrigger.getFireDefn(),
                     jobContext,
                     True,
                 ),
             )
         except Exception as ex:
-            print("blew chunks")
             logging.error("Could not prepare to run job: " + str(ex))
             return False
 

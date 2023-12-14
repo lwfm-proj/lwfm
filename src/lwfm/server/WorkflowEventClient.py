@@ -3,7 +3,6 @@ import logging
 import json
 import requests
 
-from lwfm.base.JobDefn import JobDefn
 from lwfm.base.WorkflowEventTrigger import WorkflowEventTrigger
 
 
@@ -16,6 +15,7 @@ class WorkflowEventClient:
     # TODO - docs
     def setEventTrigger(self, wfet: WorkflowEventTrigger) -> str:
         payload = {}
+        print("about to pickle - " + str(wfet.getTriggerFilter()))
         payload["triggerObj"] = pickle.dumps(wfet, 0).decode()
         response = requests.post(f"{self.getUrl()}/setWorkflowEvent", payload)
         if response.ok:

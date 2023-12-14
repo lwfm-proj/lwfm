@@ -6,8 +6,7 @@ import logging
 
 import os
 import shutil
-import multiprocessing
-import time
+import multiprocessing 
 import pickle
 import json
 import math
@@ -166,10 +165,11 @@ class LocalSiteRunDriver(SiteRunDriver):
     def listComputeTypes(self) -> [str]:
         return ["local"]
 
-    def setWorkflowEventTrigger(self, jet: WorkflowEventTrigger) -> JobStatus:
-        if jet.getTargetSiteName() is None:
-            jet.setTargetSiteName("local")
-        newJobId = WorkflowEventClient().setEventTrigger(jet)
+    def setWorkflowEventTrigger(self, wfet: WorkflowEventTrigger) -> JobStatus:
+        if wfet.getTargetSiteName() is None:
+            wfet.setTargetSiteName("local")
+        print("In local driver setWorkflowEventTrigger " + str(wfet.getTriggerFilter()))
+        newJobId = WorkflowEventClient().setEventTrigger(wfet)
         return fetchJobStatus(newJobId)
 
     def unsetWorkflowEventTrigger(self, jet: JobEventTrigger) -> bool:

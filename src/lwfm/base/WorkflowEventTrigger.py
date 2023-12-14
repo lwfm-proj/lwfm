@@ -55,6 +55,15 @@ class WorkflowEventTrigger(LwfmBase):
         return LwfmBase._setArg(
             self, _WorkflowEventTriggerFields.TARGET_CONTEXT.value, targetContext
         )
+    
+    def setTriggerFilter(self, jobFilter: Callable) -> None:
+        pass
+
+    def getTriggerFilter(self) -> Callable:
+        pass
+
+    def getKey(self) -> str:
+        return self.getId()
 
 
 # ************************************************************************************
@@ -111,7 +120,8 @@ class JobEventTrigger(WorkflowEventTrigger):
     post back tracking information.
     """
 
-    def __init__(self, jobId: str, jobStatus: str, fireDefn: str, targetSiteName: str):
+    def __init__(self, jobId: str, jobStatus: str, 
+                 fireDefn: str = None, targetSiteName: str = None):
         super(JobEventTrigger, self).__init__(fireDefn, targetSiteName)
         LwfmBase._setArg(self, _JobEventTriggerFields.JOB_ID.value, jobId)
         LwfmBase._setArg(self, _JobEventTriggerFields.JOB_SITE_NAME.value, None)
@@ -134,18 +144,15 @@ class JobEventTrigger(WorkflowEventTrigger):
             self, _JobEventTriggerFields.JOB_SITE_NAME.value, jobSiteName
         )
 
-    def getHandlerId(self) -> str:
-        return self.getKey()
-
-    def getKey(self):
+    def getKey(self) -> str:
         # TODO relax this limitation
         # We want to permit more than one event trigger for the same job, but for now
         # we'll limit it to one trigger per canonical job status name.
         return str(
             ""
-            + LwfmBase._getArg(self, _JobEventTriggerFields.JOB_ID.value)
+            + self.getJobId()
             + "."
-            + LwfmBase._getArg(self, _JobEventTriggerFields.JOB_STATUS.value)
+            + str(self.getStatus())
         )
 
 
@@ -199,8 +206,15 @@ class DataEventTrigger(WorkflowEventTrigger):
     def setTriggerFilter(self, jobFilter: Callable) -> None:
         LwfmBase._setArg(self, _DataEventTriggerFields.DATA_TRIGGER_FILTER.value, jobFilter)
 
-    def getTriggerFilter(self) -> str:
+    def getTriggerFilter(self) -> Callable:
         return LwfmBase._getArg(self, _DataEventTriggerFields.DATA_TRIGGER_FILTER.value)
 
+    def getKey(self) -> str:
+        return str(
+            ""
+            + self.getId()
+            + "."
+            + "INFO.dt"
+        )
 
 # ************************************************************************************
