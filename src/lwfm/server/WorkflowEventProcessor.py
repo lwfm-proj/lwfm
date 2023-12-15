@@ -5,6 +5,8 @@
 
 import logging
 import threading
+from typing import List
+
 
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus
 from lwfm.base.Site import Site
@@ -19,9 +21,13 @@ from lwfm.base.WorkflowEventTrigger import (
 # ************************************************************************************
 
 
+
 class WorkflowEventProcessor:
     _timer = None
     _eventHandlerMap = dict()
+
+    _infoQueue: List[JobStatus] = []
+
     # TODO
     # We can make this adaptive later on, for now let's just wait 15 sec between polls
     STATUS_CHECK_INTERVAL_SECONDS = 15  
@@ -59,22 +65,32 @@ class WorkflowEventProcessor:
 
 
     def checkEventTriggers(self):
-        # Run through each event, checking the status
-        for key in list(self._eventHandlerMap): 
-            # TODO assume for now that job events will be processed as events warrant
-            # if the key ends with "INFO.dt" then it is a data trigger
-            if not key.endswith("INFO.dt"):
-                continue
-            trigger = self._eventHandlerMap[key]
-            try:
-                passedFilter = trigger.runTriggerFilter()
-                if (passedFilter):
-                    # fire the trigger defn 
-                    self.fireTrigger(trigger)  
-                    self.unsetEventTrigger(key)
-            except Exception as ex: 
-                print("Exception checking trigger: " + str(ex))
-                continue
+        # if there are INFO messages in queue, run through each trigger, checking the 
+        # readiness to fire 
+        print("here in checkEventTriggers len = " + str(len(self._infoQueue)))
+        if len(self._infoQueue) > 0:
+            for key in list(self._eventHandlerMap): 
+                # TODO assume for now that job events will be processed as events warrant
+                # if the key ends with "INFO.dt" then it is a data trigger
+                if not key.endswith("INFO.dt"):
+                    continue
+                for infoStatus in self._infoQueue:
+                    messageConsumed = False
+                    trigger = self._eventHandlerMap[key]
+                    try:
+                        print("Checking trigger native status: " + str(infoStatus.getNativeInfo()))
+                        passedFilter = trigger.runTriggerFilter(infoStatus.getNativeInfo())
+                        if (passedFilter):
+                            # fire the trigger defn 
+                            self.fireTrigger(trigger)  
+                            self.unsetEventTrigger(key)
+                            messageConsumed = True
+                    except Exception as ex: 
+                        print("Exception checking trigger: " + str(ex))
+                        continue
+                    if messageConsumed:
+                        print("Message consumed, removing from queue")
+                        self._infoQueue.remove(infoStatus)
     
         # Timers only run once, so retrigger it
         self._timer = threading.Timer(
@@ -148,9 +164,6 @@ class WorkflowEventProcessor:
     def unsetAllEventTriggers(self) -> None:
         self._eventHandlerMap = dict()
 
-    def hasTrigger(self, id):
-        return id in self._eventHandlerMap
-
     def listActiveTriggers(self) -> [str]:
         handlers = []
         for key in self._eventHandlerMap:
@@ -158,9 +171,14 @@ class WorkflowEventProcessor:
         return handlers
 
     # TODO docs and logging
-    def runJobTrigger(self, jobStatus):
+    def runJobTrigger(self, jobStatus: JobStatus) -> bool:
         try:
-            # do i have a trigger for this job id and its current state?
+            # is this an INFO status?  if so, put it in queue for later inspection
+            # for user defined data triggers 
+            if jobStatus.getStatus() == JobStatusValues.INFO:
+                self._infoQueue.append(jobStatus)
+
+            # here, do i have a job trigger for this job id and its current state?
             # we can check in O(1) time
             jobTrigger = JobEventTrigger(
                 jobStatus.getJobId(), jobStatus.getStatusValue()
@@ -171,38 +189,34 @@ class WorkflowEventProcessor:
                 # unset the event handler ASAP to help prevent race conditions
                 self.unsetEventTrigger(jobTrigger.getKey())
 
-            if (jobTrigger.getFireDefn() is None) or (jobTrigger.getFireDefn() == ""):
-                # we have no defn to fire - we've just been tracking status (why? TODO)
-                return True
+                if (jobTrigger.getFireDefn() is None) or (jobTrigger.getFireDefn() == ""):
+                    # we have no defn to fire - we've just been tracking status (why? TODO)
+                    return True
 
-            # Run in a thread instead of a subprocess so we don't have to make assumptions
-            # about the environment
-            site = Site.getSiteInstanceFactory(
+                # Run in a thread instead of a subprocess so we don't have to make assumptions
+                # about the environment
+                site = Site.getSiteInstanceFactory(
                 jobTrigger.getTargetSiteName()
-            )
-            runDriver = site.getRunDriver().__class__
-            jobContext = jobTrigger.getTargetContext()
+                )
+                runDriver = site.getRunDriver().__class__
+                jobContext = jobTrigger.getTargetContext()
 
-            jobContext.setOriginJobId(jobStatus.getJobContext().getOriginJobId())
-            # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
-            thread = threading.Thread(
-                target=runDriver._submitJob,
-                args=(
-                    jobTrigger.getFireDefn(),
-                    jobContext,
-                    True,
-                ),
-            )
+                jobContext.setOriginJobId(jobStatus.getJobContext().getOriginJobId())
+                # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
+                thread = threading.Thread(
+                    target=runDriver._submitJob,
+                    args=(
+                        jobTrigger.getFireDefn(),
+                        jobContext,
+                        True,
+                    ),
+                )
+                thread.start()
+                return True
         except Exception as ex:
             logging.error("Could not prepare to run job: " + str(ex))
             return False
 
-        try:
-            thread.start()
-        except Exception as ex:
-            logging.error("Could not run job: " + ex)
-            return False
-        return True
 
     def exit(self):
         self._timer.cancel()

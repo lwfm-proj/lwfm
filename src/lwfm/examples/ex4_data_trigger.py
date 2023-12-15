@@ -1,7 +1,6 @@
 # An example of managing local data.
 
 import logging
-import time
 from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.SiteFileRef import FSFileRef
@@ -10,9 +9,9 @@ from lwfm.base.WorkflowEventTrigger import DataEventTrigger
 siteName = "local"
 
 
-def _triggerFilter() -> bool:
-    print("user _triggerFilter() called")
-    return True
+def _triggerFilter(metadata: dict = None) -> bool:
+    if (metadata["myMetaField"] == "ex4_metaflag"):
+        return True
 
 
 def example4(site: Site):
@@ -24,7 +23,7 @@ def example4(site: Site):
 
     # submit a job to copy the file, "put" it to the site and place it under management
     # make a reference to the file to be put under management & add metadata
-    metadata = {"myMetaField4": "myMetaValue-" + str(int(time.time() * 1000))}
+    metadata = {"myMetaField": "ex4_metaflag"}
     # on the remote site, the file will be put in the specified directory with the
     # specified name, and the metadata will be stored about the file
     siteFileRef = FSFileRef("/tmp", "ex4_date.out" + ".copy", metadata)
@@ -34,6 +33,7 @@ def example4(site: Site):
 
     # set a data trigger on the file - a job will run on the site when the file
     # is put under management
+    print("setting data trigger & waiting...")
     jobDefnC = JobDefn("echo date = `date` > /tmp/ex4_date.out.triggered")
     statusC = (
         site.getRunDriver()

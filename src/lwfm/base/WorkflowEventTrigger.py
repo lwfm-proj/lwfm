@@ -56,7 +56,7 @@ class WorkflowEventTrigger(LwfmBase):
         return LwfmBase._setArg(
             self, _WorkflowEventTriggerFields.TARGET_CONTEXT.value, targetContext
         )
-    
+
     def setTriggerFilter(self, jobFilter: str) -> None:
         pass
 
@@ -121,8 +121,13 @@ class JobEventTrigger(WorkflowEventTrigger):
     post back tracking information.
     """
 
-    def __init__(self, jobId: str, jobStatus: str, 
-                 fireDefn: str = None, targetSiteName: str = None):
+    def __init__(
+        self,
+        jobId: str,
+        jobStatus: str,
+        fireDefn: str = None,
+        targetSiteName: str = None,
+    ):
         super(JobEventTrigger, self).__init__(fireDefn, targetSiteName)
         LwfmBase._setArg(self, _JobEventTriggerFields.JOB_ID.value, jobId)
         LwfmBase._setArg(self, _JobEventTriggerFields.JOB_SITE_NAME.value, None)
@@ -149,12 +154,7 @@ class JobEventTrigger(WorkflowEventTrigger):
         # TODO relax this limitation
         # We want to permit more than one event trigger for the same job, but for now
         # we'll limit it to one trigger per canonical job status name.
-        return str(
-            ""
-            + self.getJobId()
-            + "."
-            + str(self.getStatus())
-        )
+        return str("" + self.getJobId() + "." + str(self.getStatus()))
 
 
 # ************************************************************************************
@@ -174,26 +174,33 @@ class JobSetEventTrigger(WorkflowEventTrigger):
     ):
         super(JobSetEventTrigger, self).__init__(fireDefn, targetSiteName)
         LwfmBase._setArg(self, _JobSetEventTriggerFields.JOB_SET_ID.value, jobSetId)
-        LwfmBase._setArg(self, _JobSetEventTriggerFields.JOB_TRIGGER_FILTER.value, 
-                         triggerFilter)
+        LwfmBase._setArg(
+            self, _JobSetEventTriggerFields.JOB_TRIGGER_FILTER.value, triggerFilter
+        )
 
     def setJobSetId(self, idValue: str) -> None:
         LwfmBase._setArg(self, _JobSetEventTriggerFields.JOB_SET_ID.value, idValue)
 
     def getJobSetId(self) -> str:
         return LwfmBase._getArg(self, _JobSetEventTriggerFields.JOB_SET_ID.value)
-    
+
     def setTriggerFilter(self, triggerFilter: Callable) -> None:
         triggerFilterString = inspect.getsource(triggerFilter)
-        LwfmBase._setArg(self, _JobSetEventTriggerFields.JOB_TRIGGER_FILTER.value, 
-                         triggerFilterString)
+        LwfmBase._setArg(
+            self,
+            _JobSetEventTriggerFields.JOB_TRIGGER_FILTER.value,
+            triggerFilterString,
+        )
 
     def getTriggerFilter(self) -> str:
-        return LwfmBase._getArg(self, _JobSetEventTriggerFields.JOB_TRIGGER_FILTER.value)
+        return LwfmBase._getArg(
+            self, _JobSetEventTriggerFields.JOB_TRIGGER_FILTER.value
+        )
 
     def runTriggerFilter(self) -> bool:
         triggerFilterString = self.getTriggerFilter()
         return exec(triggerFilterString)
+
 
 # ************************************************************************************
 
@@ -205,30 +212,40 @@ class _DataEventTriggerFields(Enum):
 
 
 class DataEventTrigger(WorkflowEventTrigger):
+    """
+    Data events are triggered when a job running on a site emits an INFO status message
+    containing metadata that matches the user-supplied filter.  The filter is a function
+    that takes the metadata as input and returns a boolean indicating whether the event
+    should fire.  
+    """
     def __init__(self, triggerFilter: Callable, fireDefn: str, targetSiteName: str):
         super(DataEventTrigger, self).__init__(fireDefn, targetSiteName)
         self.setTriggerFilter(triggerFilter)
 
     def setTriggerFilter(self, triggerFilter: Callable) -> None:
         triggerFilterString = inspect.getsource(triggerFilter)
-        LwfmBase._setArg(self, _DataEventTriggerFields.DATA_TRIGGER_FILTER.value, 
-                         triggerFilterString)
+        LwfmBase._setArg(
+            self, _DataEventTriggerFields.DATA_TRIGGER_FILTER.value, triggerFilterString
+        )
 
     def getTriggerFilter(self) -> str:
         return LwfmBase._getArg(self, _DataEventTriggerFields.DATA_TRIGGER_FILTER.value)
 
-    def runTriggerFilter(self) -> bool:
-        triggerFilterString = self.getTriggerFilter() + "\n_trigger = _triggerFilter()"
-        globals = {} 
+    def runTriggerFilter(self, metadata: dict) -> bool:
+        if metadata is None:
+            metadata = {}
+        triggerFilterString = (
+            self.getTriggerFilter()
+            + "\n_trigger = _triggerFilter("
+            + str(metadata)
+            + ")"
+        )
+        globals = {}
         exec(triggerFilterString, globals)
-        return globals['_trigger']
+        return globals["_trigger"]
 
     def getKey(self) -> str:
-        return str(
-            ""
-            + self.getId()
-            + "."
-            + "INFO.dt"
-        )
+        return str("" + self.getId() + "." + "INFO.dt")
+
 
 # ************************************************************************************

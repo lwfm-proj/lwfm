@@ -209,10 +209,11 @@ class LocalSiteRepoDriver(SiteRepoDriver):
 
     def _makeRepoInfo(self, verb: RepoOp, success: bool, fromPath: str, toPath: str,
                      metadata: dict = {}) -> str:
-        return (
-            "[" + verb.value + "," + str(success) + "," + fromPath + "," + toPath + 
-            "," + str(metadata) + "]"
-        )
+        metadata["_verb"] = verb.value
+        metadata["_success"] = success
+        metadata["_fromPath"] = fromPath
+        metadata["_toPath"] = toPath
+        return str(metadata)
 
     def _copyFile(self, fromPath, toPath, jobContext, direction, metadata={}):
         iAmOwnJob = False
