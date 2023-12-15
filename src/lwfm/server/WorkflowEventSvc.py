@@ -96,7 +96,8 @@ def getAllStatuses():
 @app.route('/setWorkflowEvent', methods = ['POST'])
 def setTrigger():
     try:
-        return wfep.setEventTrigger(pickle.loads(request.form['triggerObj'].encode()))
+        obj = pickle.loads(request.form['triggerObj'].encode())
+        return wfep.setEventTrigger(obj)
     except Exception as ex:
         print(ex)   # TODO loggging 
         return "", 400

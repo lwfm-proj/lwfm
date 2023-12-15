@@ -89,6 +89,15 @@ class FSFileRef(SiteFileRef):
     Since plain filesystem files are a common data entity, this subclass provides 
     convenience mechanisms.
     """
+    def __init__(self, path: str = None, name: str = None, metadata: dict = None):
+        super(FSFileRef, self).__init__()
+        if (path is not None):
+            self.setPath(path)
+        if (name is not None):
+            self.setName(name)
+        if (metadata is not None):
+            self.setMetadata(metadata)
+
     def setName(self, name: str) -> None:
         super().setName(name)
         super().setId(name)

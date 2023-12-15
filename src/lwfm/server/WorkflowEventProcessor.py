@@ -4,14 +4,11 @@
 # Site when an event of interest occurs.
 
 import logging
-from math import e
 import threading
 
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus
 from lwfm.base.Site import Site
 from lwfm.base.WorkflowEventTrigger import (
-    _JobEventTriggerFields,
-    _WorkflowEventTriggerFields,
     DataEventTrigger,
     JobEventTrigger,
     JobSetEventTrigger,
@@ -37,8 +34,31 @@ class WorkflowEventProcessor:
         )
         self._timer.start()
 
+
+    def fireTrigger(self, trigger: WorkflowEventTrigger) -> bool:
+        site = Site.getSiteInstanceFactory(
+                trigger.getTargetSiteName()
+            )
+        runDriver = site.getRunDriver().__class__
+        jobContext = trigger.getTargetContext()
+        # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
+        thread = threading.Thread(
+            target=runDriver._submitJob,
+            args=(
+                trigger.getFireDefn(),
+                jobContext,
+                True,
+            ),
+        )
+        try:
+            thread.start()
+        except Exception as ex:
+            logging.error("Could not run job: " + ex)
+            return False
+        return True
+
+
     def checkEventTriggers(self):
-        print("Checking event triggers...")
         # Run through each event, checking the status
         for key in list(self._eventHandlerMap): 
             # TODO assume for now that job events will be processed as events warrant
@@ -46,13 +66,12 @@ class WorkflowEventProcessor:
             if not key.endswith("INFO.dt"):
                 continue
             trigger = self._eventHandlerMap[key]
-            print("Checking trigger: " + str(trigger))
             try:
-                passedFilter = trigger.getTriggerFilter() 
-                if (passedFilter()):
+                passedFilter = trigger.runTriggerFilter()
+                if (passedFilter):
                     # fire the trigger defn 
-                    print("Trigger passed filter, firing defn: " + str(trigger.getFireDefn()))
-                    
+                    self.fireTrigger(trigger)  
+                    self.unsetEventTrigger(key)
             except Exception as ex: 
                 print("Exception checking trigger: " + str(ex))
                 continue
@@ -82,7 +101,6 @@ class WorkflowEventProcessor:
 
     def _initDataEventTrigger(self, wfet: DataEventTrigger) -> WorkflowEventTrigger:
         # TODO
-        print("do we have a trigger filter function? " + str(wfet.getTriggerFilter()))
         # set the job context under which the new job will run
         newJobContext = JobContext()  # will assign a new job id
         newJobContext.setSiteName(wfet.getTargetSiteName())

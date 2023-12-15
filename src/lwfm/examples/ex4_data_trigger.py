@@ -1,4 +1,3 @@
-
 # An example of managing local data.
 
 import logging
@@ -10,50 +9,41 @@ from lwfm.base.WorkflowEventTrigger import DataEventTrigger
 
 siteName = "local"
 
-def myDataTriggerLogic() -> bool:
-    True
+
+def _triggerFilter() -> bool:
+    print("user _triggerFilter() called")
+    return True
+
 
 def example4(site: Site):
-    # submit a job to create a file
     dataFile = "/tmp/ex4_date.out"
-    jobDefnA = JobDefn()
-    jobDefnA.setEntryPoint("echo date = `date` > " + dataFile)
-    statusA = site.getRunDriver().submitJob(jobDefnA)
-    statusA = statusA.wait()
-    if (not statusA.isTerminalSuccess()):
-        print("job A failed")
-        exit(1)
+
+    # submit a job to create a file
+    jobDefnA = JobDefn("echo date = `date` > " + dataFile)
+    statusA = jobDefnA.submit(site).wait()  # sync fire & wait
 
     # submit a job to copy the file, "put" it to the site and place it under management
-    jobDefnB = RepoJobDefn()
-    jobDefnB.setRepoOp(RepoOp.PUT)
-    jobDefnB.setLocalRef(dataFile)
-    siteFileRef = FSFileRef()
-    siteFileRef.setPath("/tmp")
-    siteFileRef.setName("ex4_date.out" + ".copy")
-    time_str = str(int(time.time() * 1000))
-    siteFileRef.setMetadata({"myMetaField4": "myMetaValue-" + time_str})
-    jobDefnB.setSiteFileRef(siteFileRef)
-    statusB = site.getRunDriver().submitJob(jobDefnB, statusA.getJobContext())
+    # make a reference to the file to be put under management & add metadata
+    metadata = {"myMetaField4": "myMetaValue-" + str(int(time.time() * 1000))}
+    # on the remote site, the file will be put in the specified directory with the
+    # specified name, and the metadata will be stored about the file
+    siteFileRef = FSFileRef("/tmp", "ex4_date.out" + ".copy", metadata)
+    RepoJobDefn(RepoOp.PUT, dataFile, siteFileRef).submit(
+        site, statusA.getJobContext()
+    )  # async fire & forget
 
-    # set a data trigger on the file - a job will run on the site when the file 
+    # set a data trigger on the file - a job will run on the site when the file
     # is put under management
-    jobDefnC = JobDefn()
-    jobDefnC.setEntryPoint("echo date = `date` > /tmp/ex4_date.out.triggered")
-    statusC = site.getRunDriver().setWorkflowEventTrigger(
-        DataEventTrigger(myDataTriggerLogic(), jobDefnC, siteName)
-    )
-
-    # put the file, which will fire the trigger job
-    statusB = statusB.wait()
-    print("put job = " + statusB.toShortString())
-    statusC = statusC.wait()
-    print("trigger job = " + statusC.toShortString())
+    jobDefnC = JobDefn("echo date = `date` > /tmp/ex4_date.out.triggered")
+    statusC = (
+        site.getRunDriver()
+        .setWorkflowEventTrigger(DataEventTrigger(_triggerFilter, jobDefnC, siteName))
+        .wait()
+    )  # sync fire & wait
+    print("data trigger job C = " + statusC.toShortString())
 
 
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.basicConfig()
     logging.getLogger().setLevel(logging.INFO)
 

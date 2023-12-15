@@ -15,7 +15,6 @@ class WorkflowEventClient:
     # TODO - docs
     def setEventTrigger(self, wfet: WorkflowEventTrigger) -> str:
         payload = {}
-        print("about to pickle - " + str(wfet.getTriggerFilter()))
         payload["triggerObj"] = pickle.dumps(wfet, 0).decode()
         response = requests.post(f"{self.getUrl()}/setWorkflowEvent", payload)
         if response.ok:

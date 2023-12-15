@@ -17,7 +17,8 @@ from pathlib import Path
 
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.SiteFileRef import SiteFileRef
-
+from lwfm.base.JobContext import JobContext
+from lwfm.base.JobStatus import JobStatus
 
 class _JobDefnFields(Enum):
     NAME               = "name"         # optional - jobs do not need to be named - 
@@ -69,8 +70,9 @@ class JobDefn(LwfmBase):
 
     """
 
-    def __init__(self):
+    def __init__(self, entryPoint: str = None):
         super(JobDefn, self).__init__(None)
+        self.setEntryPoint(entryPoint)
 
     def setName(self, name: str) -> None:
         LwfmBase._setArg(self, _JobDefnFields.NAME.value, name)
@@ -96,6 +98,9 @@ class JobDefn(LwfmBase):
     def getJobArgs(self) -> [str]:
         return LwfmBase._getArg(self, _JobDefnFields.JOB_ARGS.value)
 
+    def submit(self, site, parentContext: JobContext = JobContext()) -> JobStatus:
+        return site.getRunDriver().submitJob(self, parentContext)
+
 
 #************************************************************************************************************************************
 
@@ -116,8 +121,14 @@ class RepoJobDefn(JobDefn):
     independent job.
     """
 
-    def __init__(self):
+    def __init__(self, repoOp: RepoOp = RepoOp.PUT, localRef: Path = None, 
+                 siteFileRef: SiteFileRef = None):
         super(RepoJobDefn, self).__init__()
+        self.setRepoOp(repoOp)
+        if (localRef is not None):
+            self.setLocalRef(localRef)
+        if (siteFileRef is not None):
+            self.setSiteFileRef(siteFileRef)
 
     def setRepoOp(self, repoOp: RepoOp) -> None:
         LwfmBase._setArg(self, _JobDefnFields.REPO_OP.value, repoOp)

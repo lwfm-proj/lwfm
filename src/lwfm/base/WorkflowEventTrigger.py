@@ -1,4 +1,5 @@
 from enum import Enum
+import inspect
 from typing import Callable
 
 from lwfm.base.LwfmBase import LwfmBase
@@ -56,10 +57,10 @@ class WorkflowEventTrigger(LwfmBase):
             self, _WorkflowEventTriggerFields.TARGET_CONTEXT.value, targetContext
         )
     
-    def setTriggerFilter(self, jobFilter: Callable) -> None:
+    def setTriggerFilter(self, jobFilter: str) -> None:
         pass
 
-    def getTriggerFilter(self) -> Callable:
+    def getTriggerFilter(self) -> str:
         pass
 
     def getKey(self) -> str:
@@ -169,7 +170,7 @@ class _JobSetEventTriggerFields(Enum):
 
 class JobSetEventTrigger(WorkflowEventTrigger):
     def __init__(
-        self, jobSetId: str, triggerFilter: Callable, fireDefn: str, targetSiteName: str
+        self, jobSetId: str, triggerFilter: str, fireDefn: str, targetSiteName: str
     ):
         super(JobSetEventTrigger, self).__init__(fireDefn, targetSiteName)
         LwfmBase._setArg(self, _JobSetEventTriggerFields.JOB_SET_ID.value, jobSetId)
@@ -182,12 +183,17 @@ class JobSetEventTrigger(WorkflowEventTrigger):
     def getJobSetId(self) -> str:
         return LwfmBase._getArg(self, _JobSetEventTriggerFields.JOB_SET_ID.value)
     
-    def setTriggerFilter(self, jobFilter: Callable) -> None:
-        LwfmBase._setArg(self, _JobSetEventTriggerFields.JOB_TRIGGER_FILTER.value, jobFilter)
+    def setTriggerFilter(self, triggerFilter: Callable) -> None:
+        triggerFilterString = inspect.getsource(triggerFilter)
+        LwfmBase._setArg(self, _JobSetEventTriggerFields.JOB_TRIGGER_FILTER.value, 
+                         triggerFilterString)
 
     def getTriggerFilter(self) -> str:
         return LwfmBase._getArg(self, _JobSetEventTriggerFields.JOB_TRIGGER_FILTER.value)
 
+    def runTriggerFilter(self) -> bool:
+        triggerFilterString = self.getTriggerFilter()
+        return exec(triggerFilterString)
 
 # ************************************************************************************
 
@@ -201,13 +207,21 @@ class _DataEventTriggerFields(Enum):
 class DataEventTrigger(WorkflowEventTrigger):
     def __init__(self, triggerFilter: Callable, fireDefn: str, targetSiteName: str):
         super(DataEventTrigger, self).__init__(fireDefn, targetSiteName)
-        LwfmBase._setArg(self, _DataEventTriggerFields.DATA_TRIGGER_FILTER.value, triggerFilter)
+        self.setTriggerFilter(triggerFilter)
 
-    def setTriggerFilter(self, jobFilter: Callable) -> None:
-        LwfmBase._setArg(self, _DataEventTriggerFields.DATA_TRIGGER_FILTER.value, jobFilter)
+    def setTriggerFilter(self, triggerFilter: Callable) -> None:
+        triggerFilterString = inspect.getsource(triggerFilter)
+        LwfmBase._setArg(self, _DataEventTriggerFields.DATA_TRIGGER_FILTER.value, 
+                         triggerFilterString)
 
-    def getTriggerFilter(self) -> Callable:
+    def getTriggerFilter(self) -> str:
         return LwfmBase._getArg(self, _DataEventTriggerFields.DATA_TRIGGER_FILTER.value)
+
+    def runTriggerFilter(self) -> bool:
+        triggerFilterString = self.getTriggerFilter() + "\n_trigger = _triggerFilter()"
+        globals = {} 
+        exec(triggerFilterString, globals)
+        return globals['_trigger']
 
     def getKey(self) -> str:
         return str(

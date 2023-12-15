@@ -168,7 +168,6 @@ class LocalSiteRunDriver(SiteRunDriver):
     def setWorkflowEventTrigger(self, wfet: WorkflowEventTrigger) -> JobStatus:
         if wfet.getTargetSiteName() is None:
             wfet.setTargetSiteName("local")
-        print("In local driver setWorkflowEventTrigger " + str(wfet.getTriggerFilter()))
         newJobId = WorkflowEventClient().setEventTrigger(wfet)
         return fetchJobStatus(newJobId)
 
@@ -208,6 +207,13 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         super(LocalSiteRepoDriver, self).__init__()
         self._metaRepo = BasicMetaRepoStore.BasicMetaRepoStore()
 
+    def _makeRepoInfo(self, verb: RepoOp, success: bool, fromPath: str, toPath: str,
+                     metadata: dict = {}) -> str:
+        return (
+            "[" + verb.value + "," + str(success) + "," + fromPath + "," + toPath + 
+            "," + str(metadata) + "]"
+        )
+
     def _copyFile(self, fromPath, toPath, jobContext, direction, metadata={}):
         iAmOwnJob = False
         if jobContext is None:
@@ -221,8 +227,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
             jstatus.emit(JobStatusValues.RUNNING.value)
 
         jstatus.setNativeInfo(
-            JobStatus.makeRepoInfo(direction, True, str(fromPath), str(toPath), 
-                                   metadata)
+            self._makeRepoInfo(direction, True, str(fromPath), str(toPath), metadata)
         )
         jstatus.emit(JobStatusValues.INFO.value)
 

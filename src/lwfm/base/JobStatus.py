@@ -20,7 +20,6 @@ import json
 
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobContext import JobContext
-from lwfm.base.JobDefn import RepoOp
 from lwfm.server.WorkflowEventClient import WorkflowEventClient
 
 
@@ -243,13 +242,7 @@ class JobStatus(LwfmBase):
         in_obj = pickle.loads(json.loads(in_json).encode(encoding="ascii"))
         return in_obj
 
-    @staticmethod
-    def makeRepoInfo(verb: RepoOp, success: bool, fromPath: str, toPath: str,
-                     metadata: dict = {}) -> str:
-        return (
-            "[" + verb.value + "," + str(success) + "," + fromPath + "," + toPath + 
-            "," + str(metadata) + "]"
-        )
+
 
     def toShortString(self) -> str:
         return (
