@@ -222,6 +222,17 @@ As part of this investigation we also re-examined Parsl, a Python library with a
 
 We also looked at Mojo as an alternative to Python, the former promising backward compatibility to Python with significant speed up, perhaps being useable in both computations and workflows.  Its simply not ready for prime time (e.g. doesn't implement kwargs).  Nor is Julia ready for programming end-to-end jobs, with the added problem that it requires code to be rewritten.  We note that work at Argonne to utilize an LLM to aid in workflow and workflow fragment programming first took a workflow expressed in Common Worflow Language mark-up, and rewrote it using Python before trying to present it to an LLM.  
 
+- early Dec 2023
+* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
+- late Dec 2023
+
+Grady spent time in 2023 trying to use OpenAPI directly, loading the full lwfm codebase and supporting documentation, using langchain to abstract the APIs.  The result was not encouraging - we suggest that the clutter of the full library is a distraction.  Also, the generic OpenAPI LLM is not tuned specifically for code.
+
+Further distraction, as noted above, was the lwfm API itself, which was a little clunky.  Refactoring was performed, and Copilot / Codeium was used to write some test cases for the library with decent albiet not hands-free results.  By "decent", we mean that we specified the unit test case in English in the Copilot chat, it largley wrote the code (with some minor human corrections) and when prompted also wrote a documentation block.  It was interesting to see places where the LLM suggested function idioms which perhaps were better, more "natural", than the ones we had written, even after the refactoring.
+
+Copilot uses open tabs to privide the context.  We next consider streamling what we present to the LLM by revisiting the APIs abstract classes and providing better inline documentation, including examples of use, which are presently in other files and not necessarily being used in context.  We imagine that as time goes on, the product's context will only increase, to the point of being tailorable.  
+
+Needless to say we used Copilot / Codeium for both rounds of refactoring, including the authoring of augmented documentation and examples (and this document too).
 
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
 

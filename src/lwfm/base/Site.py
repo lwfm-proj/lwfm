@@ -1,12 +1,63 @@
-# Site: Defines an abstract computing location which exposes canonical verbs for the 
-# Auth, Run, and Repo (and optionally Spin) logical subsystems. The purpose of lwfm is 
-# to permit workflows which span Sites.  A new Site would inherit or implement a driver
-# for each of the subsystems.
+
+"""
+
+Site: Defines an abstract computing location which exposes canonical verbs for the 
+Auth, Run, and Repo (and optionally Spin) logical subsystems. The purpose of lwfm is 
+to permit workflows which span Sites.  A new Site would inherit or implement a driver
+for each of the subsystems.  An application will instantiate a Site driver using the 
+Site factory method.  
+
+The Auth poriton of the Site is responsible for user authentication and authorization.  The Run sub-interface provides verbs such as job submit and job cancel.  The Repo portion provides verbs for managing files and directories.  The Spin portion is vaporware, and would provide verbs for spinning up and spinning down computing resources.  
+
+The Site factory method returns the Python class which implements the interfaces for the named Site.  ~/.lwfm/sites.txt can be used to augment the list of sites provided here with a user's own custom Site implementations.  In the event of a name collision between the user's sites.txt and those hardcoded here, the user's sites.txt config trumps.
+
+Let's look at a simple example: we will instantiate a local Site and run a simple echo of 'hello world' as a job.  We will then interrogate the final job status.
+
+
+# print 'hello world' but as a Job on a (local) Site
+# assumes the lwfm job status service is running
+
+import logging
+
+from lwfm.base.Site import Site
+from lwfm.base.JobDefn import JobDefn
+
+# This Site name can be an argument - name maps to a Site class implementation,
+# either one provided with this sdk, or one user-authored.
+siteName = "local"
+
+if __name__ == '__main__':
+
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.INFO)
+
+    # one Site for this example - construct an interface to the Site
+    site = Site.getSiteInstanceFactory(siteName)
+    # a "local" Site login is generally a no-op
+    site.getAuthDriver().login()
+
+    # define the Job - use all Job defaults except the actual command to execute
+    jobDefn = JobDefn()
+    jobDefn.setEntryPoint("echo 'hello world'")
+
+    # submit the Job to the Site
+    status = site.getRunDriver().submitJob(jobDefn)
+    # the run is generally asynchronous - on a remote HPC-type Site certainly,
+    # and even in a local Site the "local" driver can implement async runs (which in fact it does),
+    # so expect this Job status to be "pending"
+    logging.info("hello world job " + status.getJobId() + " " + status.getStatusValue())
+
+    # how could we tell the async job has finished? one way is to synchronously wait on its end status
+    # (another way is asynchronous triggering, which we'll demonstrate in a separate example)
+    status = status.wait()
+    logging.info("hello world job " + status.getJobId() + " " + status.getStatusValue())
+
+"""
 
 from enum import Enum
 import logging
 from abc import ABC, abstractmethod
-from pathlib import Path
+from pathlib import Path    
 import os
 
 
@@ -42,6 +93,10 @@ class SiteAuthDriver(ABC):
                 login is still viable
         Returns:
             bool - true if success, else false
+
+        Example:
+            site = Site.getSiteInstanceFactory(siteName)
+            site.getAuthDriver().login()
         """
         pass
 
@@ -53,6 +108,11 @@ class SiteAuthDriver(ABC):
         Returns:
             bool - true if the login is still viable, else false; the Site might not cache, 
                 and thus always return false
+            
+        Example:
+            site = Site.getSiteInstanceFactory(siteName)
+            site.getAuthDriver().login()
+            site.getAuthDriver().isAuthCurrent()
         """
         pass
 
@@ -75,11 +135,12 @@ class SiteRunDriver(ABC):
 
     @classmethod
     def _submitJob(cls, jdefn, jobContext=None, fromEvent=False):
-        # This helper function, not a member of the public interface, lets Python threading 
-        # instantiate a SiteRunDriver of the correct subtype on demand.  It is used, for 
-        # example, by the lwfm middleware's event handler mechanism
-        # to reflectively instantiate a Site Run driver of the correct subtype, and then 
-        # call its submitJob() method.
+        """
+        This helper function, not a member of the public interface, lets Python threading 
+        instantiate a SiteRunDriver of the correct subtype on demand. It is used, for example, 
+        by the lwfm middleware's event handler mechanism to reflectively instantiate a Site Run 
+        driver of the correct subtype, and then call its submitJob() method.
+        """
         runDriver = cls()
         runDriver.submitJob(jdefn, jobContext, fromEvent)
 
@@ -124,6 +185,10 @@ class SiteRunDriver(ABC):
         Returns:
             JobStatus - preliminary status, containing a JobContext including the 
                 canonical and Site-specific native job id
+
+        Example:
+            site = Site.getSiteInstanceFactory(siteName)
+            jobStatus = site.getRunDriver().submitJob(jobDefn)
         """
         pass
 
@@ -140,6 +205,11 @@ class SiteRunDriver(ABC):
             jobContext - the context of the executing job, including the native job id
         Returns:
             JobStatus - the current known status of the job
+
+        Example:
+            site = Site.getSiteInstanceFactory(siteName)
+            jobStatus = site.getRunDriver().submitJob(jobDefn)
+            jobStatus = site.getRunDriver().getJobStatus(jobStatus.getJobContext()) 
         """
         pass
 
@@ -158,6 +228,11 @@ class SiteRunDriver(ABC):
                 getJobStatus() method to obtain final terminal status (e.g., the job 
                 might have completed successfully prior to the cancel being receieved,
                 the cancel might not be instantaneous, etc.)
+
+        Example:
+            site = Site.getSiteInstanceFactory(siteName)
+            jobStatus = site.getRunDriver().submitJob(jobDefn)
+            site.getRunDriver().cancelJob(jobStatus.getJobContext())
         """
         pass
 
@@ -171,6 +246,10 @@ class SiteRunDriver(ABC):
 
         Returns:
             [str] - a list of names, potentially empty or None
+
+        Example:
+            site = Site.getSiteInstanceFactory(siteName)
+            computeTypes = site.getRunDriver().listComputeTypes()
         """
         pass
 
@@ -192,6 +271,9 @@ class SiteRunDriver(ABC):
         Returns:
             JobStatus - the status of the job which will be submitted when the event occurs, 
                 initially in the PENDING state
+
+        Example:
+
         """
         pass
 
@@ -213,6 +295,10 @@ class SiteRunDriver(ABC):
         """
         List the WorkflowEventTrigger registrations the Site is holding, or an empty list, or 
         raise NotImplementedError if the Site doesn't support event handlers.
+
+        Example:
+            site = Site.getSiteInstanceFactory(siteName)
+            wfets = site.getRunDriver().listWorkflowEventTriggers()
         """
         pass
 
@@ -226,6 +312,10 @@ class SiteRunDriver(ABC):
             int - a timestamp in the Unix epoch, the end of the returned period
         Returns:
             [JobStatus] - a list of JobStatus objects, or an empty list
+
+        Example:
+            site = Site.getSiteInstanceFactory(siteName)
+            jobStatusList = site.getRunDriver().getJobList(startTime, endTime)
         """
         pass
 
