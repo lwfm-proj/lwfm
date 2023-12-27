@@ -266,14 +266,23 @@ class SiteRunDriver(ABC):
         lwfm Local site will permit it.
 
         Params:
-            wfet - the WorkflowEventTrigger to be set containg information about the triggering 
-                event and the job to be submitted when fired
+            wfet - the WorkflowEventTrigger to be set containg information about the 
+                triggering event and the job to be submitted when fired
         Returns:
             JobStatus - the status of the job which will be submitted when the event occurs, 
                 initially in the PENDING state
 
         Example:
-
+            site = Site.getSiteInstanceFactory(siteName)
+            jobDefn = JobDefn()
+            jobDefn.setEntryPoint("ex0_hello_world.py")
+            # submit the job and note the job id - we'll use it to set the trigger
+            status = site.getRunDriver().submitJob(jobDefn)
+            jobDefn.setEntryPoint("ex1_job_triggers.py")
+            # set a second job to fire when the first job completes
+            wfet = JobEventTrigger(status.getJobId(), JobStatusValues.COMPLETE.value, 
+                jobDefn, siteName)
+            jobStatus = site.getRunDriver().setWorkflowEventTrigger(wfet)
         """
         pass
 
@@ -287,6 +296,19 @@ class SiteRunDriver(ABC):
         Returns:
             bool - success, fail, or raise NotImplementedError if the Site has no concept 
                 of event handlers
+        Example:
+            site = Site.getSiteInstanceFactory(siteName)
+            jobDefn = JobDefn()
+            jobDefn.setEntryPoint("ex0_hello_world.py")
+            # submit the job and note the job id - we'll use it to set the trigger
+            status = site.getRunDriver().submitJob(jobDefn)
+            jobDefn.setEntryPoint("ex1_job_triggers.py")
+            # set a second job to fire when the first job completes
+            wfet = JobEventTrigger(status.getJobId(), JobStatusValues.COMPLETE.value, 
+                jobDefn, siteName)
+            jobStatus = site.getRunDriver().setWorkflowEventTrigger(wfet)
+            # unset the event handler
+            site.getRunDriver().unsetWorkflowEventTrigger(wfet)
         """
         pass
 

@@ -234,6 +234,9 @@ Copilot uses open tabs to privide the context.  We next consider streamling what
 
 Needless to say we used Copilot / Codeium for both rounds of refactoring, including the authoring of augmented documentation and examples (and this document too).
 
+We found that there would be times when the assistant was on a "streak" and able to make many useful suggestions.  Then a day later, without some of the earlier day's context setting, the same prompts would produce differing / lesser results.
+
+
 * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
 
 The lwfm middleware is deployable on any host.  A local user deployment for example.  Workflows running locally which call upon the Local Site will make use of this local middleware - the Event Handler, the MetaRepo, and the optional GUI.  Thus the Local Site driver needs a way to be told the address of its middleware services.  The ~/.lwfm/sites.txt file is a good place perhaps for that.  Thus workflows using the lwfm Local Site driver on any host in this user's scope could be pointed to the middleware at this address.  
@@ -251,51 +254,5 @@ If the workflow is running on an enterprise node, one can assume the enterprise 
 In the case of two copies of the middleware - one local and one enterprise - the event handlers can be distinct.  The MetaRepo may or may not be completely independent - one can see a need to provide import/export between MetaRepos in either direction.  This is espectially true when the enterprise site is a remote site (e.g. cloud, national lab, etc.) and the data wants to be liberated back to the local or local enterprise MetaRepo.  
 
 The full triggering model would permit many kinds of joins other than just A -> B job chains.  Sets of A jobs to complete, fully or partially, in any amount of time or in a speciifc time interval, recurring or one-off.  Conceptually these jobs do not need to have all been run on the same site.  Data triggers fire when data with a particular metadata signature is created.  This is communicated as an INFO status event.  
-
-
-
-
-
-
-
-* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * 
-
-TODO - KEEP 
-
-
-+ now
-    - test loggger in dt4d example
-    - compute type in status message via job context (anything else to do?)
-    - listComputeTypes returns complex list object w. metadata
-
-lwfm: Repo.Run job status serialization incl. subclasses & job context
-
-+ priority 1
-    + event handlers
-        - metadata-based filter implementation & example
-        - better examples around multi-site - not all sites implement, but local does
-        - triggers should work like >= as remote sites might not report all states
-        - test: trigger job running on remote site, targer runs on remote site
-    - SiteFileRef with timestamp (see TODO)
-    - MetaRepo notate()
-
-
-+ priority 2
-    - JobStatus history
-    - multi-Site Job status panel -> similar to DT4D's, but multi-Site
-    - demo: lab device as a Site
-    + event handlers
-        - persisting over lwfm restart
-        - full trigger model impl - fuzzy, timeouts, wildcards, persistence, etc.
-
-
-+ priority 3
-    - local site driver subclass with ssh as run, scp as repo, with auth credentials
-    - digital thread graph render & navigate, incl. event trigger futures
-    - RunRepo - robust impl
-    - JSS security
-    - adaptive job status polling based on emit & received job status timestamps
-
-
 
 
