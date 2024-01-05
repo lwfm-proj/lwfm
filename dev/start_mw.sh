@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+
 # assume we start in a folder which contains all project source folders 
 
 # sites are defined in  ~/.lwfm/sites.txt

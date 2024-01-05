@@ -1,0 +1,15 @@
+Research notes and take-aways - 1Q24
+====================================
+
+-- AI assistants for workflow authoring: current survey --
+
+A survey of publications and open source AI assistants for workflow authoring, specifically scientific and engineering workflows, was conducted and is necessarily ongoing.
+
+There's a good amount of talk regarding good software engineering practices for API development - verbiage and arguments which are natural, expressed in a language (like Python) which is steering towards a human grammar.  There's discussion of ensuring the LLM used has been trained on code, since code differs from English in its presentation of information, and thus can influence the behavior of the LLM.  
+
+There's discussion of few-shot techniques for prompting, in which the LLM is trained on a few-shot set of examples, and the LLM is then given a prompt which is then "repeated" with the same few-shot examples, and so on.  Its sort of leading the witness, and its by no means able to from this predict a full range of potential use cases.
+
+A paper published in 4Q23 from Brown U talks about using LLM for CFD workflows involving surrogate models, etc.  However, the core of the implementation is still effectively defining the parameters for the LLM to gather for a specific function.  This is entirely akin to an "Alexa skill" like "make a dinner reservation".  So what is likely required is a chain-of-thought approach where the workflow is successively built up from a series of concrete steps, each of which has some defined attributes, and the LLM assists in gathering these inputs and leading the user towards well-thought complete workflows.
+
+Multi-model applications are another area of research.  Here some LLM guides the orchestration of a set of models, each tuned for a specific purpose (e.g. CFD, image generation, etc).  HuggingGPT is an example of a framework for this type of model collaboration.
+
