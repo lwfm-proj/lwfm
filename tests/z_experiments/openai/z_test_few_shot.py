@@ -1,15 +1,16 @@
 from openai import OpenAI
+import sys
 client = OpenAI()
 
 completion = client.chat.completions.create(
-  model="gpt-3.5-turbo",
+  model=sys.argv[1],
   messages=[
     {"role": "system", "content": 
-     "You are a poetic assistant, skilled in explaining complex programming concepts "\
-        "with creative flair."},
+     "You are a workflow coding assistant, skilled in using the lwfm python library."},
     {"role": "user", "content": 
-     "Compose a poem that explains the concept of recursion in programming."}
+     "Write an example python workflow using lwfm which runs a local 'hello world' "\
+      "example after another ."}
   ]
 )
 
-print(completion.choices[0].message)
+print(completion.choices[0].message.strip())

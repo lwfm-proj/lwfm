@@ -13,3 +13,49 @@ A paper published in 4Q23 from Brown U talks about using LLM for CFD workflows i
 
 Multi-model applications are another area of research.  Here some LLM guides the orchestration of a set of models, each tuned for a specific purpose (e.g. CFD, image generation, etc).  HuggingGPT is an example of a framework for this type of model collaboration.
 
+
+-- On corporate firewalls -- 
+
+In the initial stages of this exploration, we thought it prudent to not utilize GE machines for the potential leak of GE IP.  Thus we decamped to personal machines off the GE network where GE IP was not present.  After some time, GE managers announced that Microsoft had integrated GE SSO login into their ChatGPT web app.  We tried it, though didn't see where to obtain tokens for use with VS Code and Copilot directly.  We got CCed on an email chain about others working on LLMs - clearly we are not in the loop - and we see where they are hosting LLMs such as Llama locally.  We used our own personal OpenAI token for VS Code and Copilot and they worked on VS Code on a GE machine, so long as the machine was off the GE network, i.e. MyApps was turned off.  Similarly we were able to intermittently connect to the OpenAI site on a GE machine off the GE network, but only sometimes, with a success rate around 50%.  Thus we see that the GE security posture relative to this is perhaps not where its currently desired in order to safely use these tools on GE machines in the proximity of GE IP - simply loading a file into VS Code is enough to cause a security concern if that file is uploaded to the LLM for use as context.  Thus we pivoted back to using a personal machine off the GE network.
+
+
+-- Few shot promoting with OpenAI -- 
+
+In a prompt, you can supply some examples.  In our case these would be queries with canned responses for a certain kind of workflow (e.g. basic job trigger example).  
+
+With the AI you can upload files to fine tune a model, then use the model to generate responses.
+
+In beta is now the assistants API.  Now we have three mechanisms to try.  
+
+We started with the new (beta) Assistant API which uses GPT4.  We fed it the lwfm Site class and a couple basic examples then asked it to provide, using the Site class, a workflow same as one of the examples.  Results varied as we tried different prompts and cues to the assistant.  At times it demonstrated no appreciation for the examples we provided, generating new signatures for brand-new classes which didn't exist (the best example is "Job").  
+
+We were told for example: "If you need a real implementation or you are using a different local workflow management system, please provide me with the corresponding documentation or the intended behavior so that I can adjust the example accordingly."
+
+In another attempt we got back some interesting idioms, perhaps based on some other workflow tool syntax, but not on the Site class and examples provided.  As we've mentioned before, these new idioms are often interesting, perhaps even better than the ones we constructed.  See few_shot_1Q24.txt for a sample.
+
+
+-- OpenAPI documentation --
+
+Not so great... not to the level of detail we've come to expect from top APIs.  Examples also confusing, and with the betas there are multiple ways to try and achieve the same goal.  Given that the newest betas are only months old, the other examples online are also few in number.  
+
+
+-- Alternative demo path & results -- 
+
+An alternative demo path was independently taken.  This involved using langchain as the abstraction over the LLM, in this case gpt3.5-turbo.  The entirety of the lwfm codebase including examples, as it existed prior to 4Q23 refactoring, and including additional explanatory documentation of the architecture was fed to the LLM and then prompted for simple workflow construction.  The results are in github as "langchain_demo_4Q23.png".
+
+
+-- Useful metaphor for AI -- 
+
+First off, we seem to be abusing this term "artificial intelligence".  At the moment it seems what we've built are programs - always programs - which we might not well understand how they work (who understands transformers, how information is truly encoding in these large networks).  "Full-stack" applications continue to be built from collections of these programs - perhaps multiple "AI" modules wrapped by rules and other procedural or presentation logic. 
+
+But the term "AI" has come to mean systems which seem to behave intelligently.  Well written applications which realize use cases along the entire {must, should, could} do spectrum.  Latent requirements.  Applications which not only seem intelligent, but seem to read our minds.
+
+As time goes on, these systems will only increase in their capability to use language and reason, and if the human understanding of how they work continues to lag behind, then the behavior of these systems will resemble magic, fearful wizardry.  They will be personified as intelligent.  
+
+Trees might similarly be seen as having intelligence - like most plants, they seem to know where the sun is, know where we are in the calendar of the seasons.  They have been shown to use language at least a chemical form.  Yet, if they talk or think, its on much longer time frames than a human.  This is what allows us to walk up to them with an axe.  We fear a similar dichotomy with the AI.  
+
+
+
+ 
+
+
