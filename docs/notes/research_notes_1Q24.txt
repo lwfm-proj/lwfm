@@ -60,6 +60,18 @@ Trees might similarly be seen as having intelligence - like most plants, they se
 Now seeing offered ChatGPT Team for teams, and research papers on model merging.  We've long contented there are basic V&V, CI/CD and enterprise deployment concerns at scale lurking in the use of these LLMs which want to be tuned not just for an enterprise, but for "multi-user" departments, and again for individuals, with their accumulated tunings coupled and decoupled as the enterprise and its teams / users and products evolve.  A framework for such interoperability and intersection is ultimately needed.  Concepts such as "federated learning", meaning, multiple trainers on the same model, are getting more attention.
 
 
+-- Ask the Code, GPT assistant success, next steps -- 
+
+OpenAI has now opened up their GPT Store.  We did a quick scan, landed on a plugin called Ask the Code.  You point it at your GitHub repo and start asking questions, including writing code from whole cloth.  The results are better than anything we've seen in this research yet.  A sample dialog including code samples is checked in.  
+
+A good next step here might be to make a formal demonstrator now, with real engineering use cases.  Another next step is to consider the GPT part of the problem "solved" (provisionally, at least line of sight to solved), and turn to questions of verification, and other enterprise considerations (some noted above).
+
+Finally, we have been interested in mining the conversation between human and AI assistant for clues into the elusive "provenancial why".  That work is now next in line to be considered.
+
+
+
+
+
 
 
 
