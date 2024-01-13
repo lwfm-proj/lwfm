@@ -55,6 +55,18 @@ As time goes on, these systems will only increase in their capability to use lan
 Trees might similarly be seen as having intelligence - like most plants, they seem to know where the sun is, know where we are in the calendar of the seasons.  They have been shown to use language at least a chemical form.  Yet, if they talk or think, its on much longer time frames than a human.  This is what allows us to walk up to them with an axe.  We fear a similar dichotomy with the AI.  
 
 
+-- Model merging, team-models -- 
+
+Now seeing offered ChatGPT Team for teams, and research papers on model merging.  We've long contented there are basic V&V, CI/CD and enterprise deployment concerns at scale lurking in the use of these LLMs which want to be tuned not just for an enterprise, but for "multi-user" departments, and again for individuals, with their accumulated tunings coupled and decoupled as the enterprise and its teams / users and products evolve.  A framework for such interoperability and intersection is ultimately needed.  Concepts such as "federated learning", meaning, multiple trainers on the same model, are getting more attention.
+
+
+
+
+
+
+
+
+
 
  
 
