@@ -66,7 +66,58 @@ OpenAI has now opened up their GPT Store.  We did a quick scan, landed on a plug
 
 A good next step here might be to make a formal demonstrator now, with real engineering use cases.  Another next step is to consider the GPT part of the problem "solved" (provisionally, at least line of sight to solved), and turn to questions of verification, and other enterprise considerations (some noted above).
 
-Finally, we have been interested in mining the conversation between human and AI assistant for clues into the elusive "provenancial why".  That work is now next in line to be considered.
+Finally, we have been interested in mining the conversation between human and AI assistant for clues into the elusive "provenancial why".  That work is now next in line to be considered.  A correlated work is performing iterative dialog to converge on a working, runnable workflow.
+
+
+-- Conceptual (Demo) Assistant Architecture v0.1 -- 
+
+Presuming a demo is constructed at some point of an engineering workflow authoring & execution assistant, knowing what we know now, what would the system look like conceptually?  There are various attempts being made in the literature to wrap some abstractions around these systems, so this list is by no means complete. 
+
+    - Voice modules: Voice to text and text to voice components.  We note that Copilot Voice is currently in a beta wait list.  There are other libraries which can be evaluated to take the human's voice input and convert it into a textual prompt.  Similarly there are libraries to take the system's text responses and convert them back into audio responses.  Experience with the current retail state of the art suggests there's room for improvement, but that improvement is happening.
+
+    - Domain-aware GPT: A GPT such as "Ask the Code" which can consume the workflow library and other source material and use it to answer questions and generate code samples.  (We assume these types of GPTs will continue to proliferated and improve, and at some point they will require comparison.)  Here also its likely further work would be useful on domain-specific libraries on top of the base workflow library.  For example, the running of common engineering tools (e.g. Ansys) might be represented as a light shim method which is fed to the GPT.  A well-crafted method which has a meaningful name and a small set of naturally-expressed arguments has been shown to be grokkable by a GPT.  It remains to be seen what other documentation might need to be fed to the model to help it contextualize the user's dialog.  
+
+    - Pre-execution feedback loop: Prior to the potential expense of execution, some validation can be performed.  Can the code be "compiled" or otherwise "linted"?  Does the user want visual inspection?  At the moment we will assume workflow representation in Python, but we can forsee a time when other forms would be useful for read-only consumption (e.g. DAG).  So there is a pre-execution pipeline.  If this automated filtering fails, further human-in-the-loop becomes required, and how we iterate with the GPT to get it working is a matter of future work.  Here we would also bolt-on the gathering of any metadata we want to tease out of the user, including the "provenancial why".  Using the existing paradigm, the workflow library can expose methods to capture this metadata.  All manner of formalism and tooling can be put to bear here.
+
+    - Execution feedback loop: Once the workflow is deemed ready to execute, and its been passed onto the runtime, there might be further interactions.  The execution might produce a normal status or a fault and the user would want to be notified.  The user might want to cancel the execution.  Other commands are possible.  So there is an execution pipeline, and means to control it, i.e. use voice commands and the LLM to invoke pre-existing control functions known to the assistant.  If there is an existing workflow runtime control GUI as in lwfm, it can similarly be integrated with voice control and linked to the user's GPT session - i.e. the session is present over potentially long periods of time involving multiple apps.
+
+Thus V&V touches many places in its own arch-workflow: pre-exec, exec, post, provenance, chain-of-reasoning capture, automatic mapping to requirements, etc.
+
+
+-- Repeatability, Coaching, and Maintaining the "why" in Context -- 
+
+We performed some additional testing with Ask the Code.  On second try, using a different prompting sequence, our results were less impressive.  But it did give us an opportunity to explore iterating with the GPT until a better result was achieved.  This would have been very hard to realize using voice prompting alone - having the machine read us the code is not very satisfying.  Again, we seem to want a library of tested higher-order and domain-specific methods / verbs, not low level workflow constructs - these constructs would be easier to articulate verbally.
+
+But we were able to coach the GPT into prompting us to ask us "why" did we want to run the workflow.  Later, we were able to ask the model to regurgitate our answer, and it did.  Thus the workflow itself is a domain verb with a simply articulated set of arguments including the provenancial why.  Getting the model to return the set of arguments in a structured form then permits persisting it with the digital thread, and in fact this is as simple as asking the model to return the information as JSON (which of course is a low level function - we'd want to expose something higher like "save session").
+
+In short, this is just API design by another name.
+
+A next step might be to fashion a simple domain and express some concepts / actions / sub-workflows within it.
+
+Needless to say we'd not want to have to endure coaching of any kind like that described above more than once.  The domain LLM must come pre-trained, and what a user does with it must be preserved for that person, and perhaps even passed on to others in the domain (i.e. we see organizational knowledge bases here).  If the domain model is updated, the user's version of it must also be updated.  This is a whole other research problem, and not our focus at this time - we've contended there is a big CI/CD problem in the middle of this technology.  
+
+
+-- The Folly of Publishing -- 
+
+There's an approaching conference proceeding deadline - March 1, for a conference in November.  With the current full-speed ahead state of the AI software industry, it seems a bit funny to think that come November we will collectively care about the results being expressed by (effectively) applied scientists today (because the real scientists in this area are moving at break-neck speed).  
+
+A corollary to this is that its vitally important for an organization to stay abreast of the current state of the art, even if that current state is not yet ready for prime time.  Give it time - it will.  And likely quickly.  So the organization needs to understand the technology, understand what's within range, and then wait for it, ready to jump on it when it arrives.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
