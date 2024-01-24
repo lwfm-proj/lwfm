@@ -1,0 +1,136 @@
+Research notes and take-aways - 1Q24
+====================================
+
+-- AI assistants for workflow authoring: current survey --
+
+A survey of publications and open source AI assistants for workflow authoring, specifically scientific and engineering workflows, was conducted and is necessarily ongoing.
+
+There's a good amount of talk regarding good software engineering practices for API development - verbiage and arguments which are natural, expressed in a language (like Python) which is steering towards a human grammar.  There's discussion of ensuring the LLM used has been trained on code, since code differs from English in its presentation of information, and thus can influence the behavior of the LLM.  
+
+There's discussion of few-shot techniques for prompting, in which the LLM is trained on a few-shot set of examples, and the LLM is then given a prompt which is then "repeated" with the same few-shot examples, and so on.  Its sort of leading the witness, and its by no means able to from this predict a full range of potential use cases.
+
+A paper published in 4Q23 from Brown U talks about using LLM for CFD workflows involving surrogate models, etc.  However, the core of the implementation is still effectively defining the parameters for the LLM to gather for a specific function.  This is entirely akin to an "Alexa skill" like "make a dinner reservation".  So what is likely required is a chain-of-thought approach where the workflow is successively built up from a series of concrete steps, each of which has some defined attributes, and the LLM assists in gathering these inputs and leading the user towards well-thought complete workflows.
+
+Multi-model applications are another area of research.  Here some LLM guides the orchestration of a set of models, each tuned for a specific purpose (e.g. CFD, image generation, etc).  HuggingGPT is an example of a framework for this type of model collaboration.
+
+
+-- On corporate firewalls -- 
+
+In the initial stages of this exploration, we thought it prudent to not utilize GE machines for the potential leak of GE IP.  Thus we decamped to personal machines off the GE network where GE IP was not present.  After some time, GE managers announced that Microsoft had integrated GE SSO login into their ChatGPT web app.  We tried it, though didn't see where to obtain tokens for use with VS Code and Copilot directly.  We got CCed on an email chain about others working on LLMs - clearly we are not in the loop - and we see where they are hosting LLMs such as Llama locally.  We used our own personal OpenAI token for VS Code and Copilot and they worked on VS Code on a GE machine, so long as the machine was off the GE network, i.e. MyApps was turned off.  Similarly we were able to intermittently connect to the OpenAI site on a GE machine off the GE network, but only sometimes, with a success rate around 50%.  Thus we see that the GE security posture relative to this is perhaps not where its currently desired in order to safely use these tools on GE machines in the proximity of GE IP - simply loading a file into VS Code is enough to cause a security concern if that file is uploaded to the LLM for use as context.  Thus we pivoted back to using a personal machine off the GE network.
+
+
+-- Few shot promoting with OpenAI -- 
+
+In a prompt, you can supply some examples.  In our case these would be queries with canned responses for a certain kind of workflow (e.g. basic job trigger example).  
+
+With the AI you can upload files to fine tune a model, then use the model to generate responses.
+
+In beta is now the assistants API.  Now we have three mechanisms to try.  
+
+We started with the new (beta) Assistant API which uses GPT4.  We fed it the lwfm Site class and a couple basic examples then asked it to provide, using the Site class, a workflow same as one of the examples.  Results varied as we tried different prompts and cues to the assistant.  At times it demonstrated no appreciation for the examples we provided, generating new signatures for brand-new classes which didn't exist (the best example is "Job").  
+
+We were told for example: "If you need a real implementation or you are using a different local workflow management system, please provide me with the corresponding documentation or the intended behavior so that I can adjust the example accordingly."
+
+In another attempt we got back some interesting idioms, perhaps based on some other workflow tool syntax, but not on the Site class and examples provided.  As we've mentioned before, these new idioms are often interesting, perhaps even better than the ones we constructed.  See few_shot_1Q24.txt for a sample.
+
+
+-- OpenAPI documentation --
+
+Not so great... not to the level of detail we've come to expect from top APIs.  Examples also confusing, and with the betas there are multiple ways to try and achieve the same goal.  Given that the newest betas are only months old, the other examples online are also few in number.  
+
+
+-- Alternative demo path & results -- 
+
+An alternative demo path was independently taken.  This involved using langchain as the abstraction over the LLM, in this case gpt3.5-turbo.  The entirety of the lwfm codebase including examples, as it existed prior to 4Q23 refactoring, and including additional explanatory documentation of the architecture was fed to the LLM and then prompted for simple workflow construction.  The results are in github as "langchain_demo_4Q23.png".
+
+
+-- Useful metaphor for AI -- 
+
+First off, we seem to be abusing this term "artificial intelligence".  At the moment it seems what we've built are programs - always programs - which we might not well understand how they work (who understands transformers, how information is truly encoding in these large networks).  "Full-stack" applications continue to be built from collections of these programs - perhaps multiple "AI" modules wrapped by rules and other procedural or presentation logic. 
+
+But the term "AI" has come to mean systems which seem to behave intelligently.  Well written applications which realize use cases along the entire {must, should, could} do spectrum.  Latent requirements.  Applications which not only seem intelligent, but seem to read our minds.
+
+As time goes on, these systems will only increase in their capability to use language and reason, and if the human understanding of how they work continues to lag behind, then the behavior of these systems will resemble magic, fearful wizardry.  They will be personified as intelligent.  
+
+Trees might similarly be seen as having intelligence - like most plants, they seem to know where the sun is, know where we are in the calendar of the seasons.  They have been shown to use language at least a chemical form.  Yet, if they talk or think, its on much longer time frames than a human.  This is what allows us to walk up to them with an axe.  We fear a similar dichotomy with the AI.  
+
+
+-- Model merging, team-models -- 
+
+Now seeing offered ChatGPT Team for teams, and research papers on model merging.  We've long contented there are basic V&V, CI/CD and enterprise deployment concerns at scale lurking in the use of these LLMs which want to be tuned not just for an enterprise, but for "multi-user" departments, and again for individuals, with their accumulated tunings coupled and decoupled as the enterprise and its teams / users and products evolve.  A framework for such interoperability and intersection is ultimately needed.  Concepts such as "federated learning", meaning, multiple trainers on the same model, are getting more attention.
+
+
+-- Ask the Code, GPT assistant success, next steps -- 
+
+OpenAI has now opened up their GPT Store.  We did a quick scan, landed on a plugin called Ask the Code.  You point it at your GitHub repo and start asking questions, including writing code from whole cloth.  The results are better than anything we've seen in this research yet.  A sample dialog including code samples is checked in.  
+
+A good next step here might be to make a formal demonstrator now, with real engineering use cases.  Another next step is to consider the GPT part of the problem "solved" (provisionally, at least line of sight to solved), and turn to questions of verification, and other enterprise considerations (some noted above).
+
+Finally, we have been interested in mining the conversation between human and AI assistant for clues into the elusive "provenancial why".  That work is now next in line to be considered.  A correlated work is performing iterative dialog to converge on a working, runnable workflow.
+
+
+-- Conceptual (Demo) Assistant Architecture v0.1 -- 
+
+Presuming a demo is constructed at some point of an engineering workflow authoring & execution assistant, knowing what we know now, what would the system look like conceptually?  There are various attempts being made in the literature to wrap some abstractions around these systems, so this list is by no means complete. 
+
+    - Voice modules: Voice to text and text to voice components.  We note that Copilot Voice is currently in a beta wait list.  There are other libraries which can be evaluated to take the human's voice input and convert it into a textual prompt.  Similarly there are libraries to take the system's text responses and convert them back into audio responses.  Experience with the current retail state of the art suggests there's room for improvement, but that improvement is happening.
+
+    - Domain-aware GPT: A GPT such as "Ask the Code" which can consume the workflow library and other source material and use it to answer questions and generate code samples.  (We assume these types of GPTs will continue to proliferated and improve, and at some point they will require comparison.)  Here also its likely further work would be useful on domain-specific libraries on top of the base workflow library.  For example, the running of common engineering tools (e.g. Ansys) might be represented as a light shim method which is fed to the GPT.  A well-crafted method which has a meaningful name and a small set of naturally-expressed arguments has been shown to be grokkable by a GPT.  It remains to be seen what other documentation might need to be fed to the model to help it contextualize the user's dialog.  
+
+    - Pre-execution feedback loop: Prior to the potential expense of execution, some validation can be performed.  Can the code be "compiled" or otherwise "linted"?  Does the user want visual inspection?  At the moment we will assume workflow representation in Python, but we can forsee a time when other forms would be useful for read-only consumption (e.g. DAG).  So there is a pre-execution pipeline.  If this automated filtering fails, further human-in-the-loop becomes required, and how we iterate with the GPT to get it working is a matter of future work.  Here we would also bolt-on the gathering of any metadata we want to tease out of the user, including the "provenancial why".  Using the existing paradigm, the workflow library can expose methods to capture this metadata.  All manner of formalism and tooling can be put to bear here.
+
+    - Execution feedback loop: Once the workflow is deemed ready to execute, and its been passed onto the runtime, there might be further interactions.  The execution might produce a normal status or a fault and the user would want to be notified.  The user might want to cancel the execution.  Other commands are possible.  So there is an execution pipeline, and means to control it, i.e. use voice commands and the LLM to invoke pre-existing control functions known to the assistant.  If there is an existing workflow runtime control GUI as in lwfm, it can similarly be integrated with voice control and linked to the user's GPT session - i.e. the session is present over potentially long periods of time involving multiple apps.
+
+Thus V&V touches many places in its own arch-workflow: pre-exec, exec, post, provenance, chain-of-reasoning capture, automatic mapping to requirements, etc.
+
+
+-- Repeatability, Coaching, and Maintaining the "why" in Context -- 
+
+We performed some additional testing with Ask the Code.  On second try, using a different prompting sequence, our results were less impressive.  But it did give us an opportunity to explore iterating with the GPT until a better result was achieved.  This would have been very hard to realize using voice prompting alone - having the machine read us the code is not very satisfying.  Again, we seem to want a library of tested higher-order and domain-specific methods / verbs, not low level workflow constructs - these constructs would be easier to articulate verbally.
+
+But we were able to coach the GPT into prompting us to ask us "why" did we want to run the workflow.  Later, we were able to ask the model to regurgitate our answer, and it did.  Thus the workflow itself is a domain verb with a simply articulated set of arguments including the provenancial why.  Getting the model to return the set of arguments in a structured form then permits persisting it with the digital thread, and in fact this is as simple as asking the model to return the information as JSON (which of course is a low level function - we'd want to expose something higher like "save session").
+
+In short, this is just API design by another name.
+
+A next step might be to fashion a simple domain and express some concepts / actions / sub-workflows within it.
+
+Needless to say we'd not want to have to endure coaching of any kind like that described above more than once.  The domain LLM must come pre-trained, and what a user does with it must be preserved for that person, and perhaps even passed on to others in the domain (i.e. we see organizational knowledge bases here).  If the domain model is updated, the user's version of it must also be updated.  This is a whole other research problem, and not our focus at this time - we've contended there is a big CI/CD problem in the middle of this technology.  
+
+
+-- The Folly of Publishing -- 
+
+There's an approaching conference proceeding deadline - March 1, for a conference in November.  With the current full-speed ahead state of the AI software industry, it seems a bit funny to think that come November we will collectively care about the results being expressed by (effectively) applied scientists today (because the real scientists in this area are moving at break-neck speed).  
+
+A corollary to this is that its vitally important for an organization to stay abreast of the current state of the art, even if that current state is not yet ready for prime time.  Give it time - it will.  And likely quickly.  So the organization needs to understand the technology, understand what's within range, and then wait for it, ready to jump on it when it arrives.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+

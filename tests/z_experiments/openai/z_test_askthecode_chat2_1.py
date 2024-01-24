@@ -1,4 +1,3 @@
-
 # print 'hello world' but as a Job on a (local) Site
 # assumes the lwfm job status service is running
 

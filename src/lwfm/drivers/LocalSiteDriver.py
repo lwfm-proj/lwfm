@@ -1,17 +1,15 @@
-
-# LocalSiteDriver: an implementation of Site and its constituent Auth, Run, Repo interfaces for a local to the user runtime
-# environment.  Unsecure, as this is local and we assume the user is themselves already.
+# LocalSiteDriver: an implementation of Site and its constituent Auth, Run, Repo interfaces
+# for a local to the user runtime environment.  Unsecure, as this is local and we assume
+# the user is themselves already.
 
 import logging
 
 import os
 import shutil
-import multiprocessing
-import time
+import multiprocessing 
 import pickle
 import json
 import math
-from typing import Callable
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -20,17 +18,23 @@ from pathlib import Path
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
-from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
-from lwfm.base.JobEventHandler import JobEventHandler
-from lwfm.base.MetaRepo import MetaRepo
-from lwfm.server.JobStatusSentinelClient import JobStatusSentinelClient
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, fetchJobStatus
+from lwfm.base.JobContext import JobContext
+from lwfm.base.WorkflowEventTrigger import WorkflowEventTrigger, JobEventTrigger
+from lwfm.server.WorkflowEventClient import WorkflowEventClient
+from lwfm.base.LwfmBase import LwfmBase
+from lwfm.store import BasicMetaRepoStore
 
 
-#************************************************************************************************************************************
+# *************************************************************************************
 
+# TODO make more flexible with configuration
 SITE_NAME = "local"
+LwfmBase._shortJobIds = True
 
-#************************************************************************************************************************************
+
+# *************************************************************************************
+
 
 class LocalJobStatus(JobStatus):
     def __init__(self, jcontext: JobContext = None):
@@ -43,129 +47,139 @@ class LocalJobStatus(JobStatus):
 
     def serialize(self):
         out_bytes = pickle.dumps(self, 0)
-        out_str = out_bytes.decode(encoding='ascii')
+        out_str = out_bytes.decode(encoding="ascii")
         return out_str
 
     @staticmethod
     def deserialize(s: str):
         in_json = json.dumps(s)
-        in_obj = pickle.loads(json.loads(in_json).encode(encoding='ascii'))
+        in_obj = pickle.loads(json.loads(in_json).encode(encoding="ascii"))
         return in_obj
 
 
+# *************************************************************************************
 
-
-#************************************************************************************************************************************
 
 class LocalSiteAuthDriver(SiteAuthDriver):
     # Because this is running locally, we don't need any authentication
-    def login(self, force: bool=False) -> bool:
+    def login(self, force: bool = False) -> bool:
         return True
 
     def isAuthCurrent(self) -> bool:
         return True
 
 
-#***********************************************************************************************************************************
+# *************************************************************************************
 
 
 class LocalSiteRunDriver(SiteRunDriver):
-
     _pendingJobs = {}
 
     def _runJob(self, jdefn, jobStatus):
-        # Putting the job in a new thread means we can easily run it asynchronously while still emitting statuses before and after
-        #Emit RUNNING status
+        # Putting the job in a new thread means we can easily run it asynchronously
+        # while still emitting statuses before and after
+        # Emit RUNNING status
         jobStatus.emit(JobStatusValues.RUNNING.value)
         try:
-            # This is synchronous, so we wait here until the subprocess is over. Check=True raises an exception on non-zero returns
-            if (isinstance(jdefn, RepoJobDefn)):
+            # This is synchronous, so we wait here until the subprocess is over.
+            # Check=True raises an exception on non-zero returns
+            if isinstance(jdefn, RepoJobDefn):
                 # run the repo job
-                if (jdefn.getRepoOp() == RepoOp.PUT):
-                    _repoDriver.put(jdefn.getLocalRef(), jdefn.getSiteRef(), jobStatus.getJobContext())
-                elif (jdefn.getRepo() == RepoOp.GET):
-                    _repoDriver.get(jdefn.getSiteRef(), jdefn.getLocalRef(), jobStatus.getJobContext())
+                if jdefn.getRepoOp() == RepoOp.PUT:
+                    _repoDriver.put(
+                        jdefn.getLocalRef(),
+                        jdefn.getSiteFileRef(),
+                        jobStatus.getJobContext(),
+                    )
+                elif jdefn.getRepoOp() == RepoOp.GET:
+                    print("in the deep logic i am a get")
+                    _repoDriver.get(
+                        jdefn.getSiteFileRef(),
+                        jdefn.getLocalRef(),
+                        jobStatus.getJobContext(),
+                    )
                 else:
                     logging.error("Unknown repo operation")
             else:
                 # run a command line job
                 cmd = jdefn.getEntryPoint()
-                if (jdefn.getJobArgs() is not None):
+                if jdefn.getJobArgs() is not None:
                     for arg in jdefn.getJobArgs():
                         cmd += " " + arg
                 os.system(cmd)
-            #Emit success statuses
+            # Emit success statuses
             jobStatus.emit(JobStatusValues.FINISHING.value)
             jobStatus.emit(JobStatusValues.COMPLETE.value)
         except Exception as ex:
             logging.error("ERROR: Job failed %s" % (ex))
-            #Emit FAILED status
+            # Emit FAILED status
             jobStatus.emit(JobStatusValues.FAILED.value)
 
-    def submitJob(self, jdefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
-        if (parentContext is None):
-            parentContext = JobContext()
+    def submitJob(
+        self, jdefn: JobDefn, parentContext: JobContext = None, fromEvent: bool = False
+    ) -> JobStatus:
+        if parentContext is None:
+            myContext = JobContext()
+        elif fromEvent:
+            myContext = parentContext
+        else:
+            # i am a child of the context given 
+            myContext = JobContext.makeChildJobContext(parentContext)
         # In local jobs, we spawn the job in a new child process
-        jstatus = LocalJobStatus(parentContext)
+        jstatus = LocalJobStatus(myContext)
 
-        # Let the sentinel know the job is ready
-        jstatus.emit(JobStatusValues.PENDING.value)
-
+        # Let the sentinel know the job is ready unless this is from an event
+        # (in which case the sentinel already knows)
+        if not fromEvent:
+            jstatus.emit(JobStatusValues.PENDING.value)
         # Run the job in a new thread so we can wrap it in a bit more code
         thread = multiprocessing.Process(target=self._runJob, args=[jdefn, jstatus])
         thread.start()
         self._pendingJobs[jstatus.getJobContext().getId()] = thread
-        jstatus.emit()
         return jstatus
 
     def getJobStatus(self, jobContext: JobContext) -> JobStatus:
-        blob = JobStatusSentinelClient().getStatusBlob(jobContext.getId())
-        if (blob is None):
-            status = LocalJobStatus(jobContext)
-        else:
-            status = JobStatus.deserialize(blob)
-        jstatus.emit()
-        return status
+        return fetchJobStatus(jobContext.getId())
 
     def cancelJob(self, jobContext: JobContext) -> bool:
         # Find the locally running thread and kill it
         try:
             thread = self._pendingJobs[jobContext.getId()]
-            if (thread is None):
+            if thread is None:
                 return False
-            logging.info("LocalSiteDriver.cancelJob(): calling terminate on job " + jobContext.getId())
+            logging.info(
+                "LocalSiteDriver.cancelJob(): calling terminate on job "
+                + jobContext.getId()
+            )
             thread.terminate()
             jstatus = LocalJobStatus(jobContext)
             jstatus.emit(JobStatusValues.CANCELLED.value)
             self._pendingJobs[jobContext.getId()] = None
             return True
         except Exception as ex:
-            logging.error("ERROR: Could not cancel job %d: %s" % (jobContext.getId(), ex))
+            logging.error(
+                "ERROR: Could not cancel job %d: %s" % (jobContext.getId(), ex)
+            )
             return False
-
 
     def listComputeTypes(self) -> [str]:
         return ["local"]
 
+    def setWorkflowEventTrigger(self, wfet: WorkflowEventTrigger) -> JobStatus:
+        if wfet.getTargetSiteName() is None:
+            wfet.setTargetSiteName("local")
+        newJobId = WorkflowEventClient().setEventTrigger(wfet)
+        return fetchJobStatus(newJobId)
 
-    def setEventHandler(self, jobContext: JobContext, jobStatus: JobStatusValues, statusFilter: Callable,
-                        newJobDefn: JobDefn, newJobContext: JobContext, newSiteName: str) -> JobEventHandler:
-        if (newSiteName is None):
-            newSiteName = "local"
-        JobStatusSentinelClient().setEventHandler(jobContext.getId(), jobContext.getSiteName(), jobStatus.value,
-                                                  newJobDefn, newSiteName, newJobContext)
-
-
-    def unsetEventHandler(self, jeh: JobEventHandler) -> bool:
+    def unsetWorkflowEventTrigger(self, jet: JobEventTrigger) -> bool:
         raise NotImplementedError()
 
-
-    def listEventHandlers(self) -> [JobEventHandler]:
+    def listWorkflowEventTriggers(self) -> [JobEventTrigger]:
         raise NotImplementedError()
 
     def getJobList(self, startTime: int, endTime: int) -> [JobStatus]:
         statuses = []
-        serializedStatuses = JobStatusSentinelClient().getStatuses()
+        serializedStatuses = WorkflowEventClient().getStatuses()
         if serializedStatuses is None:
             serializedStatuses = []
         for serializedStatus in serializedStatuses:
@@ -181,153 +195,100 @@ class LocalSiteRunDriver(SiteRunDriver):
                 statuses.append(status)
         return statuses
 
-#***********************************************************************************************************************************
+
+# *************************************************************************************
+
 
 class LocalSiteRepoDriver(SiteRepoDriver):
 
-    def _copyFile(self, fromPath, toPath, jobContext):
-        iAmAJob = False
-        if (jobContext is None):
-            iAmAJob = True
+    _metaRepo = None
+
+    def __init__(self):
+        super(LocalSiteRepoDriver, self).__init__()
+        self._metaRepo = BasicMetaRepoStore.BasicMetaRepoStore()
+
+    def _makeRepoInfo(self, verb: RepoOp, success: bool, fromPath: str, toPath: str,
+                     metadata: dict = {}) -> str:
+        metadata["_verb"] = verb.value
+        metadata["_success"] = success
+        metadata["_fromPath"] = fromPath
+        metadata["_toPath"] = toPath
+        return str(metadata)
+
+    def _copyFile(self, fromPath, toPath, jobContext, direction, metadata=None):
+        if (metadata is None):
+            metadata = {}
+        iAmOwnJob = False
+        if jobContext is None:
+            iAmOwnJob = True
             jobContext = JobContext()
 
         jstatus = JobStatus(jobContext)
-        if (iAmAJob):
+        if iAmOwnJob:
             # emit the starting job status sequence
             jstatus.emit(JobStatusValues.PENDING.value)
             jstatus.emit(JobStatusValues.RUNNING.value)
 
-        jstatus.setNativeInfo(JobStatus.makeRepoInfo(RepoOp.PUT, False, str(fromPath), str(toPath)))
+        jstatus.setNativeInfo(
+            self._makeRepoInfo(direction, True, str(fromPath), str(toPath), metadata)
+        )
         jstatus.emit(JobStatusValues.INFO.value)
 
         try:
-            shutil.copy(fromPath, toPath)
+            toDir, toFilename = os.path.split(toPath)
+            shutil.copy2(fromPath, os.path.join(toDir, toFilename))
         except Exception as ex:
             logging.error("Error copying file: " + str(ex))
-            if iAmAJob:
+            if iAmOwnJob:
                 jstatus.emit(JobStatusValues.FAILED.value)
             return False
 
-        if (iAmAJob):
+        if iAmOwnJob:
             jstatus.emit(JobStatusValues.FINISHING.value)
             jstatus.emit(JobStatusValues.COMPLETE.value)
         return True
 
-    # If we're given a context, we use it, if not, we consider ourselves our own job.
-    def put(self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None) -> SiteFileRef:
+    # If we're given a context we are a child of it, else we consider ourselves our own job.
+    def put(
+        self, localRef: Path, siteRef: SiteFileRef, jobContext: JobContext = None
+    ) -> SiteFileRef:
         fromPath = localRef
-        toPath = siteRef.getPath()
-        if not self._copyFile(fromPath, toPath, jobContext):
-           return False
+        toPath = siteRef.getPath() + os.sep + siteRef.getName()
+        if not self._copyFile(fromPath, toPath, jobContext, RepoOp.PUT, 
+                              siteRef.getMetadata()):
+            return None
 
-        # return success result
-        MetaRepo.notate(siteRef)
-        return FSFileRef.siteFileRefFromPath(toPath + "/" + fromPath.name)
+        newSiteFileRef = FSFileRef.siteFileRefFromPath(toPath)
+        newSiteFileRef.setMetadata(siteRef.getMetadata())
+        self._metaRepo.notate(newSiteFileRef)
+        return newSiteFileRef
 
-    def get(self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None) -> Path:
-        fromPath = siteRef.getPath()
+
+    def get(
+        self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None
+    ) -> Path:
+        fromPath = siteRef.getPath() + os.sep + siteRef.getName()
         toPath = localRef
-        if not self._copyFile(fromPath, toPath, jobContext):
-           return False
+        if not self._copyFile(fromPath, toPath, jobContext, RepoOp.GET):
+            return False
 
         # return success result
-        return Path(str(toPath) + "/" + Path(fromPath).name)
+        return Path(str(toPath + os.sep + siteRef.getName()))
 
 
-    def find(self, siteRef: SiteFileRef) -> [SiteFileRef]:
-        return MetaRepo.find(siteRef)
+    def find(self, siteFileRef: SiteFileRef) -> [SiteFileRef]:
+        return self._metaRepo.find(siteFileRef)
 
 
-
-#************************************************************************************************************************************
+# *************************************************************************************
 
 _repoDriver = LocalSiteRepoDriver()
 
 class LocalSite(Site):
     # There are no required args to instantiate a local site.
     def __init__(self):
-        super(LocalSite, self).__init__(SITE_NAME, LocalSiteAuthDriver(), LocalSiteRunDriver(), _repoDriver, None)
+        super(LocalSite, self).__init__(
+            SITE_NAME, LocalSiteAuthDriver(), LocalSiteRunDriver(), _repoDriver, None
+        )
 
 
-
-#************************************************************************************************************************************
-
-# test
-if __name__ == '__main__':
-    # assumes the lwfm job status service is running
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.INFO)
-
-    logging.info("***** login test")
-
-    # on local sites, login is a no-op
-    site = Site.getSiteInstanceFactory("local")
-    logging.info("site is " + site.getName())
-    site.getAuthDriver().login()
-    logging.info("auth is current = " + str(site.getAuthDriver().isAuthCurrent()))
-
-    logging.info("***** local job test")
-
-    # run a local 'pwd' as a job
-    jdefn = JobDefn()
-    jdefn.setEntryPoint("echo")
-    jdefn.setJobArgs([ "pwd = `pwd`" ])
-    status = site.getRunDriver().submitJob(jdefn)
-    logging.info("pwd job id = " + status.getJobContext().getId())
-    logging.info("pwd job status = " + str(status.getStatus()))   # initial status will be pending - its async
-
-    logging.info("***** repo tests")
-
-    # ls a file
-    fileRef = FSFileRef()
-    fileRef.setPath(os.path.realpath(__file__))
-    logging.info("name of the file is " + site.getRepoDriver().find(fileRef).getName())
-    logging.info("size of the file is " + str(site.getRepoDriver().find(fileRef).getSize()))
-
-    # ls a directory
-    fileRef.setPath(os.path.expanduser('~'))
-    fileRef = site.getRepoDriver().find(fileRef)
-    logging.info("size of the dir is " + str(fileRef.getSize()))
-    logging.info("time of the dir is " + str(fileRef.getTimestamp()))
-    logging.info("contents of the dir is " + str(fileRef.getDirContents()))
-
-    # put - run as a brand new job (note: this script itself is *not* a job, its just a script, so the job we
-    # run here is a seminal job
-    localFile = os.path.realpath(__file__)
-    destFileRef = FSFileRef.siteFileRefFromPath(os.path.expanduser('~'))
-    copiedFileRef = site.getRepoDriver().put(Path(localFile), destFileRef)
-    logging.info(copiedFileRef.getName() + " " + str(copiedFileRef.getTimestamp()))
-
-    # get - run as a brand new job, but this time, pre-generate the job context
-    fileRef = FSFileRef.siteFileRefFromPath(os.path.realpath(__file__))
-    destPath = Path(os.path.expanduser('~'))
-    copiedPath = site.getRepoDriver().get(fileRef, destPath, JobContext())
-    logging.info("get test: copied to: " + str(copiedPath))
-
-    logging.info("***** check status of async job")
-
-    # the above job was async... check its status
-    while (True):
-        status = site.getRunDriver().getJobStatus(status.getJobContext())
-        if (status.isTerminal()):             # should have a terminal status by now...
-            logging.info("pwd job status = " + str(status.getStatus()))
-            break
-
-    logging.info("***** cancel job")
-
-    # cancel a job
-    jdefn = JobDefn()
-    jdefn.setEntryPoint("sleep 100")
-    status = site.getRunDriver().submitJob(jdefn)
-    logging.info("sleep job id = " + status.getJobContext().getId())
-    logging.info("sleep job status = " + str(status.getStatus()))   # initial status will be pending - its async
-    # wait a little bit for the job to actually start and emit a running status, then we'll cancel it
-    time.sleep(10)
-    site.getRunDriver().cancelJob(status.getJobContext())
-    while (True):
-        status = site.getRunDriver().getJobStatus(status.getJobContext())
-        if (status.isTerminal()):             # should have a terminal status by now...
-            logging.info("sleep job status = " + str(status.getStatus()))
-            break
-
-    logging.info("testing done")
