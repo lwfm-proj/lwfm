@@ -266,7 +266,7 @@ class SiteRunDriver(ABC):
         lwfm Local site will permit it.
 
         Params:
-            wfet - the WorkflowEventTrigger to be set containg information about the 
+            wfet - the WorkflowEventTrigger to be set containing information about the 
                 triggering event and the job to be submitted when fired
         Returns:
             JobStatus - the status of the job which will be submitted when the event occurs, 

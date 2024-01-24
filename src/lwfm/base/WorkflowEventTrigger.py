@@ -81,7 +81,7 @@ class _JobEventTriggerFields(Enum):
 
 class JobEventTrigger(WorkflowEventTrigger):
     """
-    Jobs emit status, incliuding informational status.  Some status events are terminal -
+    Jobs emit status, including informational status.  Some status events are terminal -
     "finished", "cancelled" - and some are interim states.  Status strings in lwfm are
     normalized by the Site driver from the native Site status name set into the
     lwfm canonical set. We can set event triggers - on canonical status strings -
@@ -93,7 +93,7 @@ class JobEventTrigger(WorkflowEventTrigger):
     the body of the message includes the metadata used in the put.  If the metadata meets
     certain user-supplied filters, the event trigger fires.
 
-    This struct and potential derrived classes provide the means to describe the conditions
+    This struct and potential derived classes provide the means to describe the conditions
     under which a given job should fire as a result of an upstream event or events, and
     when it fires, where and how.
 
@@ -240,9 +240,13 @@ class DataEventTrigger(WorkflowEventTrigger):
             + str(metadata)
             + ")"
         )
-        globals = {}
-        exec(triggerFilterString, globals)
-        return globals["_trigger"]
+        # TODO: revisit
+        try:
+            globals = {}
+            exec(triggerFilterString, globals)
+            return globals["_trigger"]
+        except Exception as ex:
+            return True
 
     def getKey(self) -> str:
         return str("" + self.getId() + "." + "INFO.dt")

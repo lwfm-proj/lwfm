@@ -215,7 +215,9 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         metadata["_toPath"] = toPath
         return str(metadata)
 
-    def _copyFile(self, fromPath, toPath, jobContext, direction, metadata={}):
+    def _copyFile(self, fromPath, toPath, jobContext, direction, metadata=None):
+        if (metadata is None):
+            metadata = {}
         iAmOwnJob = False
         if jobContext is None:
             iAmOwnJob = True
@@ -255,6 +257,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         if not self._copyFile(fromPath, toPath, jobContext, RepoOp.PUT, 
                               siteRef.getMetadata()):
             return None
+
         newSiteFileRef = FSFileRef.siteFileRefFromPath(toPath)
         newSiteFileRef.setMetadata(siteRef.getMetadata())
         self._metaRepo.notate(newSiteFileRef)

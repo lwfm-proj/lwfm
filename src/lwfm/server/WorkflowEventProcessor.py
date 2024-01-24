@@ -76,10 +76,13 @@ class WorkflowEventProcessor:
                     continue
                 for infoStatus in self._infoQueue:
                     messageConsumed = False
+                    print("*** getting trigger: " + str(key))
                     trigger = self._eventHandlerMap[key]
+                    print("*** got trigger: " + str(trigger))
                     try:
                         print("Checking trigger native status: " + str(infoStatus.getNativeInfo()))
                         passedFilter = trigger.runTriggerFilter(infoStatus.getNativeInfo())
+                        print("*** passed filter: " + str(passedFilter))
                         if (passedFilter):
                             # fire the trigger defn 
                             self.fireTrigger(trigger)  
