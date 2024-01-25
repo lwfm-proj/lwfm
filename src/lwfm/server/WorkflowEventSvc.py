@@ -1,23 +1,26 @@
-
-#************************************************************************************************************************************
+# TODO logging vs. print 
+#***********************************************************************************
 # Flask app
 
 from flask import Flask, request, jsonify
 import pickle
-from lwfm.server.JobStatusSentinel import JobStatusSentinel
-from lwfm.base.JobEventHandler import JobEventHandler
-from lwfm.base.JobStatus import JobStatus, JobContext
+from lwfm.server.WorkflowEventProcessor import WorkflowEventProcessor
+from lwfm.base.JobStatus import JobStatus
+
 from lwfm.store.RunStore import RunJobStatusStore
 import logging
 
 app = Flask(__name__)
-jss = JobStatusSentinel()
+app.logger.disabled = True
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
+wfep = WorkflowEventProcessor()
 
 # most recent status
 _jobStatusCache = {}
 
 # history - to be replaced with a real DB TODO
-_jobStatusHistory = []
+# _jobStatusHistory = []
 
 @app.route('/')
 def index():
@@ -26,17 +29,28 @@ def index():
 @app.route('/emit', methods=['POST'])
 def emitStatus():
     jobId = request.form['jobId']
-    jobStatus = request.form['jobStatus']
     statusBlob = request.form['statusBlob']
-    statusObj = JobStatus.deserialize(statusBlob)
+    try:
+        statusObj = JobStatus.deserialize(statusBlob)
+    except Exception as ex:
+        print("exception deserializing statusBlob")
+        print(ex)
+        return '', 400
     # persist it for posterity
     RunJobStatusStore().write(statusObj)
+    # TODO - no...
     # store it locally for convenience
     _jobStatusCache[jobId] = statusObj
-    _jobStatusHistory.append(statusObj)
-    key = JobEventHandler(jobId, None, jobStatus, None, None, None).getKey()
-    jss.runHandler(key, statusObj) # This will check to see if the handler is in the JSS store, and run if so
-    return '', 200
+    # _jobStatusHistory.append(statusObj)
+    # TODO 
+    try:
+        # This will check to see if there is a job trigger and if so run it 
+        wfep.runJobTrigger(statusObj) 
+        return '', 200
+    except Exception as ex:
+        print("exception checking events")
+        print(ex)
+        return '', 400
 
 @app.route('/status/<jobId>')
 def getStatus(jobId : str):
@@ -44,10 +58,21 @@ def getStatus(jobId : str):
         stat = _jobStatusCache[jobId]
         try:
             return stat.serialize()
-        except ex as Exception:
+        except Exception as ex:
             print("*** exception from stat.serialize() " + str(ex))
             return ""
-    except:
+    except Exception:
+        return ""
+
+@app.route('/site/jobId/<jobId>')
+def getSiteByJobId(jobId : str):
+    try:
+        print("getSiteByJobId() jobId = " + jobId)
+        status = _jobStatusCache[jobId]
+        siteName = status.getJobContext().getSiteName()
+        return siteName
+    except Exception as ex:
+        print("*** exception from getSiteByJobId() " + str(ex))
         return ""
 
 @app.route('/all/statuses')
@@ -59,7 +84,7 @@ def getAllStatuses():
             try:
                 status = _jobStatusCache[jobId]
                 statuses.append(status.toJSON())
-            except ex as Exception:
+            except Exception as ex:
                 print("*** exception from stat.serialize() " + str(ex))
                 return ""
     except Exception as e:
@@ -67,62 +92,34 @@ def getAllStatuses():
         return ""
     return jsonify(statuses)
 
-@app.route('/set', methods = ['POST'])
-def setHandler():
-    jobId = request.form['jobId']
-    jobSiteName = request.form['jobSiteName']
-    jobStatus = request.form['jobStatus']
+
+@app.route('/setWorkflowEvent', methods = ['POST'])
+def setTrigger():
     try:
-        fireDefn = pickle.loads(request.form['fireDefn'].encode())
-    except:
-        fireDefn = ""
-    targetSiteName = request.form['targetSiteName']
-    targetContextStr = request.form['targetContext']
-    if (targetContextStr == ""):
-        targetContext = JobContext()
-    else:
-        targetContext = JobContext.deserialize(targetContextStr)
-    targetContext.setParentJobId(jobId)
-    # set the origin
-    handlerId = jss.setEventHandler(jobId, jobSiteName, jobStatus, fireDefn, targetSiteName, targetContext)
-    return handlerId
-
-
-@app.route('/setTerminal', methods = ['POST'])
-def setTerminal():
-    try:
-      jobId = request.form['jobId']
-      parentId = request.form['parentId']
-      originId = request.form['originId']
-      nativeId = request.form['nativeId']
-      siteName = request.form['siteName']
-      targetContext = JobContext()
-    except ex as Exception:
-      print(str(ex))
-    targetContext.setId(jobId)
-    targetContext.setParentJobId(parentId)
-    targetContext.setOriginJobId(originId)
-    targetContext.setNativeId(nativeId)
-    jss.setEventHandler(nativeId, siteName, "<<TERMINAL>>", "", "", targetContext)
-    return ""
-
+        obj = pickle.loads(request.form['triggerObj'].encode())
+        return wfep.setEventTrigger(obj)
+    except Exception as ex:
+        print(ex)   # TODO loggging 
+        return "", 400
 
 # unset a given handler
 @app.route('/unset/<handlerId>')
-def unsetHandler(handlerId : str):
-    return str(jss.unsetEventHandler(handlerId))
+def unsetTrigger(id : str):
+    return str(wfep.unsetEventTrigger(id))
 
 # unset all handers
 @app.route('/unsetAll')
-def unsetAllHandlers():
-    jss.unsetAllEventHandlers()
+def unsetAllTriggers():
+    wfep.unsetAllEventTriggers()
     return str(True)
 
 # list the ids of all active handers
 @app.route('/list')
-def listHandlers():
-    return str(jss.listActiveHandlers())
+def listTriggers():
+    return str(wfep.listActiveTriggers())
 
+
+"""
 def _getStatusHistory(jobId: str) -> []:
     results = []
     for record in _jobStatusHistory:
@@ -144,9 +141,6 @@ def _buildThreadJson(jobId: str) -> str:
         # does this child have children?
         subkids = _getChildren(child.getJobContext().getId())
 
-
-
-
 def _buildWFThread(jobId: str) -> str:
     status = getStatus(jobId)
     # does the job have a parent?
@@ -160,5 +154,6 @@ def _buildWFThread(jobId: str) -> str:
 # get the digital thread for a given workflow - returns a JSON blob
 @app.route('/wfthread/<jobId>')
 def getWFThread(jobId: str):
-  thread = _buildWFThread(jobId)
-  return thread
+    thread = _buildWFThread(jobId)
+    return thread
+"""

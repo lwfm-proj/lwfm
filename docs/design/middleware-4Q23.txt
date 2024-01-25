@@ -1,0 +1,19 @@
+
+Thoughts on middleware, 4Q23: 
+
+The lwfm middleware is deployable on any host.  A local user deployment for example.  Workflows running locally which call upon the Local Site will make use of this local middleware - the Event Handler, the MetaRepo, and the optional GUI.  Thus the Local Site driver needs a way to be told the address of its middleware services.  The ~/.lwfm/sites.txt file is a good place perhaps for that.  Thus workflows using the lwfm Local Site driver on any host in this user's scope could be pointed to the middleware at this address.  
+
+We can consider alternative locations for this configuration file.
+
+The enterprise might deploy the middleware at a known address.  Thus workflows running on any host - user hosts and managed enterprise hosts - could make use of this middleware.  The enterprise might permit access only to workflows on enterprise hosts - this is a network implementation.  For the enterprise Site, they will expose an Enterprise Site driver.  Thus calls on "setEventHandler" made by a workflow on the Local Site driver might be registered with a user local copy of the middleware, while a call on the Enterprise Site driver might use the enterprise middleware at a different address.  A given workflow might use both Site drivers.  
+
+Consider the case of a workflow running on a user local machine using both the Local Site and a specifically exposed Enterprise Site and their respective drivers.  Both expose middleware.  The workflow sets an event by calling the Local driver on scenarios such as: "when the Local job A finishes, run job B locally (or on the enterprise site)", or "when enterprise job A finishes, run job B locally (or on the enterprise site)" - all four are supported by the Local middleware.  
+
+If the workflow is running on an enterprise node, one can assume the enterprise process *does not* have access to the local machine and its middleware.  But what of the workflow written expressed in terms of the Local site?  Here the site properties startup file can indicate that the Enterprise middleware and the Local middleware are pointed at the same enterprise address.  Thus workflows written in this manner are portable.  
+
+(Workflows written in terms of sites other than the local are effectively hardcoded with the names of the Sites in class names - it would be nice to have a factory paradigm to avoid hardcoded names of sites as classes).
+
+In the case of two copies of the middleware - one local and one enterprise - the event handlers can be distinct.  The MetaRepo may or may not be completely independent - one can see a need to provide import/export between MetaRepos in either direction.  This is especially true when the enterprise site is a remote site (e.g. cloud, national lab, etc.) and the data wants to be liberated back to the local or local enterprise MetaRepo.  
+
+The full triggering model would permit many kinds of joins other than just A -> B job chains.  Sets of A jobs to complete, fully or partially, in any amount of time or in a specific time interval, recurring or one-off.  Conceptually these jobs do not need to have all been run on the same site.  Data triggers fire when data with a particular metadata signature is created.  This is communicated as an INFO status event.  
+

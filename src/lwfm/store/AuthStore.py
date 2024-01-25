@@ -30,13 +30,13 @@ class AuthStore():
             name = None
             for line in f:
                 # We need to be able to have multiline vars for private keys
-                if line.count("=") == 1:
+                line = line.strip()
+                if line.count("=") == 1 and not line[-1] == "=": # Also allow an equal at the end, eg if we're using base64
                     name, var = line.split("=")
-                    name = name.strip()
+                    name = name.strip() # We have to strip again because there might have been whitespace around the =
                     myvars[name] = var.strip()
                 else:
-                    var = line.strip()
-                    myvars[name] += "\n" + var
+                    myvars[name] += "\n" + line
         return myvars
 
 

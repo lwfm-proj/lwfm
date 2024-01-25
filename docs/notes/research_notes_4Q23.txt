@@ -1,0 +1,86 @@
+
+Research notes and take-aways - 4Q23
+====================================
+
+-- AI assistants for workflow authoring -- 
+
+One of our developers spent some time in 2023 trying to use the general OpenAPI GPT-3.5 directly, loading the full lwfm codebase and supporting documentation (published papers), and using langchain to abstract the vendor APIs.  A set of use cases were suggested (documented separately).  The results were not particularly good, perhaps because the general GPT was selected, perhaps for other reasons, but the exercise was intentionally and primarily to be simply for the learning.
+
+A good amount of effort in general was spent in 2023 in an effort to simply to stay relatively current with latest developments in the generative AI / LLM space.  While AI might be an over-used term to simply mean "misunderstood program", and while we might be generally at risk of AI over-hype leading to a second AI winter, the type and speed of the current developments in the field suggest otherwise, suggest its time to take AI seriously, suggest we plan for a future where certain science fictions are facts.  It seems to be becoming the case that problems with AI implementations today can be solved simply by waiting a little while and letting the industry solve them.  Publishing any interim, application-specific non-earth-shattering result seems futile - what use is publishing a paper in March for a conference in November?  The speed of the industry is moving much faster than that, as evidenced by how unimpressive and behind the work seemed to be at SC23.  
+
+In the coming year we anticipate greater focus on results from the LLMs and their use cases.  The question is, what result is deliverable at this time, and what implementation tools are available to achieve those results, again, at this time.  We say this understanding that like in the days of "web time", the industry is moving fast, perhaps faster than ever, and that issues which seem like insurmountable problems today can and likely will be solved in the near future.
+
+So while up to this point the focus of the research has been on workflow tools, we now make the assumption that the tool, practically speaking, exists, and we now turn our attention to leveraging AI tooling to aid in the authoring, execution, and monitoring of those workflows.  
+
+Which workflow tool will we use?  See a separate document for that analysis, but the short answer for these purposes is lwfm, which is the only known framework which supports both the runtime and the data management aspects of the workflow.  And, we would argue, what is gleaned from this exercise will be portable to potentially any workflow too.
+
+
+-- Areas for future workflow collaboration --
+
+Independent of the work with AI, as mentioned here and elsewhere, the ExaWorks team's software offerings match those of lwfm most closely, albeit in different forms.  Bolting data management to it and assuming the PSI/J runtime model as lwfm's runtime is an area for potential future collaboration.  
+
+Workflow interoperability formats are a common area for future collaboration.  The CWL seems the dominant player in national lab circles, though we wonder aloud about its intersection with longstanding workflow formats in industry.  We note at SC23 a paper which first translated CWL workflows into Python before using them with a LLM.
+
+Workflow rendering to a non-technical audience is also of interest, especially workflows which are dynamic in nature and able to be created or modified on the fly.  These are especially difficult to program, debug, and monitor.  
+
+Metadata interchange, to defined syntactic and semantic standards, is another area for collaborative work.  lwfm's MetaRepo provides for metadata import/export, but to its own format.  This metadata standard includes the runtime metadata (e.g. job status) and the ability to intersect the two in a comprehensive digital thread. 
+
+And as mentioned, if a job's requirements were defined to a standard format, and a compute resource's capabilities were defined to a standard format, then the job and compute resource would be able to be matched with each other automatically.
+
+We turn attention now to the AI assistant tools.
+
+
+-- AI assistants and NLP -- 
+
+For starters, we will assume that the human-computer interface, in its best case, is conversational.  That might be implemented as a text chat, or a voice chat.  This means at least two things: that the language to use in expressing the human's intent and the computer's response will be close to natural language, and that the interaction is bidirectional and/or iterative.  We've recently seen it written in a Forbes guest article that the industry will move beyond conversational interfaces.  Short of a brain-stem retrofit, which I for one will be signing up for as soon as available, we'll continue to assume that the human-computer interface is conversational and in natural language.
+
+In the past, NLP has been rejected for programming because of its ambiguity.  The difference this time is the iterative nature of the human making the intent, and the iterative nature of the computer responding.  The solution is converged upon, and the interaction becomes one of specifying the intent, and then potentially specifying a validation of the response.  Test-driven development and "V&V" mindsets have come into their own.  The pattern becomes "given X, when Y happens do Z".  We can assert on X, that Y happened, that Z resulted.  
+
+What this also means is the internal representation of the program or workflow is free to diverge from the NLP used to generate it.  It should therefore become less onerous for the industry to adopt a standard representation of a workflow.  Donald Knuth in his writing on literate programming suggests we that we write programs for people, to be read and modified by people, not by and for machines.  Now we can amend this, to say we "render programs for people", as the AI assistant backed by LLMs can translate between forms depending on the audience - one rendering for a programmer person, another for their manager.  How the program was written is a separate consideration, one which might differ from programmer person to person.
+
+
+-- Customizing the LLM -- 
+
+Behind the current generation of AI tools, chatbots, image generators, music makers, and the like, are LLMs.  These have been released by a few major players, in revisions which increase in the size of their training set and model size, speed of response, accuracy, etc.  Some of these LLMs are general, trained on literature and more often current news, and some are tailored for programming languages, trained on open source code.  However, even code-specific LLMs will not be wise to an organization's own codebase.  Somehow the model must be tailored / tuned / retrained on this new information in order to be useful.  And there are a number of mechanisms for this, and these continue to be explored for their applicability.
+
+There are also multiple reasons for wanting to customize the LLM - for a company, for a department within a company, for a product team, for a person.  AI assistants want to be personal, culturally aware.  This means a proliferation of model instances, training sets, and tuning parameters.  AI applications might be hybrids of more than one model.  A mixture of experts.  We've argued elsewhere for a "Surrogate Model University" where models are stored, documented, selected, graded after use, retrained, etc.  Platforms are already springing up (Hugging Face, various chatbot vs. chatbot battle sites) to deploy and measure model efficacy.  Within an organization, intent on keeping its own code and other IP private, will be deploying a raft of custom model instances, implying a large configuration management i.e. CI/CD operational issue (albeit one which perhaps is repetitive and able to be assisted by some AI).  
+
+
+-- General AI coding and documentation assistants -- 
+
+How shall we employ the assistant we refer to as this "AI"?  For starters, tools like Copilot can and should be adopted, broadly.  Note the comments above regarding enterprise IP and internal instances.  In order to avoid the perception of issues with GE Research IP, all early work was done on personal non-corporate machines using personal accounts with the AI vendors.  No company code or IP was intermingled.  The enterprise needs to address this concern head-on, and remedy it urgently else they will unavoidably impede innovation.
+
+We used Copilot in the most recent refactoring done on lwfm, with significant and often startling results.  Technology which is not well understood is often confused for magic, and this is no exception.  It completes lines of code, writes lines from scratch based on code comments and/or the current code context.  It writes code documentation from scratch, and test cases which can execute with minimal modification.  It helps to write technical documentation - the "AI" is doing so right now as I am employing a Visual Studio Code plugin called Codeium and GPT-4 to write this document.  Copilot does not presently handle plaintext, but it could, and its underlying models do.  At times when writing code the Copilot and Codeium were running concurrently, both available to make suggestions or be applied where able.  
+
+
+-- Good fences and good neighbors -- 
+
+Tools like Copilot work in the IDE by importing open code files into the LLM context, and rotating this context based on various heuristics.  A self-hosted LLM could conceptually be trained on the entire codebase.  The result is an assistant which can aid in work on the current codebase as a "pair programmer".  
+
+But what about the case where we intend the LLM to learn, and be useful in assisting, the use of the codebase, not in maintaining it.  Does the implementation of the code distract the LLM?  We seem to think it does.  For example, a workflow interface which provides for job management, and under the hood implements parallel processing is exposing two idioms when only the former is public and necessary, and sufficient.  
+
+This suggests a programming pattern like that used in C or C++, and sometimes in Java, but rarely in Python, that of separating the interface from the implementation.  In theory, the LLM need only be given the interface to seed the context, and the better, the more literate, that interface is, with good comments, naming conventions, examples, the better.  
+
+While we ultimately do not care what the internal representation is of the workflow, for now we settle on Python.  We note at SC23 that workflows expressed in canonical XML were translated into Python before using with the LLM - this is because Python is more like natural language.  
+
+Since we intend to translate natural language to Python (or any language for that matter), it helps if the Python to be expressed flows similar to the natural expression.  This means good verb names for functions, for predicates, for limiting the number of arguments, etc.  In other words, it helps to use literate programming.  When we used the Copilot to generate unit test cases after a refactoring of the lwfm API based on these principals, the results improved - for example, the LLM "got" the job idioms we wanted.
+
+Naturally we used the Copilot during the refactoring.  We found at times when writing manual test cases the assistant suggested idioms which did not match the API, but we had to admit that in some cases were better than our originals, and we adopted them, put others on the project backlog.
+
+A take-away here is the potential for an enterprise to utilize tools like Copilot, perhaps walled off to protect IP, for not only programmer productivity but also for helping the programmer and the enterprise write code to desired best practices and guardrails.  If the assistant is trained on the idioms, it will suggest them.  We're reminded of Jeff Immelt's prediction that GE would going forward mostly or entirely hire people who could or would program.  This means a whole lot of semi-professional programmers and programming legacy.  The low-code / no-code trend, enhanced by LLMs, just amplifies this problem.  The AI is democratizing, with all the issues that implies for the authorities.  
+
+
+-- AI repeatability -- 
+
+We found that there would be times when the assistant was on a "streak" and able to make many useful suggestions.  It had built up a useful context in the session it had with the user.  Then a day later, without some of the earlier day's context setting, the same prompts would produce differing / lesser results.  
+
+This gets to the point about configuration management - an enterprise will want to have repeatable consistent results, and that begins with good boring configuration management of code and data, and the line between is blurring, as Von Neumann said.  Seeding of context is important, with today's tools.
+
+
+-- Next steps -- 
+
+Having hit a wall with base Copilot as it pertains to authoring workflows with the LLM, we need to consider a broader set of tools which together form the "workflow assistant" application.  Work with the OpenAI API becomes again a good place to start.  
+
+Given the conversational nature of the interaction, the assistant application has the opportunity to use this time to also help tease out documentation - the "provenancial why" - and store this with other provenancial information in the digital thread.  GitHub itself is already experimenting with a form of this with "Copilot PR" for helping a developer document the intention behind a code check-in.  
+
+
