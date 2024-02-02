@@ -104,6 +104,46 @@ There's an approaching conference proceeding deadline - March 1, for a conferenc
 A corollary to this is that its vitally important for an organization to stay abreast of the current state of the art, even if that current state is not yet ready for prime time.  Give it time - it will.  And likely quickly.  So the organization needs to understand the technology, understand what's within range, and then wait for it, ready to jump on it when it arrives.
 
 
+-- OpenAI C.F. -- 
+
+I mentioned before the documentation stinks.  The product website is bewildering.  The pricing and chasm between the ChatGPT side and the OpenAI API side is confusing, not to mention the Copilot aspect.  I'm documenting here what I got so I remember:
+
+me@gmail.com    
+    - uses Google authentication
+    - $20/mo. account, thus permitting access to GPT Store, askthecode, etc.
+
+me@518computing.com
+    - uses user/password login with "free" $5/mo. account - no payment info provided
+    - no access to GPT Store; throttled access to GPT-4
+    - can create API keys, but cannot use with GPT Store models 
+    + links to "lwfm assistant" team
+        - team has higher throttle limits to GPT-4 and access to GPT Store
+        - cannot create API keys under team account 
+
+We see via the OpenAI Discord channel that you explicitly cannot call GPT Store models from the API... only from the "ChatGPT Ecosystem".
+
+    "Is the ChatGPT API included in the ChatGPT Plus subscription?
+    No, the ChatGPT API and ChatGPT Plus subscription are billed separately. The API has its own pricing, which can be found at https://openai.com/pricing. The ChatGPT Plus subscription covers usage on chat.openai.com only and costs $20/month."
+
+I'm quite likely to terminate my $20/mo me@gmail.com account with the next billing cycle.  The company is buying a $25/mo/person Team account which I can use for "chat" purposes, playing with GPTs from the Store, etc.
+
+Copilot is billed separately at $10/mo via GitHub.  (I'm otherwise on the "free" GitHub plan, not the $4/mo. "pro" plan.)
+
+I'll be keeping Copilot for now, but the truth is I use Codeium.  I'm still on the waitlist for Copilot Voice.  Unless I get it I might dump Copilot, but it probably makes sense to keep given the leap-frogging going on in this space.
+
+It still remains how to pay for direct OpenAI API calls.  The me@518computing.com account is still free with no associated credit card.  The me@gmail account has an associated credit card and a cap.  I've made API keys against both.  Calling for a list available models of course returns a different set depending on which account is used - the account with a credit card includes GPT-4 and several variations / versions.
+
+What a racket. 
+
+Next steps: At this point we're going all-in with the me@518 account, so we'll use the free account to setup a test app, then later in Feb we'll switch to the $20/mo. account and try the same test app vs. GPT-4.  Being unable to use the "askthecode" special sauce, next we'll try "fine tuning" the OpenAI base model (which one?) with our lwfm code and see how it goes.  We can also try using langchain as the Python interface.  A re-look at the models on Hugging Face is probably also in order.
+
+
+
+
+
+
+
+
 
 
 
