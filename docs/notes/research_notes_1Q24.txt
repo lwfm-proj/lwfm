@@ -137,6 +137,38 @@ What a racket.
 
 Next steps: At this point we're going all-in with the me@518 account, so we'll use the free account to setup a test app, then later in Feb we'll switch to the $20/mo. account and try the same test app vs. GPT-4.  Being unable to use the "askthecode" special sauce, next we'll try "fine tuning" the OpenAI base model (which one?) with our lwfm code and see how it goes.  We can also try using langchain as the Python interface.  A re-look at the models on Hugging Face is probably also in order.
 
+Update: as it turns out, fine tuning GPT-4 base models is at this moment by invitation only... "Fine-tuning for GPT-4 is in an experimental access program - eligible users can request access in the fine-tuning UI when creating a new fine-tuning job."
+
+"To fine-tune a model, you are required to provide at least 10 examples. We typically see clear improvements from fine-tuning on 50 to 100 training examples with gpt-3.5-turbo but the right number varies greatly based on the exact use case.
+
+We recommend starting with 50 well-crafted demonstrations and seeing if the model shows signs of improvement after fine-tuning."
+
+OK... next steps... not thinking working up 50 examples is a good idea right now, so we'll not do that yet.  We'll continue to explore few-shot techniques with some better promoting, and explore chain-of-* techniques.  
+
+
+-- Working Examples? --
+
+There already seems to be a debris field of abandoned models, libs, and the like.  Documentation is often stale, examples on execution either openly gripe about deprecation if they run at all.  Most do not run, and we see this widely, at Hugging Face, on examples which pop to the top of the Google search, of the results returned by chatbots.  
+
+
+-- Prompt Engineering --
+
+Isn't it like programming?  Will it survive as a discipline?  Will the bot get much better at understanding our language, our intention, the need to decompose our directive into subtasks, etc.  Seems likely.
+
+
+-- Chain of Thought / Reasoning Capture --
+
+It would seem plausible that as we break standard work down into constituent pieces, we do so in terms of the building blocks of standard work.  Each building block is some named action, some verb, likely constructed from the base workflow language, now itself part of the language.  Examples can be provided to the model to reinforce its intended usage where not discernable from well-formed signatures and code documents.
+
+So it seems that CoT might be less used in standard work, and more so in novel.  What is "standard work"?  Anything which wants to be repeatable, is worth forming up well enough to teach it to the model cleanly enough to get reasonably confident in its repeatable results.  Over time, we expect the model's ability to learn to improve, but even still, for a unit of work the human expects good results, some kind of guidance, or "trust but verify" is required.
+
+In a modality where the model is assisting in standard work, it might be clear to the user when it is being asked to perform a task which falls outside of its prescribed standard work - refusal to comply is perhaps heavy handed, but notification at least.
+
+CoT also seems to be more about the human's ability to do task deconstruction.  Outside of certain professional disciplines (e.g. software engineering) that skill might be lacking in the user.  Can the model be used to help deconstruct the end goal into sub-goals?  See the wf_cot_1Q24.txt for an example dialog.
+
+
+
+
 
 
 
