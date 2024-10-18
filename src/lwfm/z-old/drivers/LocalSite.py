@@ -6,13 +6,12 @@ import logging
 
 import os
 import shutil
-import multiprocessing 
+import multiprocessing
 import pickle
 import json
 import math
 
 from datetime import datetime
-from dateutil.relativedelta import relativedelta
 from pathlib import Path
 
 from lwfm.base.Site import Site, SiteAuthDriver, SiteRunDriver, SiteRepoDriver
@@ -20,20 +19,23 @@ from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues, fetchJobStatus
 from lwfm.base.JobContext import JobContext
-from lwfm.base.WorkflowEventTrigger import WorkflowEventTrigger, JobEventTrigger
+from lwfm.src.lwfm.midware.WorkflowEventTrigger import (
+    WorkflowEventTrigger,
+    JobEventTrigger,
+)
 from lwfm.server.WorkflowEventClient import WorkflowEventClient
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.store import BasicMetaRepoStore
 
 
-# *************************************************************************************
+# *********************************************************************
 
 # TODO make more flexible with configuration
 SITE_NAME = "local"
 LwfmBase._shortJobIds = True
 
 
-# *************************************************************************************
+# *********************************************************************
 
 
 class LocalJobStatus(JobStatus):
@@ -123,7 +125,7 @@ class LocalSiteRunDriver(SiteRunDriver):
         elif fromEvent:
             myContext = parentContext
         else:
-            # i am a child of the context given 
+            # i am a child of the context given
             myContext = JobContext.makeChildJobContext(parentContext)
         # In local jobs, we spawn the job in a new child process
         jstatus = LocalJobStatus(myContext)
@@ -186,7 +188,11 @@ class LocalSiteRunDriver(SiteRunDriver):
             status = LocalJobStatus.deserialize(serializedStatus)
             startDate = datetime.fromtimestamp(math.ceil(startTime / 1000))
             endDate = datetime.fromtimestamp(math.ceil(endTime / 1000))
-            statusDate = status.getEmitTime() - relativedelta(hours=8)
+
+            def subtract_hours(date, hours):
+                return date - datetime.timedelta(hours=hours)
+
+            statusDate = subtract_hours(status.getEmitTime(), 8)
             print("The start date of the range: {}".format(startDate))
             print("The start date of the status: {}".format(statusDate))
             print("The end date of the range: {}".format(endDate))
@@ -207,8 +213,14 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         super(LocalSiteRepoDriver, self).__init__()
         self._metaRepo = BasicMetaRepoStore.BasicMetaRepoStore()
 
-    def _makeRepoInfo(self, verb: RepoOp, success: bool, fromPath: str, toPath: str,
-                     metadata: dict = {}) -> str:
+    def _makeRepoInfo(
+        self,
+        verb: RepoOp,
+        success: bool,
+        fromPath: str,
+        toPath: str,
+        metadata: dict = {},
+    ) -> str:
         metadata["_verb"] = verb.value
         metadata["_success"] = success
         metadata["_fromPath"] = fromPath
@@ -216,7 +228,7 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         return str(metadata)
 
     def _copyFile(self, fromPath, toPath, jobContext, direction, metadata=None):
-        if (metadata is None):
+        if metadata is None:
             metadata = {}
         iAmOwnJob = False
         if jobContext is None:
@@ -254,15 +266,15 @@ class LocalSiteRepoDriver(SiteRepoDriver):
     ) -> SiteFileRef:
         fromPath = localRef
         toPath = siteRef.getPath() + os.sep + siteRef.getName()
-        if not self._copyFile(fromPath, toPath, jobContext, RepoOp.PUT, 
-                              siteRef.getMetadata()):
+        if not self._copyFile(
+            fromPath, toPath, jobContext, RepoOp.PUT, siteRef.getMetadata()
+        ):
             return None
 
         newSiteFileRef = FSFileRef.siteFileRefFromPath(toPath)
         newSiteFileRef.setMetadata(siteRef.getMetadata())
         self._metaRepo.notate(newSiteFileRef)
         return newSiteFileRef
-
 
     def get(
         self, siteRef: SiteFileRef, localRef: Path, jobContext: JobContext = None
@@ -275,7 +287,6 @@ class LocalSiteRepoDriver(SiteRepoDriver):
         # return success result
         return Path(str(toPath + os.sep + siteRef.getName()))
 
-
     def find(self, siteFileRef: SiteFileRef) -> [SiteFileRef]:
         return self._metaRepo.find(siteFileRef)
 
@@ -284,11 +295,10 @@ class LocalSiteRepoDriver(SiteRepoDriver):
 
 _repoDriver = LocalSiteRepoDriver()
 
+
 class LocalSite(Site):
     # There are no required args to instantiate a local site.
     def __init__(self):
         super(LocalSite, self).__init__(
             SITE_NAME, LocalSiteAuthDriver(), LocalSiteRunDriver(), _repoDriver, None
         )
-
-

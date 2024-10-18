@@ -4,13 +4,13 @@ import logging
 from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.SiteFileRef import FSFileRef
-from lwfm.base.WorkflowEventTrigger import DataEventTrigger
+from lwfm.src.lwfm.midware.WorkflowEventTrigger import DataEventTrigger
 
 siteName = "local"
 
 
 def _triggerFilter(metadata: dict = None) -> bool:
-    if (metadata["myMetaField"] == "ex4_metaflag"):
+    if metadata["myMetaField"] == "ex4_metaflag":
         return True
 
 

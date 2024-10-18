@@ -1,4 +1,3 @@
-
 # An example of managing local data.
 
 import logging
@@ -9,6 +8,7 @@ from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 
 siteName = "local"
 
+
 def example3(site: Site):
     # submit a job to create a file
     dataFile = "/tmp/ex3_date.out"
@@ -16,7 +16,7 @@ def example3(site: Site):
     jobDefnA.setEntryPoint("echo date = `date` > " + dataFile)
     statusA = site.getRunDriver().submitJob(jobDefnA)
     statusA = statusA.wait()
-    if (not statusA.isTerminalSuccess()):
+    if not statusA.isTerminalSuccess():
         print("job A failed")
         exit(1)
 
@@ -34,14 +34,14 @@ def example3(site: Site):
     statusB = statusB.wait()
     print("put job = " + statusB.toShortString())
 
-    # "get" the file by metadata  
+    # "get" the file by metadata
     siteFileRef = SiteFileRef()
     siteFileRef.setMetadata({"myMetaField3": "myMetaValue-" + time_str})
     foundSiteFileRefs = site.getRepoDriver().find(siteFileRef)
     print("found site file ref = " + str(foundSiteFileRefs))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.basicConfig()
     logging.getLogger().setLevel(logging.INFO)
 

@@ -1,1 +1,0 @@
-export PYTHONPATH=lwfm/src

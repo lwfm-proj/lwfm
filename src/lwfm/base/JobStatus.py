@@ -1,9 +1,9 @@
-# Job Status: a record of a state of the job's execution.  The job may go through many 
-# states in its lifetime - on the actual runtime Site the job status will be expressed 
-# in terms of their native status codes.  In lwfm, we desire canonical status messages 
-# so job chaining is permitted across sites.  Its the role of the Site's Run subsystem 
-# to produce these datagrams in their canonical form, though we leave room to express 
-# the native info too.  Some status codes might be emitted more than once (e.g. "INFO").  
+# Job Status: a record of a state of the job's execution.  The job may go through many
+# states in its lifetime - on the actual runtime Site the job status will be expressed
+# in terms of their native status codes.  In lwfm, we desire canonical status messages
+# so job chaining is permitted across sites.  Its the role of the Site's Run subsystem
+# to produce these datagrams in their canonical form, though we leave room to express
+# the native info too.  Some status codes might be emitted more than once (e.g. "INFO").
 # We provide a mechanism to track the job's parent-child relationships.
 
 
@@ -20,7 +20,7 @@ import json
 
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobContext import JobContext
-from lwfm.server.WorkflowEventClient import WorkflowEventClient
+from lwfm.midware.impl.WorkflowEventClient import WorkflowEventClient
 
 
 class _JobStatusFields(Enum):
@@ -31,6 +31,7 @@ class _JobStatusFields(Enum):
     EMIT_TIME = "emitTime"
     RECEIVED_TIME = "receivedTime"
     NATIVE_INFO = "nativeInfo"
+
 
 # The canonical set of status codes.  Run implementations will have their own sets, and
 # they must provide a mapping into these.
@@ -47,19 +48,20 @@ class JobStatusValues(Enum):
 
 # *************************************************************************************
 
+
 class JobStatus(LwfmBase):
     """
     TODO: cleanup docs
 
-    Over the lifetime of the running job, it may emit many status messages.  (Or, more 
-    specifically, lwfm might poll the remote Site for an updated status of a job it is 
+    Over the lifetime of the running job, it may emit many status messages.  (Or, more
+    specifically, lwfm might poll the remote Site for an updated status of a job it is
     tracking.)
 
-    The Job Status references the Job Context of the running job, which contains the id 
+    The Job Status references the Job Context of the running job, which contains the id
     of the job and other originating information.
 
-    The Job Status is then augmented with the updated status info.  Like job ids, which 
-    come in canonical lwfm and Site-specific forms (and we track both), so do job status 
+    The Job Status is then augmented with the updated status info.  Like job ids, which
+    come in canonical lwfm and Site-specific forms (and we track both), so do job status
     strings - there's the native job status, and the mapped canonical status.
 
     Attributes:
@@ -70,18 +72,18 @@ class JobStatus(LwfmBase):
 
     native status - the current native status string
 
-    emit time - the timestamp when the Site emitted the status - the Site driver will 
+    emit time - the timestamp when the Site emitted the status - the Site driver will
         need to populate this value
 
-    received time - the timestamp when lwfm received the Job Status from the Site; this 
+    received time - the timestamp when lwfm received the Job Status from the Site; this
         can be used to study latency in status receipt (which is by polling)
 
-    native info - the Site may inject Site-specific status information into the Job Status 
+    native info - the Site may inject Site-specific status information into the Job Status
         message
 
-    status map - a constant, the mapping of Site-native status strings to canonical 
-        status strings; native lwfm local jobs will use the literal mapping, and Site 
-        drivers will implement Job Status subclasses which provide their own 
+    status map - a constant, the mapping of Site-native status strings to canonical
+        status strings; native lwfm local jobs will use the literal mapping, and Site
+        drivers will implement Job Status subclasses which provide their own
         Site-to-canonical mapping.
 
     """
@@ -201,8 +203,8 @@ class JobStatus(LwfmBase):
                 self.getJobContext().getId(), self.getStatus().value, self.serialize()
             )
             # TODO: is there a better way to do this?
-            # put a little wait in to avoid a race condition where the status is emitted 
-            # and then immediately queried or two status messages are emitted in rapid 
+            # put a little wait in to avoid a race condition where the status is emitted
+            # and then immediately queried or two status messages are emitted in rapid
             # succession and they appear out of order
             time.sleep(1)
             self.clear()
@@ -241,8 +243,6 @@ class JobStatus(LwfmBase):
         in_json = json.dumps(s)
         in_obj = pickle.loads(json.loads(in_json).encode(encoding="ascii"))
         return in_obj
-
-
 
     def toShortString(self) -> str:
         return (

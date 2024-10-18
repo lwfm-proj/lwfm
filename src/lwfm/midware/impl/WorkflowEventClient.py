@@ -1,9 +1,10 @@
 import pickle
-import logging
+import logging  # TODO logging
 import json
 import requests
+from typing import List
 
-from lwfm.base.WorkflowEventTrigger import WorkflowEventTrigger
+from lwfm.midware.LwfMonitor import WfEvent
 
 
 class WorkflowEventClient:
@@ -13,9 +14,9 @@ class WorkflowEventClient:
         return self._JSS_URL
 
     # TODO - docs
-    def setEventTrigger(self, wfet: WorkflowEventTrigger) -> str:
+    def setEventTrigger(self, wfe: WfEvent) -> str:
         payload = {}
-        payload["triggerObj"] = pickle.dumps(wfet, 0).decode()
+        payload["triggerObj"] = pickle.dumps(wfe, 0).decode()
         response = requests.post(f"{self.getUrl()}/setWorkflowEvent", payload)
         if response.ok:
             # this is the job id of the registered job
@@ -38,7 +39,7 @@ class WorkflowEventClient:
         else:
             return False
 
-    def listActiveEventTriggers(self) -> [str]:
+    def listActiveEventTriggers(self) -> List[WfEvent]:
         response = requests.get(f"{self.getUrl()}/list")
         if response.ok:
             return eval(response.text)
@@ -89,4 +90,3 @@ class WorkflowEventClient:
 
     def getWorkflowUrl(self, jobContext) -> str:
         return "" + self.getUrl() + "/wfthread/" + jobContext.getId()
-

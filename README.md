@@ -1,5 +1,8 @@
 # lwfm
 
+TODO stale
+TODO notate necessary libs = conda + conda / pip compatibility, pip install -r requirements.txt
+
 "Lightweight Work Flow Manager"
 
 A lightweight implementation of a 4-part framework for locally-managed inter-site workflow interoperability.

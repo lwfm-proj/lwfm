@@ -1,5 +1,5 @@
-# TODO logging vs. print 
-#***********************************************************************************
+# TODO logging vs. print
+# ***********************************************************************************
 # Flask app
 
 from flask import Flask, request, jsonify
@@ -12,7 +12,7 @@ import logging
 
 app = Flask(__name__)
 app.logger.disabled = True
-log = logging.getLogger('werkzeug')
+log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
 wfep = WorkflowEventProcessor()
 
@@ -22,38 +22,41 @@ _jobStatusCache = {}
 # history - to be replaced with a real DB TODO
 # _jobStatusHistory = []
 
-@app.route('/')
-def index():
-  return str(True)
 
-@app.route('/emit', methods=['POST'])
+@app.route("/")
+def index():
+    return str(True)
+
+
+@app.route("/emit", methods=["POST"])
 def emitStatus():
-    jobId = request.form['jobId']
-    statusBlob = request.form['statusBlob']
+    jobId = request.form["jobId"]
+    statusBlob = request.form["statusBlob"]
     try:
         statusObj = JobStatus.deserialize(statusBlob)
     except Exception as ex:
         print("exception deserializing statusBlob")
         print(ex)
-        return '', 400
+        return "", 400
     # persist it for posterity
     RunJobStatusStore().write(statusObj)
     # TODO - no...
     # store it locally for convenience
     _jobStatusCache[jobId] = statusObj
     # _jobStatusHistory.append(statusObj)
-    # TODO 
+    # TODO
     try:
-        # This will check to see if there is a job trigger and if so run it 
-        wfep.runJobTrigger(statusObj) 
-        return '', 200
+        # This will check to see if there is a job trigger and if so run it
+        wfep.runJobTrigger(statusObj)
+        return "", 200
     except Exception as ex:
         print("exception checking events")
         print(ex)
-        return '', 400
+        return "", 400
 
-@app.route('/status/<jobId>')
-def getStatus(jobId : str):
+
+@app.route("/status/<jobId>")
+def getStatus(jobId: str):
     try:
         stat = _jobStatusCache[jobId]
         try:
@@ -64,8 +67,9 @@ def getStatus(jobId : str):
     except Exception:
         return ""
 
-@app.route('/site/jobId/<jobId>')
-def getSiteByJobId(jobId : str):
+
+@app.route("/site/jobId/<jobId>")
+def getSiteByJobId(jobId: str):
     try:
         print("getSiteByJobId() jobId = " + jobId)
         status = _jobStatusCache[jobId]
@@ -75,7 +79,8 @@ def getSiteByJobId(jobId : str):
         print("*** exception from getSiteByJobId() " + str(ex))
         return ""
 
-@app.route('/all/statuses')
+
+@app.route("/all/statuses")
 def getAllStatuses():
     print("Starting get statuses")
     try:
@@ -93,28 +98,31 @@ def getAllStatuses():
     return jsonify(statuses)
 
 
-@app.route('/setWorkflowEvent', methods = ['POST'])
+@app.route("/setWorkflowEvent", methods=["POST"])
 def setTrigger():
     try:
-        obj = pickle.loads(request.form['triggerObj'].encode())
+        obj = pickle.loads(request.form["triggerObj"].encode())
         return wfep.setEventTrigger(obj)
     except Exception as ex:
-        print(ex)   # TODO loggging 
+        print(ex)  # TODO loggging
         return "", 400
 
+
 # unset a given handler
-@app.route('/unset/<handlerId>')
-def unsetTrigger(id : str):
+@app.route("/unset/<handlerId>")
+def unsetTrigger(id: str):
     return str(wfep.unsetEventTrigger(id))
 
+
 # unset all handers
-@app.route('/unsetAll')
+@app.route("/unsetAll")
 def unsetAllTriggers():
     wfep.unsetAllEventTriggers()
     return str(True)
 
+
 # list the ids of all active handers
-@app.route('/list')
+@app.route("/list")
 def listTriggers():
     return str(wfep.listActiveTriggers())
 
