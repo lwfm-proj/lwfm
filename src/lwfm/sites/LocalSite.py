@@ -18,11 +18,12 @@ from pathlib import Path
 from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo
 from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
-from lwfm.base.JobStatus import JobStatus, JobStatusValues, fetchJobStatus
+from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.JobContext import JobContext
 from lwfm.midware.LwfMonitor import (
     WfEvent,
     JobEvent,
+    LwfMonitor
 )
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.store import BasicMetaRepoStore
@@ -141,7 +142,7 @@ class LocalSiteRun(SiteRun):
         return jstatus
 
     def getStatus(self, jobContext: JobContext) -> JobStatus:
-        return fetchJobStatus(jobContext.getId())
+        return LwfMonitor.fetchJobStatus(jobContext.getId())
 
     def cancel(self, jobContext: JobContext) -> bool:
         # Find the locally running thread and kill it

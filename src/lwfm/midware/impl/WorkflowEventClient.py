@@ -4,7 +4,6 @@ import json
 import requests
 from typing import List
 
-from lwfm.midware.LwfMonitor import WfEvent
 
 
 class WorkflowEventClient:
@@ -14,7 +13,7 @@ class WorkflowEventClient:
         return self._JSS_URL
 
     # TODO - docs
-    def setEventTrigger(self, wfe: WfEvent) -> str:
+    def setEventTrigger(self, wfe) -> str:
         payload = {}
         payload["triggerObj"] = pickle.dumps(wfe, 0).decode()
         response = requests.post(f"{self.getUrl()}/setWorkflowEvent", payload)
@@ -39,7 +38,7 @@ class WorkflowEventClient:
         else:
             return False
 
-    def listActiveEventTriggers(self) -> List[WfEvent]:
+    def listActiveEventTriggers(self) -> List[str]:
         response = requests.get(f"{self.getUrl()}/list")
         if response.ok:
             return eval(response.text)

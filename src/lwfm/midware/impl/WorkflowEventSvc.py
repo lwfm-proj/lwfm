@@ -4,7 +4,7 @@
 
 from flask import Flask, request, jsonify
 import pickle
-from lwfm.server.WorkflowEventProcessor import WorkflowEventProcessor
+from lwfm.midware.impl.WorkflowEventProcessor import WorkflowEventProcessor
 from lwfm.base.JobStatus import JobStatus
 
 from lwfm.store.RunStore import RunJobStatusStore

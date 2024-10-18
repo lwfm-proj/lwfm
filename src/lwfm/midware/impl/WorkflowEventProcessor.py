@@ -8,12 +8,10 @@ import threading
 from typing import List
 
 
-from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext, fetchJobStatus
+from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
 from lwfm.base.Site import Site
 from lwfm.midware.LwfMonitor import (
-    DataEvent,
     JobEvent,
-    JobSetEvent,
     WfEvent,
 )
 
@@ -118,7 +116,7 @@ class WorkflowEventProcessor:
         newStatus.emit()
         return wfet
 
-    def _initDataEventTrigger(self, wfet: DataEvent) -> WfEvent:
+    """     def _initDataEventTrigger(self, wfet: DataEvent) -> WfEvent:
         # TODO
         # set the job context under which the new job will run
         newJobContext = JobContext()  # will assign a new job id
@@ -128,13 +126,13 @@ class WorkflowEventProcessor:
         newStatus = JobStatus(newJobContext)
         newStatus.setStatus(JobStatusValues.PENDING)
         newStatus.emit()
-        return wfet
+        return wfet """
 
-    # Regsiter an event handler.  When a jobId running on a job Site
+    """     # Regsiter an event handler.  When a jobId running on a job Site
     # emits a particular Job Status, fire the given JobDefn (serialized) at the target
     # Site.  Return the new job id.
-    # TODO update doc, logging
-    def setEventTrigger(self, wfet: WfEvent) -> str:
+    # TODO update doc, logging """
+    """     def setEventTrigger(self, wfet: WfEvent) -> str:
         try:
             # for debug
             # perform per event trigger type initialization
@@ -154,7 +152,7 @@ class WorkflowEventProcessor:
             return wfet.getTargetContext().getId()
         except Exception as ex:
             print(ex)
-            return None
+            return None """
 
     def unsetEventTrigger(self, handlerId: str) -> bool:
         try:
@@ -167,11 +165,11 @@ class WorkflowEventProcessor:
     def unsetAllEventTriggers(self) -> None:
         self._eventHandlerMap = dict()
 
-    def listActiveTriggers(self) -> List[WfEvent]:
+    """     def listActiveTriggers(self) -> List[WfEvent]:
         handlers = []
         for key in self._eventHandlerMap:
             handlers.append(key)
-        return handlers
+        return handlers """
 
     # TODO docs and logging
     def runJobTrigger(self, jobStatus: JobStatus) -> bool:

@@ -4,7 +4,7 @@ from lwfm.midware.Logger import Logger
 from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatusValues
-from lwfm.src.lwfm.midware.WorkflowEventTrigger import JobEventTrigger
+from lwfm.midware.LwfMonitor import LwfMonitor, JobEvent
 
 
 if __name__ == "__main__":
@@ -27,18 +27,16 @@ if __name__ == "__main__":
 
     # when job A gets to the COMPLETE state, fire job B on the named site;
     # registering it returns the job id we need to set up the next handler
-    statusB = site.getRun().setWorkflowEventTrigger(
-        JobEventTrigger(
-            statusA.getJobId(), JobStatusValues.COMPLETE.value, jobDefnB, "local"
-        )
+    statusB = LwfMonitor.setEvent(
+        JobEvent(jobDefnB, statusA.getJobContext(), 
+                 statusA.getJobId(), None, JobStatusValues.COMPLETE.value)
     )
     Logger.info("job B set as a trigger on A", statusB)
 
     # when job B gets to the COMPLETE state, fire job C on the named site
-    statusC = site.getRun().setWorkflowEventTrigger(
-        JobEventTrigger(
-            statusB.getJobId(), JobStatusValues.COMPLETE.value, jobDefnC, "local"
-        )
+    statusC = LwfMonitor.setEvent(
+        JobEvent(jobDefnC, statusB.getJobContext(), 
+                 statusB.getJobId(), None, JobStatusValues.COMPLETE.value)
     )
     Logger.info("job C set as a trigger on B", statusC)
 

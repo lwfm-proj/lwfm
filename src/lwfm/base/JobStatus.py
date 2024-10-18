@@ -20,8 +20,7 @@ import json
 
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobContext import JobContext
-from lwfm.midware.impl.WorkflowEventClient import WorkflowEventClient
-
+from lwfm.midware.LwfMonitor import LwfMonitor
 
 class _JobStatusFields(Enum):
     STATUS = "status"  # canonical status
@@ -198,8 +197,7 @@ class JobStatus(LwfmBase):
             self.setNativeStatusStr(status)
         self.setEmitTime(datetime.utcnow())
         try:
-            wfec = WorkflowEventClient()
-            wfec.emitStatus(
+            LwfMonitor.emitStatus(
                 self.getJobContext().getId(), self.getStatus().value, self.serialize()
             )
             # TODO: is there a better way to do this?
@@ -293,29 +291,6 @@ class JobStatus(LwfmBase):
                 sum += increment
             elif sum < maxmax:
                 sum += max
-            status = fetchJobStatus(status.getJobId())
+            status = JobStatus.deserialize(LwfMonitor.fetchJobStatus(status.getJobId()))
         return status
 
-
-@staticmethod
-def fetchJobStatus(jobId: str) -> JobStatus:
-    """
-    Given a canonical job id, fetch the latest Job Status from the lwfm service.
-    The service may need to call on the host site to obtain up-to-date status.
-
-    Args:
-        jobId (str): canonical job id
-
-    Returns:
-        JobStatus: Job Status object, or None if the job is not found
-    """
-    try:
-        wfec = WorkflowEventClient()
-        statusBlob = wfec.getStatusBlob(jobId)
-        if statusBlob:
-            return JobStatus.deserialize(statusBlob)
-        else:
-            return None
-    except Exception as ex:
-        logging.error(str(ex))
-        return None

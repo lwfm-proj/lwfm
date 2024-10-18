@@ -1,6 +1,6 @@
 """
 A singleton logger class for the lwfm (Lightweight Workflow Manager) system.
-
+TODO docs 
 This class provides a wrapper around Python's built-in logging module,
 offering simplified logging methods with optional JobContext integration.
 It initializes a logger with INFO level by default and provides methods

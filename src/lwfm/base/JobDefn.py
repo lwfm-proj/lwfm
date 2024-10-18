@@ -18,7 +18,6 @@ from pathlib import Path
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.SiteFileRef import SiteFileRef
 from lwfm.base.JobContext import JobContext
-from lwfm.base.JobStatus import JobStatus
 
 class _JobDefnFields(Enum):
     NAME               = "name"         # optional - jobs do not need to be named - 
@@ -97,9 +96,6 @@ class JobDefn(LwfmBase):
 
     def getJobArgs(self) -> [str]:
         return LwfmBase._getArg(self, _JobDefnFields.JOB_ARGS.value)
-
-    def submit(self, site, parentContext: JobContext = JobContext()) -> JobStatus:
-        return site.getRunDriver().submitJob(self, parentContext)
 
 
 #************************************************************************************************************************************

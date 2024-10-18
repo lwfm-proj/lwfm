@@ -8,7 +8,7 @@ from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobDefn import JobDefn
 from lwfm.midware.Logger import Logger
-from .impl import WorkflowEventClient
+from lwfm.midware.impl.WorkflowEventClient import WorkflowEventClient
 
 # TODO docs 
 
@@ -16,6 +16,7 @@ from .impl import WorkflowEventClient
 class _WfEventFields(Enum):
     FIRE_DEFN = "fireDefn"
     TARGET_CONTEXT = "targetContext"
+    RECURRING = "recurring"
 
 
 """
@@ -23,12 +24,11 @@ WfEvent: "when this happens, run this defined job in this context"; where a
 context includes the target runtime site 
 
     - TimeEvent: a time-based event - "at this time, run this defined job in
-      this context"
-    - CronEvent: pass in a cron expression, "every time this cron expression
-      matches, run this defined job in this context"
-    - JobEvent: a job reaches a status
-    - JobSetEvent: a set of jobs reaches a collective state 
-    - DataEvent: data is posted which matches a metadata filter
+      this context"; a DailyTimeEvent is similar but recurring 
+    - JobEvent: a job reaches a status; can also be used with no job id, in which
+      case it fires for any job which reaches he status  
+    - (JobSetEvent: a set of jobs reaches a collective state - can be on mixed sites, marked as members of the same set)
+    - (DataEvent: data is posted which matches a metadata filter)
 """
 
 
@@ -40,10 +40,11 @@ class WfEvent(LwfmBase, ABC):
         if one is provided
     """
 
-    def __init__(self, fireDefn : JobDefn, targetContext: JobContext):
+    def __init__(self, fireDefn : JobDefn, targetContext: JobContext, recurring: bool = False):
         super(WfEvent, self).__init__(None)
         LwfmBase._setArg(self, _WfEventFields.FIRE_DEFN.value, fireDefn)
         LwfmBase._setArg(self, _WfEventFields.TARGET_CONTEXT.value, None)
+        LwfmBase._setArg(self, _WfEventFields.RECURRING.value, recurring)
 
     def getFireDefn(self) -> JobDefn:
         return LwfmBase._getArg(self, _WfEventFields.FIRE_DEFN.value)
@@ -84,6 +85,16 @@ class TimeEvent(WfEvent):
     def getTimestamp(self) -> datetime:
         return LwfmBase._getArg(self, _TimeEventFields.TIMESTAMP.value)
 
+class DailyTimeEvent(TimeEvent):
+    def __init__(
+        self,
+        fireDefn: JobDefn,
+        targetContext: JobContext,
+        timestamp: datetime
+    ):
+        super(DailyTimeEvent, self).__init__(fireDefn, targetContext, timestamp)
+        LwfmBase._setArg(self, _WfEventFields.RECURRING.value, True)
+
 
 # ***************************************************************************
 class _JobEventFields(Enum):
@@ -95,7 +106,7 @@ class _JobEventFields(Enum):
     JOB_STATUS = "jobStatus"
 
 
-class JobEvent(WfEvent):
+class JobEvent(WfEvent): 
     """
     Jobs emit status, including informational status.  Some status events are terminal -
     "finished", "cancelled" - and some are interim states.  Status strings in lwfm are
@@ -141,96 +152,91 @@ class JobEvent(WfEvent):
         self,
         fireDefn: JobDefn, 
         targetContext: JobContext, 
-        jobId: str,
-        jobStatus: str
+        jobId: str,     # if None passed, implies any job id 
+        jobSite: str,   # if None passed, implies any site
+        jobStatus: str  # if None passed, implies any status
     ):
         super(JobEvent, self).__init__(fireDefn, targetContext)
         LwfmBase._setArg(self, _JobEventFields.JOB_ID.value, jobId)
-        LwfmBase._setArg(self, _JobEventFields.JOB_SITE_NAME.value, None)
+        LwfmBase._setArg(self, _JobEventFields.JOB_SITE_NAME.value, jobSite)
         LwfmBase._setArg(self, _JobEventFields.JOB_STATUS.value, jobStatus)
-
-    def setJobId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobEventFields.JOB_ID.value, idValue)
+        if (jobId is None) or (jobSite is None) or (jobStatus is None):
+            LwfmBase._setArg(self, _WfEventFields.RECURRING.value, True)   
 
     def getJobId(self) -> str:
         return LwfmBase._getArg(self, _JobEventFields.JOB_ID.value)
 
-    def getStatus(self) -> str:
-        return LwfmBase._getArg(self, _JobEventFields.JOB_STATUS.value)
-
     def getJobSiteName(self) -> str:
         return LwfmBase._getArg(self, _JobEventFields.JOB_SITE_NAME.value)
-
-    def setJobSiteName(self, jobSiteName: str) -> None:
-        return LwfmBase._setArg(self, _JobEventFields.JOB_SITE_NAME.value, jobSiteName)
+    
+    def getJobStatus(self) -> str:
+        return LwfmBase._getArg(self, _JobEventFields.JOB_STATUS.value)
 
     def getKey(self) -> str:
         # TODO relax this limitation
         # We want to permit more than one event trigger for the same job, but for now
         # we'll limit it to one trigger per canonical job status name.
-        return str("" + self.getJobId() + "." + str(self.getStatus()))
+        return str("" + self.getJobId() + "." + str(self.getJobStatus()))
 
 
 # ***********************************************************************
 
 
-class _JobSetEventFields(Enum):
-    # Event handling for a set of jobs - a set of jobs reach a state implies the running
-    # of a job.  When all of the jobs in the set reach the given status, fire the
-    # registered job defn on the named target site in the given runtime context.
-    JOB_SET_ID = "jobSetId"
-    JOB_TRIGGER_FILTER = "jobTriggerFilter"
+# Event handling for a set of jobs - a set of jobs reach a state implies the running
+# of a job.  When all of the jobs in the set reach the given status, fire the
+# registered job defn on the named target site in the given runtime context.
+# JOB_SET_ID = "jobSetId"
+# JOB_TRIGGER_FILTER = "jobTriggerFilter"
 
 
-class JobSetEvent(WfEvent):
-    def __init__(
-        self, jobSetId: str, triggerFilter: str, fireDefn: str, targetSiteName: str
-    ):
-        super(JobSetEvent, self).__init__(fireDefn, targetSiteName)
-        LwfmBase._setArg(self, _JobSetEventFields.JOB_SET_ID.value, jobSetId)
-        LwfmBase._setArg(
-            self, _JobSetEventFields.JOB_TRIGGER_FILTER.value, triggerFilter
-        )
+# class JobSetEvent(WfEvent):
+#     def __init__(
+#         self, jobSetId: str, triggerFilter: str, fireDefn: str, targetSiteName: str
+#     ):
+#         super(JobSetEvent, self).__init__(fireDefn, targetSiteName)
+#         LwfmBase._setArg(self, _JobSetEventFields.JOB_SET_ID.value, jobSetId)
+#         LwfmBase._setArg(
+#             self, _JobSetEventFields.JOB_TRIGGER_FILTER.value, triggerFilter
+#         )
 
-    def setJobSetId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobSetEventFields.JOB_SET_ID.value, idValue)
+#     def setJobSetId(self, idValue: str) -> None:
+#         LwfmBase._setArg(self, _JobSetEventFields.JOB_SET_ID.value, idValue)
 
-    def getJobSetId(self) -> str:
-        return LwfmBase._getArg(self, _JobSetEventFields.JOB_SET_ID.value)
+#     def getJobSetId(self) -> str:
+#         return LwfmBase._getArg(self, _JobSetEventFields.JOB_SET_ID.value)
 
-    def setTriggerFilter(self, triggerFilter: Callable) -> None:
-        triggerFilterString = inspect.getsource(triggerFilter)
-        LwfmBase._setArg(
-            self,
-            _JobSetEventFields.JOB_TRIGGER_FILTER.value,
-            triggerFilterString,
-        )
+#     def setTriggerFilter(self, triggerFilter: Callable) -> None:
+#         triggerFilterString = inspect.getsource(triggerFilter)
+#         LwfmBase._setArg(
+#             self,
+#             _JobSetEventFields.JOB_TRIGGER_FILTER.value,
+#             triggerFilterString,
+#         )
 
-    def getTriggerFilter(self) -> str:
-        return LwfmBase._getArg(self, _JobSetEventFields.JOB_TRIGGER_FILTER.value)
+#     def getTriggerFilter(self) -> str:
+#         return LwfmBase._getArg(self, _JobSetEventFields.JOB_TRIGGER_FILTER.value)
 
-    def runTriggerFilter(self) -> bool:
-        # TODO what does this do?
-        triggerFilterString = self.getTriggerFilter()
-        return exec(triggerFilterString)
+#     def runTriggerFilter(self) -> bool:
+#         # TODO what does this do?
+#         triggerFilterString = self.getTriggerFilter()
+#         return exec(triggerFilterString)
 
 
 # ************************************************************************************
 
 
-class _DataEventFields(Enum):
+""" class _DataEventFields(Enum):
     # Event handling for a data event - data with a given metadata profile
     # is put on site X implies the running of a job on site Y.
     DATA_TRIGGER_FILTER = "dataTriggerFilter"
 
 
 class DataEvent(WfEvent):
-    """
     Data events are triggered when a job running on a site emits an INFO status
     message containing metadata that matches the user-supplied filter. The
     filter is a function that takes the metadata as input and returns a boolean
-    indicating whether the event should fire.
-    """
+    indicating whether the event should fire. 
+
 
     def __init__(self, triggerFilter: Callable, fireDefn: str, targetSiteName: str):
         super(DataEvent, self).__init__(fireDefn, targetSiteName)
@@ -264,7 +270,7 @@ class DataEvent(WfEvent):
 
     def getKey(self) -> str:
         return str("" + self.getId() + "." + "INFO.dt")
-
+ """
 
 # ***************************************************************************
 class LwfMonitor:
@@ -272,7 +278,24 @@ class LwfMonitor:
     def __init__(self):
         super(LwfMonitor, self).__init__()
 
-    def setWorkflowEventTrigger(self, wfe: WfEvent) -> JobContext:
+    def fetchJobStatus(self, jobId: str) -> str:
+        """
+        Given a canonical job id, fetch the latest Job Status from the lwfm service.
+        The service may need to call on the host site to obtain up-to-date status.
+
+        Args:
+            jobId (str): canonical job id
+
+        Returns:
+            JobStatus: Job Status object, or None if the job is not found
+        """
+        try:
+            return WorkflowEventClient().getStatusBlob(jobId)
+        except Exception as ex:
+            Logger.error("Error fetching job status: " + str(ex))
+            return None
+        
+    def setEvent(self, wfe: WfEvent) -> JobContext:
         """
         Set a job to be submitted when a prior job event occurs.
         A Site does not need to have a concept of these event handlers (most won't) and
@@ -305,7 +328,7 @@ class LwfMonitor:
         if wfe.getTargetSiteName() is None:
             wfe.setTargetSiteName("local")
         newJobId = WorkflowEventClient().setEventTrigger(wfe)
-        return fetchJobStatus(newJobId)
+        return self.fetchJobStatus(newJobId)
 
     def unsetWorkflowEventTrigger(self, wfe: WfEvent) -> bool:
         """
@@ -339,6 +362,17 @@ class LwfMonitor:
 
         Example:
             site = Site.getSite(siteName)
-            wfes = site.getRunDriver().listWorkflowEventTriggers()
+            myEvents = site.getRunDriver().listWorkflowEventTriggers()
         """
         raise NotImplementedError()
+    
+    def emitStatus(self, jobId, jobStatus, statusBlob) -> None:
+        try:
+            WorkflowEventClient().emitStatus(jobId, jobStatus, statusBlob)
+        except Exception as ex:
+            Logger.error("Error emitting job status: " + str(ex))
+
+
+
+
+LwfMonitor = LwfMonitor()
