@@ -1,20 +1,38 @@
 from enum import Enum
 import inspect
 from typing import Callable, List
+from abc import ABC
+from datetime import datetime, timezone
 
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobContext import JobContext
+from lwfm.base.JobDefn import JobDefn
+from lwfm.midware.Logger import Logger
 from .impl import WorkflowEventClient
 
+# TODO docs 
 
 # ************************************************************************
 class _WfEventFields(Enum):
     FIRE_DEFN = "fireDefn"
-    TARGET_SITE_NAME = "targetSiteName"
     TARGET_CONTEXT = "targetContext"
 
 
-class WfEvent(LwfmBase):
+"""
+WfEvent: "when this happens, run this defined job in this context"; where a
+context includes the target runtime site 
+
+    - TimeEvent: a time-based event - "at this time, run this defined job in
+      this context"
+    - CronEvent: pass in a cron expression, "every time this cron expression
+      matches, run this defined job in this context"
+    - JobEvent: a job reaches a status
+    - JobSetEvent: a set of jobs reaches a collective state 
+    - DataEvent: data is posted which matches a metadata filter
+"""
+
+
+class WfEvent(LwfmBase, ABC):
     """
         - fire defn: the JobDefn to fire if the event handler rule is satisfied
     - target site: the site on which the job defn will fire
@@ -22,44 +40,49 @@ class WfEvent(LwfmBase):
         if one is provided
     """
 
-    def __init__(self, fireDefn, targetSiteName):
+    def __init__(self, fireDefn : JobDefn, targetContext: JobContext):
         super(WfEvent, self).__init__(None)
         LwfmBase._setArg(self, _WfEventFields.FIRE_DEFN.value, fireDefn)
-        LwfmBase._setArg(self, _WfEventFields.TARGET_SITE_NAME.value, targetSiteName)
         LwfmBase._setArg(self, _WfEventFields.TARGET_CONTEXT.value, None)
 
-    def getFireDefn(self) -> str:
+    def getFireDefn(self) -> JobDefn:
         return LwfmBase._getArg(self, _WfEventFields.FIRE_DEFN.value)
 
-    def setFireDefn(self, fireDefn: str) -> None:
-        return LwfmBase._setArg(self, _WfEventFields.FIRE_DEFN.value, fireDefn)
-
-    def getTargetSiteName(self) -> str:
-        return LwfmBase._getArg(self, _WfEventFields.TARGET_SITE_NAME.value)
-
-    def setTargetSiteName(self, targetSiteName: str) -> None:
-        return LwfmBase._setArg(
-            self, _WfEventFields.TARGET_SITE_NAME.value, targetSiteName
-        )
-
-    def getTargetContext(self) -> str:
+    def getTargetContext(self) -> JobContext:
         return LwfmBase._getArg(self, _WfEventFields.TARGET_CONTEXT.value)
 
-    def setTargetContext(self, targetContext: JobContext) -> None:
-        return LwfmBase._setArg(
-            self, _WfEventFields.TARGET_CONTEXT.value, targetContext
-        )
+    #def setTriggerFilter(self, jobFilter: str) -> None:
+    #    # TODO
+    #    pass
 
-    def setTriggerFilter(self, jobFilter: str) -> None:
-        # TODO
-        pass
+    #def getTriggerFilter(self) -> str:
+    #    # TODO
+    #    pass
 
-    def getTriggerFilter(self) -> str:
-        # TODO
-        pass
+    #def getKey(self) -> str:
+    #    return self.getId()
 
-    def getKey(self) -> str:
-        return self.getId()
+# ***************************************************************************
+
+
+class _TimeEventFields(Enum):
+    TIMESTAMP = "timestamp"
+
+class TimeEvent(WfEvent):
+    def __init__(
+        self,
+        fireDefn: JobDefn,
+        targetContext: JobContext,
+        timestamp: datetime
+    ):
+        super(TimeEvent, self).__init__(fireDefn, targetContext)
+        if timestamp.tzinfo is None or timestamp.tzinfo.utcoffset(timestamp) is None:
+            raise ValueError("Timestamp must be a timezone-aware datetime object")
+        utc_timestamp = timestamp.astimezone(timezone.utc)
+        LwfmBase._setArg(self, _TimeEventFields.TIMESTAMP.value, utc_timestamp)
+
+    def getTimestamp(self) -> datetime:
+        return LwfmBase._getArg(self, _TimeEventFields.TIMESTAMP.value)
 
 
 # ***************************************************************************
@@ -109,19 +132,19 @@ class JobEvent(WfEvent):
             satisfied an the registered JobDefn should fire
 
 
-    To implement this functionality, the rule might need to able to save state.  The Run
+    TODO (To implement this functionality, the rule might need to able to save state.  The Run
     subsystem by virtue of the status message provides a means for the rule function to
-    post back tracking information.
+    post back tracking information.)
     """
 
     def __init__(
         self,
+        fireDefn: JobDefn, 
+        targetContext: JobContext, 
         jobId: str,
-        jobStatus: str,
-        fireDefn: str = None,
-        targetSiteName: str = None,
+        jobStatus: str
     ):
-        super(JobEvent, self).__init__(fireDefn, targetSiteName)
+        super(JobEvent, self).__init__(fireDefn, targetContext)
         LwfmBase._setArg(self, _JobEventFields.JOB_ID.value, jobId)
         LwfmBase._setArg(self, _JobEventFields.JOB_SITE_NAME.value, None)
         LwfmBase._setArg(self, _JobEventFields.JOB_STATUS.value, jobStatus)
@@ -203,10 +226,10 @@ class _DataEventFields(Enum):
 
 class DataEvent(WfEvent):
     """
-    Data events are triggered when a job running on a site emits an INFO status message
-    containing metadata that matches the user-supplied filter.  The filter is a function
-    that takes the metadata as input and returns a boolean indicating whether the event
-    should fire.
+    Data events are triggered when a job running on a site emits an INFO status
+    message containing metadata that matches the user-supplied filter. The
+    filter is a function that takes the metadata as input and returns a boolean
+    indicating whether the event should fire.
     """
 
     def __init__(self, triggerFilter: Callable, fireDefn: str, targetSiteName: str):

@@ -65,8 +65,9 @@ status.
 
 """
 
+# TODO format to 80 chars 
+
 from enum import Enum
-import logging  # TODO logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 import os
@@ -79,6 +80,7 @@ from lwfm.base.JobDefn import JobDefn
 from lwfm.base.SiteFileRef import SiteFileRef
 from lwfm.base.JobStatus import JobStatus
 from lwfm.midware.LwfMonitor import WfEvent
+from lwfm.midware.Logger import Logger
 
 
 # *********************************************************************************
@@ -170,39 +172,41 @@ class SiteRun(SitePillar):
         fromEvent: bool = False,
     ) -> JobStatus:
         """
-        Submit the job for execution on this Site.  It is an implementation detail of
-        the Site what that means - everything from pseudo-immediate command line
-        execution, to scheduling on an HPC system.  The caller should assume the run is
-        asynchronous.  We would assume all Sites would implement this method.  Note
-        that "compute type" is an optional member of JobDefn, and might be used by the
-        Site to direct the execution of the job.
+        Submit the job for execution on this Site. It is an implementation
+        detail of the Site what that means - everything from pseudo-immediate
+        command line execution, to scheduling on an HPC system. The caller
+        should assume the run is asynchronous. We would assume all Sites would
+        implement this method. Note that "compute type" is an optional member
+        of JobDefn, and might be used by the Site to direct the execution of
+        the job.
 
-        [We note that both the JobDefn and the JobContext potentially contain a
-        reference to a compute type.  Since the Job Context is historical, and provided
-        to give that historical context to the job we're about to run, its strongly
-        suggested that Site.Run implementations use the compute type named in the
-        JobDef, if the concept is present at all on the Site.  We note also
-        that compute type and Site are relatively interchangeable - one can model a
-        compute resource as a compute type, or as its own Site, perhaps with a complete
-        inherited Site driver implementation.  e.g. a NerscSite might have two trivially
-        subclassed Sites - one for Cori (rest in peace) and one for Perlmutter.  This
-        could have been implemented as one Site with two compute
-        types.  The Site driver author is invited to use whichever model fits them best.]
+        [We note that both the JobDefn and the JobContext potentially contain
+        a reference to a compute type. Since the Job Context is historical,
+        and provided to give that historical context to the job we're about to
+        run, its strongly suggested that Site.Run implementations use the
+        compute type named in the JobDef, if the concept is present at all on
+        the Site. We note also that compute type and Site are relatively
+        interchangeable - one can model a compute resource as a compute type,
+        or as its own Site, perhaps with a complete inherited Site driver
+        implementation. e.g. a NerscSite might have two trivially subclassed
+        Sites - one for Cori (rest in peace) and one for Perlmutter. This
+        could have been implemented as one Site with two compute types. The
+        Site driver author is invited to use whichever model fits them best.]
 
         Params:
-            jobDefn - the definition of the job to run, might include the name of a
-                script, include arguments for the run, etc.
-            parentContext - [optional - if none provided, one will be assigned and
-                managed by the lwfm framework] information about the
+            jobDefn - the definition of the job to run, might include the name
+                of a script, include arguments for the run, etc.
+            parentContext - [optional - if none provided, one will be assigned
+                and managed by the lwfm framework] information about the
                 current JobContext which might be running, thus the job we are
                 submitting will be tracked in the digital thread
-            fromEvent - [optional] if not provided, assigned false; if true, the job
-                is being submitted from an event handler, and thus
-                the first job status event has already been emitted and we need not
-                emit another
+            fromEvent - [optional] if not provided, assigned false; if true,
+                the job is being submitted from an event handler, and thus
+                the first job status event has already been emitted and we
+                need not emit another
         Returns:
-            JobStatus - preliminary status, containing a JobContext including the
-                canonical and Site-specific native job id
+            JobStatus - preliminary status, containing a JobContext including
+                the canonical and Site-specific native job id
 
         Example:
             site = Site.getSite(siteName)
@@ -286,6 +290,7 @@ class SiteRun(SitePillar):
             site = Site.getSite(siteName)
             jobStatusList = site.getRunDriver().getJobList(startTime, endTime)
         """
+        # TODO needed?
         pass
 
 
@@ -302,7 +307,10 @@ class SiteRepo(SitePillar):
 
     @abstractmethod
     def put(
-        self, localPath: Path, siteFileRef: SiteFileRef, jobContext: JobContext = None
+        self,
+        localPath: Path,
+        siteFileRef: SiteFileRef,
+        jobContext: JobContext = None,
     ) -> SiteFileRef:
         """
         Take the local file by path and put it to the remote Site.  This might be
@@ -326,7 +334,10 @@ class SiteRepo(SitePillar):
 
     @abstractmethod
     def get(
-        self, siteFileRef: SiteFileRef, localPath: Path, jobContext: JobContext = None
+        self,
+        siteFileRef: SiteFileRef,
+        localPath: Path,
+        jobContext: JobContext = None,
     ) -> Path:
         """
         Get the file from the remote site and write it local, returning a path to the local.
@@ -373,13 +384,14 @@ class SiteRepo(SitePillar):
 
 
 # *********************************************************************************
-# Site: the Site is simply a name and the getters and setters for its Auth, Run, Repo
-# subsystems.
+# Site: the Site is simply a name and the getters and setters for its Auth, Run,
+# Repo subsystems.
 #
-# The Site factory utility method returns the Python class which implements the interfaces
-# for the named Site.  ~/.lwfm/sites.txt can be used to augment the list of sites provided
-# here with a user's own custom Site implementations.  In the event of a name collision
-# between the user's sites.txt and those hardcoded here, the user's sites.txt config trumps.
+# The Site factory utility method returns the Python class which implements the
+# interfaces for the named Site. ~/.lwfm/sites.txt can be used to augment the list
+# of sites provided here with a user's own custom Site implementations. In the
+# event of a name collision between the user's sites.txt and those hardcoded here,
+# the user's sites.txt config trumps.
 
 
 # LwfmBase field list
@@ -404,18 +416,22 @@ class Site(LwfmBase):
         path = os.path.expanduser("~") + "/.lwfm/sites.txt"
         # Check whether the specified path exists or not
         if os.path.exists(path):
-            logging.info("Loading custom site configs from ~/.lwfm/sites.txt")
+            Logger.info("Loading custom site configs from ~/.lwfm/sites.txt")
             with open(path) as f:
                 for line in f:
                     name, var = line.split("=")
                     name = name.strip()
                     var = var.strip()
-                    logging.info("Registering driver " + var + " for site " + name)
+                    Logger.info(
+                        "Registering driver " + var + " for site " + name
+                    )
                     siteSet[name] = var
         else:
-            logging.info("No custom ~/.lwfm/sites.txt - using built-in site configs")
+            Logger.info(
+                "No custom ~/.lwfm/sites.txt - using built-in site configs"
+            )
         fullPath = siteSet[site]
-        logging.info("Obtaining driver " + fullPath + " for site " + site)
+        Logger.info("Obtaining driver " + fullPath + " for site " + site)
         if fullPath is not None:
             # parse the path into package and class parts for convenience
             xpackage = fullPath.rsplit(".", 1)[0]
@@ -428,7 +444,7 @@ class Site(LwfmBase):
     def getSite(site: str = "local"):
         try:
             entry = Site._getSiteEntry(site)
-            logging.info("Processing site config entry " + str(entry))
+            Logger.info("Processing site config entry " + str(entry))
 
             module = importlib.import_module(entry[0])
             class_ = getattr(module, str(entry[1]))
@@ -436,7 +452,9 @@ class Site(LwfmBase):
             inst.setName(site)
             return inst
         except Exception as ex:
-            logging.error("Cannot instantiate Site for " + str(site) + " {}".format(ex))
+            Logger.error(
+                "Cannot instantiate Site for " + str(site) + " {}".format(ex)
+            )
 
     def __init__(
         self,

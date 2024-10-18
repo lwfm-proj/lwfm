@@ -28,7 +28,6 @@ Usage:
 
 import logging
 import datetime
-from lwfm.base.JobStatus import JobStatus
 
 # TODO persistence
 
@@ -46,13 +45,11 @@ class Logger:
         formatted_time = current_time.strftime("%Y-%m-%dT%H:%M:%SZ")
         return formatted_time
 
-    def _buildMsg(self, msg: str, jobStatus: JobStatus = None) -> str:
-        if jobStatus is not None:
-            # TODO add more job info
-            msg = " {} [{}, {}] {}".format(
+    def _buildMsg(self, msg: str, status: str = None) -> str:
+        if status is not None:
+            msg = " {} [{}] {}".format(
                 self._getTimestamp(),
-                jobStatus.getJobId(),
-                jobStatus.getStatusValue(),
+                status,
                 msg,
             )
         return msg
@@ -66,7 +63,7 @@ class Logger:
         """
         self._logger.setLevel(level)
 
-    def info(self, msg: str, jobStatus: JobStatus = None) -> None:
+    def info(self, msg: str, status: str = None) -> None:
         """
         Log an informational message.
 
@@ -75,9 +72,9 @@ class Logger:
         :param jobStatus: the job status info to add to the log message (optional)
         :type jobStatus: JobStatus
         """
-        self._logger.info(self._buildMsg(msg, jobStatus))
+        self._logger.info(self._buildMsg(msg, status))
 
-    def error(self, msg: str, jobStatus: JobStatus = None) -> None:
+    def error(self, msg: str, status: str = None) -> None:
         """
         Log an error message.
 
@@ -86,7 +83,7 @@ class Logger:
         :param JobStatus: the job status info to add to the log message (optional)
         :type context: JobContext
         """
-        self._logger.error(self._buildMsg(msg, jobStatus))
+        self._logger.error(self._buildMsg(msg, status))
 
 
 # create a singleton logger

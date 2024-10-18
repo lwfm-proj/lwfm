@@ -275,6 +275,9 @@ class JobStatus(LwfmBase):
             s += "," + str(self.getNativeInfo())
         return s
 
+    def __str__(self):
+        return self.toShortString()
+
     # Wait synchronously until the job reaches a terminal state, then return that state.
     # Uses a progressive sleep time to avoid polling too frequently.
     def wait(self) -> "JobStatus":  # return JobStatus when the job is done
