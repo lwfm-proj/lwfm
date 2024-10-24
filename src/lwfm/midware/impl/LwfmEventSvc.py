@@ -4,17 +4,19 @@
 
 from flask import Flask, request, jsonify
 import pickle
-from lwfm.midware.impl.WorkflowEventProcessor import WorkflowEventProcessor
+from lwfm.midware.impl.LwfmEventProcessor import LwfmEventProcessor
 from lwfm.base.JobStatus import JobStatus
 
-from lwfm.store.RunStore import RunJobStatusStore
+from lwfm.midware.impl.RunStore import RunJobStatusStore
 import logging
 
 app = Flask(__name__)
 app.logger.disabled = True
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
-wfep = WorkflowEventProcessor()
+wfProcessor = LwfmEventProcessor()
+
+print("*** service starting")
 
 # most recent status
 _jobStatusCache = {}
@@ -28,26 +30,23 @@ def index():
     return str(True)
 
 
-@app.route("/emit", methods=["POST"])
+@app.route("/emitStatus", methods=["POST"])
 def emitStatus():
-    jobId = request.form["jobId"]
-    statusBlob = request.form["statusBlob"]
     try:
+        statusBlob = request.form["statusBlob"]
         statusObj = JobStatus.deserialize(statusBlob)
+        RunJobStatusStore().write(statusObj)
     except Exception as ex:
-        print("exception deserializing statusBlob")
+        print("exception persisting status")
         print(ex)
         return "", 400
-    # persist it for posterity
-    RunJobStatusStore().write(statusObj)
     # TODO - no...
     # store it locally for convenience
-    _jobStatusCache[jobId] = statusObj
-    # _jobStatusHistory.append(statusObj)
+    _jobStatusCache[statusObj.getJobId()] = statusObj
     # TODO
     try:
         # This will check to see if there is a job trigger and if so run it
-        wfep.runJobTrigger(statusObj)
+        wfProcessor.runJobTrigger(statusObj)
         return "", 200
     except Exception as ex:
         print("exception checking events")
@@ -88,7 +87,7 @@ def getAllStatuses():
         for jobId in _jobStatusCache:
             try:
                 status = _jobStatusCache[jobId]
-                statuses.append(status.toJSON())
+                statuses.append(status.serialize())
             except Exception as ex:
                 print("*** exception from stat.serialize() " + str(ex))
                 return ""
@@ -102,7 +101,7 @@ def getAllStatuses():
 def setTrigger():
     try:
         obj = pickle.loads(request.form["triggerObj"].encode())
-        return wfep.setEventTrigger(obj)
+        return wfProcessor.setEventTrigger(obj)
     except Exception as ex:
         print(ex)  # TODO loggging
         return "", 400
@@ -111,20 +110,20 @@ def setTrigger():
 # unset a given handler
 @app.route("/unset/<handlerId>")
 def unsetTrigger(id: str):
-    return str(wfep.unsetEventTrigger(id))
+    return str(wfProcessor.unsetEventTrigger(id))
 
 
 # unset all handers
 @app.route("/unsetAll")
 def unsetAllTriggers():
-    wfep.unsetAllEventTriggers()
+    wfProcessor.unsetAllEventTriggers()
     return str(True)
 
 
 # list the ids of all active handers
 @app.route("/list")
 def listTriggers():
-    return str(wfep.listActiveTriggers())
+    return str(wfProcessor.listActiveTriggers())
 
 
 """

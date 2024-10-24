@@ -1,6 +1,8 @@
 
 from abc import ABC
 import uuid
+import pickle
+import json
 
 
 # Many base classes extend LwfmBase to permit the passing of arbitrary name=value maps 
@@ -45,6 +47,16 @@ class LwfmBase(ABC):
             args = dict()
         self.args = dict(args)
 
+    def serialize(self):
+        out_bytes = pickle.dumps(self, 0)
+        out_str = out_bytes.decode(encoding="ascii")
+        return out_str
+
+    @staticmethod
+    def deserialize(s: str):
+        in_json = json.dumps(s)
+        in_obj = pickle.loads(json.loads(in_json).encode(encoding="ascii"))
+        return in_obj
 
 # UUID generator used to give jobs lwfm ids which obviates collisions between job sites.  
 # Other objects in the system may also benefit from this generator.

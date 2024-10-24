@@ -9,18 +9,13 @@
 
 from enum import Enum
 import logging
-
 import os
-import time
-
-
 from datetime import datetime
 import pickle
 import json
 
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobContext import JobContext
-from lwfm.midware.LwfMonitor import LwfMonitor
 
 class _JobStatusFields(Enum):
     STATUS = "status"  # canonical status
@@ -122,6 +117,7 @@ class JobStatus(LwfmBase):
         return self.jobContext.getId()
 
     def setStatus(self, status: JobStatusValues) -> None:
+        # TODO relate to automatically setting the native status as a default behavior
         LwfmBase._setArg(self, _JobStatusFields.STATUS.value, status)
 
     def getStatus(self) -> JobStatusValues:
@@ -136,6 +132,9 @@ class JobStatus(LwfmBase):
 
     def getNativeStatusStr(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.NATIVE_STATUS.value)
+
+    def setNativeStatus(self, nativeStatus: JobStatusValues) -> None:
+        self.setNativeStatusStr(nativeStatus.value)
 
     def mapNativeStatus(self) -> None:
         try:
@@ -191,26 +190,6 @@ class JobStatus(LwfmBase):
         self.setEmitTime(datetime.fromtimestamp(zeroTime))
         self.setNativeInfo("")
 
-    # Send the status message to the lwfm service.
-    def emit(self, status: str = None) -> bool:
-        if status:
-            self.setNativeStatusStr(status)
-        self.setEmitTime(datetime.utcnow())
-        try:
-            LwfMonitor.emitStatus(
-                self.getJobContext().getId(), self.getStatus().value, self.serialize()
-            )
-            # TODO: is there a better way to do this?
-            # put a little wait in to avoid a race condition where the status is emitted
-            # and then immediately queried or two status messages are emitted in rapid
-            # succession and they appear out of order
-            time.sleep(1)
-            self.clear()
-            return True
-        except Exception as ex:
-            logging.error(str(ex))
-            return False
-
     def isTerminalSuccess(self) -> bool:
         return self.getStatus() == JobStatusValues.COMPLETE
 
@@ -227,70 +206,9 @@ class JobStatus(LwfmBase):
             or self.isTerminalCancelled()
         )
 
-    def toJSON(self):
-        return self.serialize()
-
-    def serialize(self):
-        out_bytes = pickle.dumps(self, 0)
-        return out_bytes
-        # out_str = out_bytes.decode(encoding='ascii')
-        # return out_str
-
-    @staticmethod
-    def deserialize(s: str):
-        in_json = json.dumps(s)
-        in_obj = pickle.loads(json.loads(in_json).encode(encoding="ascii"))
-        return in_obj
-
-    def toShortString(self) -> str:
-        return (
-            ""
-            + str(self.getJobContext().getId())
-            + ","
-            + str(self.getStatusValue())
-            + ","
-            + str(self.getJobContext().getSiteName())
-        )
-
-    def toString(self) -> str:
-        s = (
-            ""
-            + str(self.getJobContext().getId())
-            + ","
-            + str(self.getJobContext().getParentJobId())
-            + ","
-            + str(self.getJobContext().getOriginJobId())
-            + ","
-            + str(self.getJobContext().getNativeId())
-            + ","
-            + str(self.getEmitTime())
-            + ","
-            + str(self.getStatusValue())
-            + ","
-            + str(self.getJobContext().getSiteName())
-        )
-        if self.getStatus() == JobStatusValues.INFO:
-            s += "," + str(self.getNativeInfo())
-        return s
 
     def __str__(self):
-        return self.toShortString()
+        return f"[stat ctx:{self.getJobContext()} value:{self.getStatusValue()}]"
 
-    # Wait synchronously until the job reaches a terminal state, then return that state.
-    # Uses a progressive sleep time to avoid polling too frequently.
-    def wait(self) -> "JobStatus":  # return JobStatus when the job is done
-        status = self
-        increment = 3
-        sum = 1
-        max = 60
-        maxmax = 6000
-        while not status.isTerminal():
-            time.sleep(sum)
-            # keep increasing the sleep time until we hit max, then keep sleeping max
-            if sum < max:
-                sum += increment
-            elif sum < maxmax:
-                sum += max
-            status = JobStatus.deserialize(LwfMonitor.fetchJobStatus(status.getJobId()))
-        return status
+
 

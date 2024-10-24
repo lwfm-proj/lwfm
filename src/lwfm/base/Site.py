@@ -22,7 +22,7 @@ simple echo of 'hello world' as a job. We will then interrogate the final job
 status.
 
 
-    # print 'hello world' but as a Job on a (local) Site
+    # echo 'hello world' but as a Job on a (local) Site
     # assumes the lwfm job status service is running
 
     import logging
@@ -79,7 +79,6 @@ from lwfm.base.JobContext import JobContext
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.SiteFileRef import SiteFileRef
 from lwfm.base.JobStatus import JobStatus
-from lwfm.midware.LwfMonitor import WfEvent
 from lwfm.midware.Logger import Logger
 
 
@@ -165,12 +164,7 @@ class SiteRun(SitePillar):
         runDriver.submit(jobDefn, jobContext, fromEvent)
 
     @abstractmethod
-    def submit(
-        self,
-        jobDefn: JobDefn,
-        parentContext: JobContext = None,
-        fromEvent: bool = False,
-    ) -> JobStatus:
+    def submit(self, jobDefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
         """
         Submit the job for execution on this Site. It is an implementation
         detail of the Site what that means - everything from pseudo-immediate
@@ -188,10 +182,7 @@ class SiteRun(SitePillar):
         the Site. We note also that compute type and Site are relatively
         interchangeable - one can model a compute resource as a compute type,
         or as its own Site, perhaps with a complete inherited Site driver
-        implementation. e.g. a NerscSite might have two trivially subclassed
-        Sites - one for Cori (rest in peace) and one for Perlmutter. This
-        could have been implemented as one Site with two compute types. The
-        Site driver author is invited to use whichever model fits them best.]
+        implementation.]
 
         Params:
             jobDefn - the definition of the job to run, might include the name
@@ -200,10 +191,6 @@ class SiteRun(SitePillar):
                 and managed by the lwfm framework] information about the
                 current JobContext which might be running, thus the job we are
                 submitting will be tracked in the digital thread
-            fromEvent - [optional] if not provided, assigned false; if true,
-                the job is being submitted from an event handler, and thus
-                the first job status event has already been emitted and we
-                need not emit another
         Returns:
             JobStatus - preliminary status, containing a JobContext including
                 the canonical and Site-specific native job id
@@ -215,7 +202,7 @@ class SiteRun(SitePillar):
         pass
 
     @abstractmethod
-    def getStatus(self, jobContext: JobContext) -> JobStatus:
+    def getStatus(self, jobId: str) -> JobStatus:
         """
         Check the status of a job running on this Site.  The JobContext is an attribute
         of the JobStatus, and contains the canonical and Site-specific native job id.
@@ -431,7 +418,7 @@ class Site(LwfmBase):
                 "No custom ~/.lwfm/sites.txt - using built-in site configs"
             )
         fullPath = siteSet[site]
-        Logger.info("Obtaining driver " + fullPath + " for site " + site)
+        Logger.info("Obtaining site driver " + fullPath + " for " + site)
         if fullPath is not None:
             # parse the path into package and class parts for convenience
             xpackage = fullPath.rsplit(".", 1)[0]
@@ -444,8 +431,6 @@ class Site(LwfmBase):
     def getSite(site: str = "local"):
         try:
             entry = Site._getSiteEntry(site)
-            Logger.info("Processing site config entry " + str(entry))
-
             module = importlib.import_module(entry[0])
             class_ = getattr(module, str(entry[1]))
             inst = class_()

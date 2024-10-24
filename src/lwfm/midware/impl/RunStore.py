@@ -25,13 +25,8 @@ class RunJobStatusStore(RunStore):
         super(RunJobStatusStore, self).__init__()
 
     def write(self, datum: JobStatus) -> bool:
-        #s = datum.serialize()
-        #file_object = open(os.path.expanduser('~') + '/.lwfm/run_job_status_store.bin', 'ba+')
-        #file_object.write(s)
-        #file_object.close()
-        #s = datum.serialize()
         file_object = open(os.path.expanduser('~') + '/.lwfm/run_job_status_store.txt', 'a+')
-        file_object.write(datum.toString() + "\n")
+        file_object.write(datum.__str__() + "\n")
         file_object.close()
 
 

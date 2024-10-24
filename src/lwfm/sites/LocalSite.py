@@ -20,13 +20,10 @@ from lwfm.base.SiteFileRef import SiteFileRef, FSFileRef
 from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.JobContext import JobContext
-from lwfm.midware.LwfMonitor import (
-    WfEvent,
-    JobEvent,
-    LwfMonitor
-)
+from lwfm.midware.LwfManager import LwfManager
 from lwfm.base.LwfmBase import LwfmBase
-from lwfm.store import BasicMetaRepoStore
+from lwfm.midware.impl.BasicMetaRepoStore import BasicMetaRepoStore
+from lwfm.midware.Logger import Logger
 
 
 # *********************************************************************
@@ -40,24 +37,10 @@ LwfmBase._shortJobIds = True
 
 
 class LocalJobStatus(JobStatus):
-    def __init__(self, jcontext: JobContext = None):
-        super(LocalJobStatus, self).__init__(jcontext)
+    def __init__(self, context: JobContext = None):
+        super(LocalJobStatus, self).__init__(context)
         # use default canonical status map
         self.getJobContext().setSiteName(SITE_NAME)
-
-    def toJSON(self):
-        return self.serialize()
-
-    def serialize(self):
-        out_bytes = pickle.dumps(self, 0)
-        out_str = out_bytes.decode(encoding="ascii")
-        return out_str
-
-    @staticmethod
-    def deserialize(s: str):
-        in_json = json.dumps(s)
-        in_obj = pickle.loads(json.loads(in_json).encode(encoding="ascii"))
-        return in_obj
 
 
 # *************************************************************************************
@@ -78,71 +61,58 @@ class LocalSiteAuth(SiteAuth):
 class LocalSiteRun(SiteRun):
     _pendingJobs = {}
 
-    def _runJob(self, jdefn, jobStatus):
+    def getStatus(self, jobId: str) -> JobStatus:
+        return LwfManager.getStatus(jobId)
+
+    def _runJob(self, jDefn: JobDefn, jobContext: JobContext) -> None:
         # Putting the job in a new thread means we can easily run it asynchronously
         # while still emitting statuses before and after
         # Emit RUNNING status
-        jobStatus.emit(JobStatusValues.RUNNING.value)
+        LwfManager.emitStatus(jobContext, LocalJobStatus, JobStatusValues.RUNNING)
         try:
             # This is synchronous, so we wait here until the subprocess is over.
             # Check=True raises an exception on non-zero returns
-            if isinstance(jdefn, RepoJobDefn):
+            if isinstance(jDefn, RepoJobDefn):
                 # run the repo job
-                if jdefn.getRepoOp() == RepoOp.PUT:
+                if jDefn.getRepoOp() == RepoOp.PUT:
                     _repoDriver.put(
-                        jdefn.getLocalRef(),
-                        jdefn.getSiteFileRef(),
-                        jobStatus.getJobContext(),
+                        jDefn.getLocalRef(),
+                        jDefn.getSiteFileRef(),
+                        jobContext,
                     )
-                elif jdefn.getRepoOp() == RepoOp.GET:
-                    print("in the deep logic i am a get")
+                elif jDefn.getRepoOp() == RepoOp.GET:
                     _repoDriver.get(
-                        jdefn.getSiteFileRef(),
-                        jdefn.getLocalRef(),
-                        jobStatus.getJobContext(),
+                        jDefn.getSiteFileRef(),
+                        jDefn.getLocalRef(),
+                        jobContext,
                     )
                 else:
                     logging.error("Unknown repo operation")
             else:
                 # run a command line job
-                cmd = jdefn.getEntryPoint()
-                if jdefn.getJobArgs() is not None:
-                    for arg in jdefn.getJobArgs():
+                cmd = jDefn.getEntryPoint()
+                if jDefn.getJobArgs() is not None:
+                    for arg in jDefn.getJobArgs():
                         cmd += " " + arg
                 os.system(cmd)
             # Emit success statuses
-            jobStatus.emit(JobStatusValues.FINISHING.value)
-            jobStatus.emit(JobStatusValues.COMPLETE.value)
+            LwfManager.emitStatus(jobContext, LocalJobStatus, JobStatusValues.FINISHING)
+            LwfManager.emitStatus(jobContext, LocalJobStatus, JobStatusValues.COMPLETE)
         except Exception as ex:
             logging.error("ERROR: Job failed %s" % (ex))
             # Emit FAILED status
-            jobStatus.emit(JobStatusValues.FAILED.value)
+            LwfManager.emitStatus(jobContext, LocalJobStatus, JobStatusValues.FAILED)
 
-    def submit(
-        self, jdefn: JobDefn, parentContext: JobContext = None, fromEvent: bool = False
-    ) -> JobStatus:
-        if parentContext is None:
-            myContext = JobContext()
-        elif fromEvent:
-            myContext = parentContext
-        else:
-            # i am a child of the context given
-            myContext = JobContext.makeChildJobContext(parentContext)
-        # In local jobs, we spawn the job in a new child process
-        jstatus = LocalJobStatus(myContext)
 
-        # Let the sentinel know the job is ready unless this is from an event
-        # (in which case the sentinel already knows)
-        if not fromEvent:
-            jstatus.emit(JobStatusValues.PENDING.value)
+    def submit(self, jDefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
+        myContext = JobContext(parentContext)
+        LwfManager.emitStatus(myContext, LocalJobStatus, JobStatusValues.PENDING)
         # Run the job in a new thread so we can wrap it in a bit more code
-        thread = multiprocessing.Process(target=self._runJob, args=[jdefn, jstatus])
-        thread.start()
-        self._pendingJobs[jstatus.getJobContext().getId()] = thread
-        return jstatus
+        multiprocessing.Process(target=self._runJob, args=[jDefn, myContext]).start()
+        return LwfManager.getStatus(myContext.getId())
 
-    def getStatus(self, jobContext: JobContext) -> JobStatus:
-        return LwfMonitor.fetchJobStatus(jobContext.getId())
+
+
 
     def cancel(self, jobContext: JobContext) -> bool:
         # Find the locally running thread and kill it
@@ -182,9 +152,7 @@ class LocalSiteRun(SiteRun):
                 return date - datetime.timedelta(hours=hours)
 
             statusDate = subtract_hours(status.getEmitTime(), 8)
-            print("The start date of the range: {}".format(startDate))
-            print("The start date of the status: {}".format(statusDate))
-            print("The end date of the range: {}".format(endDate))
+
             if statusDate > startDate and statusDate < endDate:
                 status.setEmitTime(statusDate)
                 statuses.append(status)
@@ -200,7 +168,7 @@ class LocalSiteRepo(SiteRepo):
 
     def __init__(self):
         super(LocalSiteRepo, self).__init__()
-        self._metaRepo = BasicMetaRepoStore.BasicMetaRepoStore()
+        self._metaRepo = BasicMetaRepoStore()
 
     def _makeRepoInfo(
         self,

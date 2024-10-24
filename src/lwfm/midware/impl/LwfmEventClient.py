@@ -5,8 +5,13 @@ import requests
 from typing import List
 
 
+from lwfm.base.JobContext import JobContext
+from lwfm.base.JobStatus import JobStatus
 
-class WorkflowEventClient:
+
+
+class LwfmEventClient:
+    # TODO url of the actual service we expose to our little gaggle 
     _JSS_URL = "http://127.0.0.1:3000"
 
     def getUrl(self):
@@ -46,27 +51,34 @@ class WorkflowEventClient:
             logging.error(response)
             return None
 
-    def emitStatus(self, jobId, jobStatus, statusBlob):
-        data = {"jobId": jobId, "jobStatus": jobStatus, "statusBlob": statusBlob}
-        response = requests.post(f"{self.getUrl()}/emit", data=data)
-        if response.ok:
-            return
-        else:
-            logging.error(response)
-            return
+    def emitStatus(self, status: JobStatus):
+        try: 
+            statusBlob = status.serialize()
+            data = {"statusBlob": statusBlob}
+            response = requests.post(f"{self.getUrl()}/emitStatus", data=data)
+            if response.ok:
+                return
+            else:
+                logging.error(response)
+                return
+        except Exception as ex:
+            logging.error("emitStatus error: " + ex)
+            raise ex
 
-    def getStatusBlob(self, jobId: str) -> str:
+    def getStatus(self, jobId: str) -> JobStatus:
         response = requests.get(f"{self.getUrl()}/status/{jobId}")
         try:
             if response.ok:
                 if response.text == "":
+                    print("got blank response")
                     return None
                 else:
-                    return response.text
+                    return JobStatus.deserialize(response.text) 
             else:
+                print("response not ok")
                 return None
         except Exception as ex:
-            logging.error(ex)
+            logging.error("getStatusBlob error: " + ex)
             return None
 
     def getStatuses(self):

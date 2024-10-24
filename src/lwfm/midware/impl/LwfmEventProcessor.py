@@ -3,23 +3,23 @@
 # The Workflow Event Processor watches for Job Status events and fires a JobDefn to a
 # Site when an event of interest occurs.
 
-import logging
 import threading
 from typing import List
 
 
-from lwfm.base.JobStatus import JobStatus, JobStatusValues, JobContext
+from lwfm.midware.Logger import Logger
+from lwfm.base.JobStatus import JobStatus, JobStatusValues
+from lwfm.base.JobContext import JobContext
+from lwfm.base.WfEvent import WfEvent, JobEvent
 from lwfm.base.Site import Site
-from lwfm.midware.LwfMonitor import (
-    JobEvent,
-    WfEvent,
-)
+from lwfm.midware.LwfManager import LwfManager
+
 
 
 # ************************************************************************************
 
 
-class WorkflowEventProcessor:
+class LwfmEventProcessor:
     _timer = None
     _eventHandlerMap = dict()
 
@@ -32,7 +32,7 @@ class WorkflowEventProcessor:
     def __init__(self):
         self._timer = threading.Timer(
             self.STATUS_CHECK_INTERVAL_SECONDS,
-            WorkflowEventProcessor.checkEventTriggers,
+            LwfmEventProcessor.checkEventTriggers,
             (self,),
         )
         self._timer.start()
@@ -96,25 +96,24 @@ class WorkflowEventProcessor:
         # Timers only run once, so retrigger it
         self._timer = threading.Timer(
             self.STATUS_CHECK_INTERVAL_SECONDS,
-            WorkflowEventProcessor.checkEventTriggers,
+            LwfmEventProcessor.checkEventTriggers,
             (self,),
         )
         self._timer.start()
 
-    def _initJobEventTrigger(self, wfet: JobEvent) -> WfEvent:
-        inStatus = fetchJobStatus(wfet.getJobId())
-        wfet.setJobSiteName(inStatus.getJobContext().getSiteName())
-        # set the job context under which the new job will run
-        newJobContext = JobContext()  # will assign a new job id
-        newJobContext.setParentJobId(inStatus.getJobContext().getId())
-        newJobContext.setOriginJobId(inStatus.getJobContext().getOriginJobId())
-        newJobContext.setSiteName(wfet.getTargetSiteName())
-        wfet.setTargetContext(newJobContext)
+    def _initJobEventTrigger(self, wfe: JobEvent) -> WfEvent:
+        print("**** here in _initJobEventTrigger()")
+        # set the job context under which the new job will run, it will have a new id
+        # and be a child of the setting job
+        newJobContext = JobContext(wfe.getRuleContext()) 
+
+        #targetJobContext = JobContext(wfe.getParentContext())  
+        #wfe.setFireContext(targetJobContext)
         # fire the initial status showing the new job pending
-        newStatus = JobStatus(newJobContext)
+        newStatus = JobStatus(wfe.getFireSite())
         newStatus.setStatus(JobStatusValues.PENDING)
         newStatus.emit()
-        return wfet
+        return wfe
 
     """     def _initDataEventTrigger(self, wfet: DataEvent) -> WfEvent:
         # TODO
@@ -128,49 +127,47 @@ class WorkflowEventProcessor:
         newStatus.emit()
         return wfet """
 
-    """     # Regsiter an event handler.  When a jobId running on a job Site
+    # Register an event handler.  When a jobId running on a job Site
     # emits a particular Job Status, fire the given JobDefn (serialized) at the target
     # Site.  Return the new job id.
-    # TODO update doc, logging """
-    """     def setEventTrigger(self, wfet: WfEvent) -> str:
+    # TODO update doc, logging 
+    def setEventTrigger(self, wfe: WfEvent) -> str:
         try:
-            # for debug
-            # perform per event trigger type initialization
-            if isinstance(wfet, JobEvent):
-                wfet = self._initJobEventTrigger(wfet)
-            elif isinstance(wfet, JobSetEvent):
-                print("Setting JobSetEventTrigger... some other day")
-                return None
-            elif isinstance(wfet, DataEvent):
-                wfet = self._initDataEventTrigger(wfet)
+            if isinstance(wfe, JobEvent):
+                wfe = self._initJobEventTrigger(wfe)
+            #elif isinstance(wfe, JobSetEvent):
+            #    print("Setting JobSetEventTrigger... some other day")
+            #    return None
+            #elif isinstance(wfe, DataEvent):
+            #    wfe = self._initDataEventTrigger(wfe)
             else:
-                print("Unknown type")
+                Logger.error(__class__.__name__ + ".setEventTrigger: Unknown type")
                 return None
             # store the event handler in the cache
-            print("Storing event handler in cache for key: " + str(wfet.getKey()))
-            self._eventHandlerMap[wfet.getKey()] = wfet
-            return wfet.getTargetContext().getId()
+            Logger.info("Storing event handler in cache for key: " + str(wfe.getKey()))
+            self._eventHandlerMap[wfe.getKey()] = wfe
+            return wfe.getTargetContext().getId()
         except Exception as ex:
-            print(ex)
-            return None """
+            Logger.error(__class__.__name__, str(ex))
+            return None 
 
-    def unsetEventTrigger(self, handlerId: str) -> bool:
-        try:
-            self._eventHandlerMap.pop(handlerId)
-            return True
-        except Exception as ex:
-            print(ex)
-            return False
+    #def unsetEventTrigger(self, handlerId: str) -> bool:
+    #    try:
+    #        self._eventHandlerMap.pop(handlerId)
+    #        return True
+    #    except Exception as ex:
+    #        print(ex)
+    #        return False
 
-    def unsetAllEventTriggers(self) -> None:
-        self._eventHandlerMap = dict()
+    #def unsetAllEventTriggers(self) -> None:
+    #    self._eventHandlerMap = dict()
 
     """     def listActiveTriggers(self) -> List[WfEvent]:
         handlers = []
         for key in self._eventHandlerMap:
             handlers.append(key)
         return handlers """
-
+    """ 
     # TODO docs and logging
     def runJobTrigger(self, jobStatus: JobStatus) -> bool:
         try:
@@ -215,6 +212,10 @@ class WorkflowEventProcessor:
         except Exception as ex:
             logging.error("Could not prepare to run job: " + str(ex))
             return False
+    """
 
+    def runJobTrigger(self, jobStatus: JobStatus) -> bool:
+        pass
+    
     def exit(self):
         self._timer.cancel()

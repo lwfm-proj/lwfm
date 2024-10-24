@@ -1,21 +1,18 @@
+
+
 from enum import Enum
-import inspect
-from typing import Callable, List
 from abc import ABC
 from datetime import datetime, timezone
 
 from lwfm.base.LwfmBase import LwfmBase
-from lwfm.base.JobContext import JobContext
 from lwfm.base.JobDefn import JobDefn
-from lwfm.midware.Logger import Logger
-from lwfm.midware.impl.WorkflowEventClient import WorkflowEventClient
+from lwfm.base.JobContext import JobContext
 
-# TODO docs 
 
 # ************************************************************************
 class _WfEventFields(Enum):
     FIRE_DEFN = "fireDefn"
-    TARGET_CONTEXT = "targetContext"
+    FIRE_SITE = "fireSite"
     RECURRING = "recurring"
 
 
@@ -40,18 +37,26 @@ class WfEvent(LwfmBase, ABC):
         if one is provided
     """
 
-    def __init__(self, fireDefn : JobDefn, targetContext: JobContext, recurring: bool = False):
+    def __init__(self, fireDefn : JobDefn, fireSite: str, recurring: bool = False):
         super(WfEvent, self).__init__(None)
         LwfmBase._setArg(self, _WfEventFields.FIRE_DEFN.value, fireDefn)
-        LwfmBase._setArg(self, _WfEventFields.TARGET_CONTEXT.value, None)
+        LwfmBase._setArg(self, _WfEventFields.FIRE_SITE.value, fireSite)
         LwfmBase._setArg(self, _WfEventFields.RECURRING.value, recurring)
 
     def getFireDefn(self) -> JobDefn:
         return LwfmBase._getArg(self, _WfEventFields.FIRE_DEFN.value)
+    
+    def getFireSite(self) -> JobContext:
+        return LwfmBase._getArg(self, _WfEventFields.FIRE_SITE.value)
+    
+    def getRecurring(self) -> bool:
+        return LwfmBase._getArg(self, _WfEventFields.RECURRING.value)
 
-    def getTargetContext(self) -> JobContext:
-        return LwfmBase._getArg(self, _WfEventFields.TARGET_CONTEXT.value)
 
+    def __str__(self):
+        return f"[wfEvent: runDefn:{str(self.getFireDefn())} " + \
+            f"inContext:{str(self.getFireSite())} recur:{str(self.getRecurring())}]"
+    
     #def setTriggerFilter(self, jobFilter: str) -> None:
     #    # TODO
     #    pass
@@ -60,8 +65,8 @@ class WfEvent(LwfmBase, ABC):
     #    # TODO
     #    pass
 
-    #def getKey(self) -> str:
-    #    return self.getId()
+    def getKey(self) -> str:
+        return self.getId()
 
 # ***************************************************************************
 
@@ -73,10 +78,10 @@ class TimeEvent(WfEvent):
     def __init__(
         self,
         fireDefn: JobDefn,
-        targetContext: JobContext,
+        fireSite: str,
         timestamp: datetime
     ):
-        super(TimeEvent, self).__init__(fireDefn, targetContext)
+        super(TimeEvent, self).__init__(fireDefn, fireSite)
         if timestamp.tzinfo is None or timestamp.tzinfo.utcoffset(timestamp) is None:
             raise ValueError("Timestamp must be a timezone-aware datetime object")
         utc_timestamp = timestamp.astimezone(timezone.utc)
@@ -89,10 +94,10 @@ class DailyTimeEvent(TimeEvent):
     def __init__(
         self,
         fireDefn: JobDefn,
-        targetContext: JobContext,
+        fireSite: str,
         timestamp: datetime
     ):
-        super(DailyTimeEvent, self).__init__(fireDefn, targetContext, timestamp)
+        super(DailyTimeEvent, self).__init__(fireDefn, fireSite, timestamp)
         LwfmBase._setArg(self, _WfEventFields.RECURRING.value, True)
 
 
@@ -101,9 +106,8 @@ class _JobEventFields(Enum):
     # Event handling for a single job - job A reach a state implies the running of job B.
     # When this job running on the named site reaches the given status, fire the
     # registered job defn on the named target site in the given runtime context.
-    JOB_ID = "jobId"
-    JOB_SITE_NAME = "jobSiteName"
-    JOB_STATUS = "jobStatus"
+    RULE_CONTEXT = "ruleContext"
+    RULE_STATUS = "jobStatus"
 
 
 class JobEvent(WfEvent): 
@@ -150,33 +154,30 @@ class JobEvent(WfEvent):
 
     def __init__(
         self,
-        fireDefn: JobDefn, 
-        targetContext: JobContext, 
-        jobId: str,     # if None passed, implies any job id 
-        jobSite: str,   # if None passed, implies any site
-        jobStatus: str  # if None passed, implies any status
+        ruleContext: JobContext,            # when the job identified by this context
+        ruleStatus: str,                    # reaches this status       
+        fireDefn: JobDefn,                  # fire this job defn
+        fireSite: str                       # on this site
     ):
-        super(JobEvent, self).__init__(fireDefn, targetContext)
-        LwfmBase._setArg(self, _JobEventFields.JOB_ID.value, jobId)
-        LwfmBase._setArg(self, _JobEventFields.JOB_SITE_NAME.value, jobSite)
-        LwfmBase._setArg(self, _JobEventFields.JOB_STATUS.value, jobStatus)
-        if (jobId is None) or (jobSite is None) or (jobStatus is None):
-            LwfmBase._setArg(self, _WfEventFields.RECURRING.value, True)   
+        super(JobEvent, self).__init__(fireDefn, fireSite)
+        LwfmBase._setArg(self, _JobEventFields.RULE_CONTEXT.value, ruleContext)
+        LwfmBase._setArg(self, _JobEventFields.RULE_STATUS.value, ruleStatus)  
 
-    def getJobId(self) -> str:
-        return LwfmBase._getArg(self, _JobEventFields.JOB_ID.value)
+    def __str__(self) -> str:
+        return super().__str__() + \
+            f" [jobEvent: ruleCtx:{self.getRuleContext()} ruleStatus:{self.getRuleStatus()}]"
 
-    def getJobSiteName(self) -> str:
-        return LwfmBase._getArg(self, _JobEventFields.JOB_SITE_NAME.value)
+    def getRuleContext(self) -> JobContext:
+        return LwfmBase._getArg(self, _JobEventFields.RULE_CONTEXT.value)
     
-    def getJobStatus(self) -> str:
-        return LwfmBase._getArg(self, _JobEventFields.JOB_STATUS.value)
+    def getRuleStatus(self) -> str:
+        return LwfmBase._getArg(self, _JobEventFields.RULE_STATUS.value)
 
     def getKey(self) -> str:
         # TODO relax this limitation
         # We want to permit more than one event trigger for the same job, but for now
         # we'll limit it to one trigger per canonical job status name.
-        return str("" + self.getJobId() + "." + str(self.getJobStatus()))
+        return str("" + self.getRuleContext().getJobId() + "." + str(self.getRuleStatus()))
 
 
 # ***********************************************************************
@@ -271,108 +272,3 @@ class DataEvent(WfEvent):
     def getKey(self) -> str:
         return str("" + self.getId() + "." + "INFO.dt")
  """
-
-# ***************************************************************************
-class LwfMonitor:
-
-    def __init__(self):
-        super(LwfMonitor, self).__init__()
-
-    def fetchJobStatus(self, jobId: str) -> str:
-        """
-        Given a canonical job id, fetch the latest Job Status from the lwfm service.
-        The service may need to call on the host site to obtain up-to-date status.
-
-        Args:
-            jobId (str): canonical job id
-
-        Returns:
-            JobStatus: Job Status object, or None if the job is not found
-        """
-        try:
-            return WorkflowEventClient().getStatusBlob(jobId)
-        except Exception as ex:
-            Logger.error("Error fetching job status: " + str(ex))
-            return None
-        
-    def setEvent(self, wfe: WfEvent) -> JobContext:
-        """
-        Set a job to be submitted when a prior job event occurs.
-        A Site does not need to have a concept of these event handlers (most won't) and
-        is free to throw a NotImplementedError. The local lwfm site will provide an
-        implementation of event handling middleware through its own Site.Run interface,
-        and thus permit cross-Site workflow job chaining.
-        Asking a Site to run a job on a Site other than itself (siteName = None) is free
-        to raise a NotImplementedError, though it might be possible in some cases, and the
-        lwfm Local site will permit it.
-
-        Params:
-            wfe - the WorkflowEventTrigger to be set containing information about the
-                triggering event and the job to be submitted when fired
-        Returns:
-            JobStatus - the status of the job which will be submitted when the event occurs,
-                initially in the PENDING state
-
-        Example:
-            site = Site.getSite(siteName)
-            jobDefn = JobDefn()
-            jobDefn.setEntryPoint("ex0_hello_world.py")
-            # submit the job and note the job id - we'll use it to set the trigger
-            status = site.getRunDriver().submitJob(jobDefn)
-            jobDefn.setEntryPoint("ex1_job_triggers.py")
-            # set a second job to fire when the first job completes
-            wfe = JobEventTrigger(status.getJobId(), JobStatusValues.COMPLETE.value,
-                jobDefn, siteName)
-            jobStatus = site.getRunDriver().setWorkflowEventTrigger(wfe)
-        """
-        if wfe.getTargetSiteName() is None:
-            wfe.setTargetSiteName("local")
-        newJobId = WorkflowEventClient().setEventTrigger(wfe)
-        return self.fetchJobStatus(newJobId)
-
-    def unsetWorkflowEventTrigger(self, wfe: WfEvent) -> bool:
-        """
-        Unset an event handler.
-
-        Params:
-            WorkflowEventTrigger - a previously set handler
-        Returns:
-            bool - success, fail, or raise NotImplementedError if the Site has no concept
-                of event handlers
-        Example:
-            site = Site.getSite(siteName)
-            jobDefn = JobDefn()
-            jobDefn.setEntryPoint("ex0_hello_world.py")
-            # submit the job and note the job id - we'll use it to set the trigger
-            status = site.getRunDriver().submitJob(jobDefn)
-            jobDefn.setEntryPoint("ex1_job_triggers.py")
-            # set a second job to fire when the first job completes
-            wfe = JobEventTrigger(status.getJobId(), JobStatusValues.COMPLETE.value,
-                jobDefn, siteName)
-            jobStatus = site.getRunDriver().setWorkflowEventTrigger(wfe)
-            # unset the event handler
-            site.getRunDriver().unsetWorkflowEventTrigger(wfe)
-        """
-        raise NotImplementedError()
-
-    def listWorkflowEventTriggers(self) -> List[WfEvent]:
-        """
-        List the WorkflowEventTrigger registrations the Site is holding, or an empty list, or
-        raise NotImplementedError if the Site doesn't support event handlers.
-
-        Example:
-            site = Site.getSite(siteName)
-            myEvents = site.getRunDriver().listWorkflowEventTriggers()
-        """
-        raise NotImplementedError()
-    
-    def emitStatus(self, jobId, jobStatus, statusBlob) -> None:
-        try:
-            WorkflowEventClient().emitStatus(jobId, jobStatus, statusBlob)
-        except Exception as ex:
-            Logger.error("Error emitting job status: " + str(ex))
-
-
-
-
-LwfMonitor = LwfMonitor()
