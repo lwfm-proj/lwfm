@@ -36,9 +36,8 @@ class LwfManager:
             Logger.error("Error fetching job status: " + str(ex))
             return None
         
-    def setEvent(self, wfe: WfEvent) -> JobStatus: 
-        newJobId = LwfmEventClient().setEventTrigger(wfe)
-        return self.getJobStatus(newJobId)
+    def setEvent(self, wfe: WfEvent) -> str: 
+        return LwfmEventClient().setEvent(wfe)
     
     def emitStatus(self, context: JobContext, statusClass: type, 
                    nativeStatus: Enum, nativeInfo: str = None) -> None:

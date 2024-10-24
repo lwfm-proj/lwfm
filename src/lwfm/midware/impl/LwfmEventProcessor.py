@@ -5,7 +5,7 @@
 
 import threading
 from typing import List
-
+import logging
 
 from lwfm.midware.Logger import Logger
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
@@ -38,19 +38,19 @@ class LwfmEventProcessor:
         self._timer.start()
 
     def fireTrigger(self, trigger: WfEvent) -> bool:
-        site = Site.getSite(trigger.getTargetSiteName())
-        runDriver = site.getRun().__class__
-        jobContext = trigger.getTargetContext()
-        # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
-        thread = threading.Thread(
-            target=runDriver._submitJob,
-            args=(
-                trigger.getFireDefn(),
-                jobContext,
-                True,
-            ),
-        )
-        try:
+        try: 
+            site = Site.getSite(trigger.getTargetSiteName())
+            runDriver = site.getRun().__class__
+            jobContext = trigger.getTargetContext()
+            # Note: Comma is needed after FIRE_DEFN to make this a tuple. DO NOT REMOVE
+            thread = threading.Thread(
+                target=runDriver._submitJob,
+                args=(
+                    trigger.getFireDefn(),
+                    jobContext,
+                    True,
+                ),
+            )
             thread.start()
         except Exception as ex:
             logging.error("Could not run job: " + ex)
@@ -58,8 +58,6 @@ class LwfmEventProcessor:
         return True
 
     def checkEventTriggers(self):
-        # if there are INFO messages in queue, run through each trigger, checking the
-        # readiness to fire
         print("here in checkEventTriggers len = " + str(len(self._infoQueue)))
         if len(self._infoQueue) > 0:
             for key in list(self._eventHandlerMap):
@@ -93,7 +91,7 @@ class LwfmEventProcessor:
                         print("Message consumed, removing from queue")
                         self._infoQueue.remove(infoStatus)
 
-        # Timers only run once, so retrigger it
+        # Timers only run once, so re-trigger it
         self._timer = threading.Timer(
             self.STATUS_CHECK_INTERVAL_SECONDS,
             LwfmEventProcessor.checkEventTriggers,
@@ -101,19 +99,16 @@ class LwfmEventProcessor:
         )
         self._timer.start()
 
-    def _initJobEventTrigger(self, wfe: JobEvent) -> WfEvent:
-        print("**** here in _initJobEventTrigger()")
+    def _initJobEventTrigger(self, wfe: JobEvent) -> JobContext:
         # set the job context under which the new job will run, it will have a new id
         # and be a child of the setting job
-        newJobContext = JobContext(wfe.getRuleContext()) 
-
-        #targetJobContext = JobContext(wfe.getParentContext())  
-        #wfe.setFireContext(targetJobContext)
-        # fire the initial status showing the new job pending
-        newStatus = JobStatus(wfe.getFireSite())
-        newStatus.setStatus(JobStatusValues.PENDING)
-        newStatus.emit()
-        return wfe
+        newJobContext = JobContext()
+        newJobContext.setSiteName(wfe.getFireSite())
+        newJobContext.setParentJobId(wfe.getRuleJobId())
+        newJobContext.setOriginJobId(wfe.getRuleJobId())    # TODO there would be a lookup to know the parent's origin
+        # fire the initial status showing the new job ready on the shelf 
+        LwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY)
+        return newJobContext
 
     """     def _initDataEventTrigger(self, wfet: DataEvent) -> WfEvent:
         # TODO
@@ -134,19 +129,14 @@ class LwfmEventProcessor:
     def setEventTrigger(self, wfe: WfEvent) -> str:
         try:
             if isinstance(wfe, JobEvent):
-                wfe = self._initJobEventTrigger(wfe)
-            #elif isinstance(wfe, JobSetEvent):
-            #    print("Setting JobSetEventTrigger... some other day")
-            #    return None
-            #elif isinstance(wfe, DataEvent):
-            #    wfe = self._initDataEventTrigger(wfe)
+                context = self._initJobEventTrigger(wfe)
             else:
                 Logger.error(__class__.__name__ + ".setEventTrigger: Unknown type")
                 return None
             # store the event handler in the cache
             Logger.info("Storing event handler in cache for key: " + str(wfe.getKey()))
             self._eventHandlerMap[wfe.getKey()] = wfe
-            return wfe.getTargetContext().getId()
+            return context.getId()
         except Exception as ex:
             Logger.error(__class__.__name__, str(ex))
             return None 
@@ -215,7 +205,8 @@ class LwfmEventProcessor:
     """
 
     def runJobTrigger(self, jobStatus: JobStatus) -> bool:
-        pass
+        print("here in runJobTrigger - checking triggers for " + str(jobStatus.getJobId()))
+        return False
     
     def exit(self):
         self._timer.cancel()

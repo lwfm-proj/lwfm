@@ -31,6 +31,7 @@ class _JobStatusFields(Enum):
 # they must provide a mapping into these.
 class JobStatusValues(Enum):
     UNKNOWN = "UNKNOWN"
+    READY = "READY"
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     INFO = "INFO"
@@ -95,6 +96,7 @@ class JobStatus(LwfmBase):
         self.setStatusMap(
             {
                 "UNKNOWN": JobStatusValues.UNKNOWN,
+                "READY": JobStatusValues.READY,
                 "PENDING": JobStatusValues.PENDING,
                 "RUNNING": JobStatusValues.RUNNING,
                 "INFO": JobStatusValues.INFO,

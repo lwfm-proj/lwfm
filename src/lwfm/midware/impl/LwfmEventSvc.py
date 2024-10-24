@@ -113,54 +113,17 @@ def unsetTrigger(id: str):
     return str(wfProcessor.unsetEventTrigger(id))
 
 
-# unset all handers
+# unset all handlers
 @app.route("/unsetAll")
 def unsetAllTriggers():
     wfProcessor.unsetAllEventTriggers()
     return str(True)
 
 
-# list the ids of all active handers
+# list the ids of all active handlers
 @app.route("/list")
 def listTriggers():
     return str(wfProcessor.listActiveTriggers())
 
 
-"""
-def _getStatusHistory(jobId: str) -> []:
-    results = []
-    for record in _jobStatusHistory:
-        if (record.getJobContext().getId() == jobId):
-            results.append(record)
-    return results
 
-
-def _buildThreadJson(jobId: str) -> str:
-    # get the status history for the seminal job
-    data = {}
-    statusList = _getStatusHistory(jobId)
-    data[jobId] = statusList
-    # find all jobs which list this job as the parent
-    children = _getChildren(jobId)
-    for child in children:
-        statusList = _getStatusHistory(child.getJobContext().getId())
-        data[child.getJobContext().getId()] = statusList
-        # does this child have children?
-        subkids = _getChildren(child.getJobContext().getId())
-
-def _buildWFThread(jobId: str) -> str:
-    status = getStatus(jobId)
-    # does the job have a parent?
-    if (status.getOriginJobId() != status.getJobContext().getId()):
-        # this job is not seminal - go up the tree
-        threadJson = _buildThreadJson(status.getOriginJobId())
-    else:
-        threadJson = _buildThreadJson(status.getJobContext().getId())
-    return threadJson
-
-# get the digital thread for a given workflow - returns a JSON blob
-@app.route('/wfthread/<jobId>')
-def getWFThread(jobId: str):
-    thread = _buildWFThread(jobId)
-    return thread
-"""

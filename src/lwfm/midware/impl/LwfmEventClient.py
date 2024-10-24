@@ -7,6 +7,7 @@ from typing import List
 
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
+from lwfm.base.WfEvent import WfEvent
 
 
 
@@ -17,8 +18,25 @@ class LwfmEventClient:
     def getUrl(self):
         return self._JSS_URL
 
+
+    def getStatus(self, jobId: str) -> JobStatus:
+        response = requests.get(f"{self.getUrl()}/status/{jobId}")
+        try:
+            if response.ok:
+                if response.text == "":
+                    print("got blank response")
+                    return None
+                else:
+                    return JobStatus.deserialize(response.text) 
+            else:
+                print("response not ok")
+                return None
+        except Exception as ex:
+            logging.error("getStatusBlob error: " + ex)
+            return None
+        
     # TODO - docs
-    def setEventTrigger(self, wfe) -> str:
+    def setEvent(self, wfe: WfEvent) -> str:
         payload = {}
         payload["triggerObj"] = pickle.dumps(wfe, 0).decode()
         response = requests.post(f"{self.getUrl()}/setWorkflowEvent", payload)
@@ -26,7 +44,7 @@ class LwfmEventClient:
             # this is the job id of the registered job
             return response.text
         else:
-            logging.error(response.text)
+            logging.error("setEvent error: " + response.text)
             return None
 
     def unsetEventTrigger(self, handlerId: str) -> bool:
@@ -48,7 +66,7 @@ class LwfmEventClient:
         if response.ok:
             return eval(response.text)
         else:
-            logging.error(response)
+            logging.error("listActiveEventTriggers error: " + response)
             return None
 
     def emitStatus(self, status: JobStatus):
@@ -59,27 +77,13 @@ class LwfmEventClient:
             if response.ok:
                 return
             else:
-                logging.error(response)
+                logging.error("emitStatus error: " + response)
                 return
         except Exception as ex:
             logging.error("emitStatus error: " + ex)
             raise ex
 
-    def getStatus(self, jobId: str) -> JobStatus:
-        response = requests.get(f"{self.getUrl()}/status/{jobId}")
-        try:
-            if response.ok:
-                if response.text == "":
-                    print("got blank response")
-                    return None
-                else:
-                    return JobStatus.deserialize(response.text) 
-            else:
-                print("response not ok")
-                return None
-        except Exception as ex:
-            logging.error("getStatusBlob error: " + ex)
-            return None
+
 
     def getStatuses(self):
         response = requests.get(f"{self.getUrl()}/all/statuses")

@@ -54,8 +54,8 @@ class WfEvent(LwfmBase, ABC):
 
 
     def __str__(self):
-        return f"[wfEvent: runDefn:{str(self.getFireDefn())} " + \
-            f"inContext:{str(self.getFireSite())} recur:{str(self.getRecurring())}]"
+        return f"[event defn:{str(self.getFireDefn())} " + \
+            f"site:{str(self.getFireSite())} recur:{str(self.getRecurring())}]"
     
     #def setTriggerFilter(self, jobFilter: str) -> None:
     #    # TODO
@@ -106,7 +106,7 @@ class _JobEventFields(Enum):
     # Event handling for a single job - job A reach a state implies the running of job B.
     # When this job running on the named site reaches the given status, fire the
     # registered job defn on the named target site in the given runtime context.
-    RULE_CONTEXT = "ruleContext"
+    RULE_JOB_ID = "ruleJobId"
     RULE_STATUS = "jobStatus"
 
 
@@ -154,30 +154,30 @@ class JobEvent(WfEvent):
 
     def __init__(
         self,
-        ruleContext: JobContext,            # when the job identified by this context
-        ruleStatus: str,                    # reaches this status       
-        fireDefn: JobDefn,                  # fire this job defn
-        fireSite: str                       # on this site
+        ruleJobId: JobContext,            # when this job 
+        ruleStatus: Enum,                 # reaches this status       
+        fireDefn: JobDefn,                # fire this job defn
+        fireSite: str                     # on this site
     ):
         super(JobEvent, self).__init__(fireDefn, fireSite)
-        LwfmBase._setArg(self, _JobEventFields.RULE_CONTEXT.value, ruleContext)
+        LwfmBase._setArg(self, _JobEventFields.RULE_JOB_ID.value, ruleJobId)
         LwfmBase._setArg(self, _JobEventFields.RULE_STATUS.value, ruleStatus)  
 
     def __str__(self) -> str:
         return super().__str__() + \
-            f" [jobEvent: ruleCtx:{self.getRuleContext()} ruleStatus:{self.getRuleStatus()}]"
+            f"+[jobEvent jobId:{self.getRuleJobId()} status:{self.getRuleStatus()}]"
 
-    def getRuleContext(self) -> JobContext:
-        return LwfmBase._getArg(self, _JobEventFields.RULE_CONTEXT.value)
+    def getRuleJobId(self) -> str:
+        return LwfmBase._getArg(self, _JobEventFields.RULE_JOB_ID.value)
     
-    def getRuleStatus(self) -> str:
+    def getRuleStatus(self) -> Enum:
         return LwfmBase._getArg(self, _JobEventFields.RULE_STATUS.value)
 
     def getKey(self) -> str:
         # TODO relax this limitation
         # We want to permit more than one event trigger for the same job, but for now
         # we'll limit it to one trigger per canonical job status name.
-        return str("" + self.getRuleContext().getJobId() + "." + str(self.getRuleStatus()))
+        return str("" + self.getRuleJobId() + "." + str(self.getRuleStatus()))
 
 
 # ***********************************************************************

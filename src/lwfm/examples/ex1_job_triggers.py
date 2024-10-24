@@ -24,22 +24,19 @@ if __name__ == "__main__":
 
     # when job A reaches the COMPLETE state, fire job B 
     futureJobIdB = LwfManager.setEvent(
-        JobEvent(statusA.getJobId(), JobStatusValues.COMPLETE.value, 
-                 JobDefn("echo date = `date` > " + dataFile),
-                 "local")
+        JobEvent(statusA.getJobId(), JobStatusValues.COMPLETE, 
+                 JobDefn("echo date = `date` > " + dataFile), "local")
     )
     Logger.info(f"job B {futureJobIdB} set as a job event on A")
 
     # when job B gets to the COMPLETE state, fire job C 
     futureJobIdC = LwfManager.setEvent(
-        JobEvent(futureJobIdB, JobStatusValues.COMPLETE.value,
-                 JobDefn("cat " + dataFile), 
-                 "local")
+        JobEvent(futureJobIdB, JobStatusValues.COMPLETE,
+                 JobDefn("cat " + dataFile), "local")
     )
     Logger.info(f"job C {futureJobIdC} set as a job event on B")
 
     # for the purposes of this example, let's wait synchronously on the
     # conclusion of job C, which implies B also finished
-    # TODO - need static wait function
-    #statusC = statusC.wait()
-    #Logger.info("job C finished, implying B and A also finished", statusC)
+    statusC = LwfManager.wait(futureJobIdC)
+    Logger.info("job C finished, implying B and A also finished", statusC)
