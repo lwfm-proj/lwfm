@@ -13,6 +13,7 @@ from lwfm.base.JobContext import JobContext
 class _WfEventFields(Enum):
     FIRE_DEFN = "fireDefn"
     FIRE_SITE = "fireSite"
+    FIRE_JOB_ID = "fireJobId"
     RECURRING = "recurring"
 
 
@@ -52,10 +53,16 @@ class WfEvent(LwfmBase, ABC):
     def getRecurring(self) -> bool:
         return LwfmBase._getArg(self, _WfEventFields.RECURRING.value)
 
+    def setFireJobId(self, fireJobId: str) -> None:
+        LwfmBase._setArg(self, _WfEventFields.FIRE_JOB_ID.value, fireJobId) 
+
+    def getFireJobId(self) -> str:
+        return LwfmBase._getArg(self, _WfEventFields.FIRE_JOB_ID.value)
 
     def __str__(self):
         return f"[event defn:{str(self.getFireDefn())} " + \
-            f"site:{str(self.getFireSite())} recur:{str(self.getRecurring())}]"
+            f"site:{str(self.getFireSite())} recur:{str(self.getRecurring())} " + \
+            f"jobId:{str(self.getFireJobId())}]"
     
     #def setTriggerFilter(self, jobFilter: str) -> None:
     #    # TODO
@@ -154,7 +161,7 @@ class JobEvent(WfEvent):
 
     def __init__(
         self,
-        ruleJobId: JobContext,            # when this job 
+        ruleJobId: str,                   # when this job 
         ruleStatus: Enum,                 # reaches this status       
         fireDefn: JobDefn,                # fire this job defn
         fireSite: str                     # on this site
@@ -178,6 +185,10 @@ class JobEvent(WfEvent):
         # We want to permit more than one event trigger for the same job, but for now
         # we'll limit it to one trigger per canonical job status name.
         return str("" + self.getRuleJobId() + "." + str(self.getRuleStatus()))
+
+    @staticmethod
+    def getJobEventKey(jobId: str, status: Enum) -> str:
+        return str(jobId) + "." + str(status)
 
 
 # ***********************************************************************

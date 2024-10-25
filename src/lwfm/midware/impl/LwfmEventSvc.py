@@ -46,7 +46,7 @@ def emitStatus():
     # TODO
     try:
         # This will check to see if there is a job trigger and if so run it
-        wfProcessor.runJobTrigger(statusObj)
+        wfProcessor.testJobEvents(statusObj)
         return "", 200
     except Exception as ex:
         print("exception checking events")

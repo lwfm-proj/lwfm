@@ -104,12 +104,18 @@ class LocalSiteRun(SiteRun):
             LwfManager.emitStatus(jobContext, LocalJobStatus, JobStatusValues.FAILED)
 
 
-    def submit(self, jDefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
-        myContext = JobContext(parentContext)
-        LwfManager.emitStatus(myContext, LocalJobStatus, JobStatusValues.PENDING)
+    def submit(self, jDefn: JobDefn, useContext: JobContext = None) -> JobStatus:
+        if (useContext is None):
+            useContext = JobContext()
+            # we can test validity of the job defn here, reject it, or say its ready
+            # if we were given a context, then we assume its ready 
+            LwfManager.emitStatus(useContext, LocalJobStatus, JobStatusValues.READY)
+        # horse at the gate...
+        LwfManager.emitStatus(useContext, LocalJobStatus, JobStatusValues.PENDING)
         # Run the job in a new thread so we can wrap it in a bit more code
-        multiprocessing.Process(target=self._runJob, args=[jDefn, myContext]).start()
-        return LwfManager.getStatus(myContext.getId())
+        # this will kick the status the rest of the way to a terminal state 
+        multiprocessing.Process(target=self._runJob, args=[jDefn, useContext]).start()
+        return LwfManager.getStatus(useContext.getId())
 
 
 

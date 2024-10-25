@@ -153,7 +153,7 @@ class SiteRun(SitePillar):
     """
 
     @classmethod
-    def _submitJob(cls, jobDefn, jobContext=None, fromEvent=False):
+    def _submitJob(cls, jobDefn, jobContext=None):
         """
         This helper function, not a member of the public interface, lets Python threading
         instantiate a SiteRunDriver of the correct subtype on demand. It is used, for example,
@@ -161,7 +161,7 @@ class SiteRun(SitePillar):
         driver of the correct subtype, and then call its submitJob() method.
         """
         runDriver = cls()
-        runDriver.submit(jobDefn, jobContext, fromEvent)
+        runDriver.submit(jobDefn, jobContext)
 
     @abstractmethod
     def submit(self, jobDefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
