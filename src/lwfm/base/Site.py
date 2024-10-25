@@ -16,56 +16,7 @@ interfaces for the named Site. ~/.lwfm/sites.txt can be used to augment the
 list of sites provided here with a user's own custom Site implementations. In
 the event of a name collision between the user's sites.txt and those hardcoded
 here, the user's sites.txt config trumps.
-
-Let's look at a simple example: we will instantiate a local Site and run a
-simple echo of 'hello world' as a job. We will then interrogate the final job
-status.
-
-
-    # echo 'hello world' but as a Job on a (local) Site
-    # assumes the lwfm job status service is running
-
-    import logging
-
-    from lwfm.base.Site import Site
-    from lwfm.base.JobDefn import JobDefn
-
-    # This Site name can be an argument - name maps to a Site class,
-    # either one provided with this sdk, or one user-authored.
-    siteName = "local"
-
-    if __name__ == '__main__':
-
-        logging.basicConfig()
-        logging.getLogger().setLevel(logging.INFO)
-
-        # one Site for this example - construct an interface to the Site
-        site = Site.getSite(siteName)
-        # a "local" Site login is generally a no-op
-        site.getAuthDriver().login()
-
-        # define the Job - use all Job defaults except the command to execute
-        jobDefn = JobDefn()
-        jobDefn.setEntryPoint("echo 'hello world'")
-
-        # submit the Job to the Site
-        status = site.getRunDriver().submitJob(jobDefn)
-        # the run is generally asynchronous - on a remote HPC-type Site
-        # and even in a local Site the "local" driver can implement async runs 
-        # so expect this Job status to be "pending"
-        logging.info("hello world job " + status.getJobId() + " " + 
-                     status.getStatusValue())
-
-        # how could we tell the async job has finished? one way is to 
-        # synchronously wait on its end status (another way is asynchronous
-        # triggering, which we'll demonstrate in a separate example)
-        status = status.wait()
-        logging.info("hello world job " + status.getJobId() + " " + 
-        status.getStatusValue())
-
 """
-
-# TODO format to 80 chars 
 
 from enum import Enum
 from abc import ABC, abstractmethod
@@ -77,18 +28,19 @@ import importlib
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobDefn import JobDefn
-from lwfm.base.SiteFileRef import SiteFileRef
 from lwfm.base.JobStatus import JobStatus
 from lwfm.midware.Logger import Logger
 
 
-# *********************************************************************************
+# ***************************************************************************
 class SitePillar(ABC):
     pass
 
+# TODO 
+class SiteFileRef:
+    pass
 
-# *********************************************************************************
-
+# ***************************************************************************
 
 class SiteAuth(SitePillar):
     """
@@ -105,11 +57,12 @@ class SiteAuth(SitePillar):
     @abstractmethod
     def login(self, force: bool = False) -> bool:
         """
-        Login to the Site using the Site's own mechanism for authentication and caching.
+        Login to the Site using the Site's own mechanism for authentication and
+        caching.
 
         Params:
-            force - if true, forces a login even if the Site detects that the current
-                login is still viable
+            force - if true, forces a login even if the Site detects that the 
+                current login is still viable
         Returns:
             bool - true if success, else false
 
@@ -125,8 +78,8 @@ class SiteAuth(SitePillar):
         Is the currently cached Site login info still viable?
 
         Returns:
-            bool - true if the login is still viable, else false; the Site might not cache,
-                and thus always return false
+            bool - true if the login is still viable, else false; the Site might
+            not cache, and thus always return false
 
         Example:
             site = Site.getSite(siteName)
@@ -136,29 +89,32 @@ class SiteAuth(SitePillar):
         pass
 
 
-# *********************************************************************************
+# **************************************************************************
 
 
 class SiteRun(SitePillar):
     """
-    Run: in its most basic form, the Run subsystem provides a mechanism to submit a job,
-    cancel the job, and interrogate the job's status.  The submitting of a job might, for
-    some Sites, involve a batch scheduler.  Or, for some Sites (like a "local" Site), the
-    run might be immediate.  On submit of a job the method returns a JobStatus.  A job
-    definition (JobDefn) is a description of the job.  Its the role of the Site's Run
-    subsystem to interpret the abstract JobDefn in the context of that Site.  Thus the
-    JobDefn permits arbitrary name=value pairs which might be necessary to submit a job
-    at that Site.  The JobStatus returned is canonical - the Site's own status name set
-    is mapped into the lwfm canonical name set by the implementation of the Site.Run itself.
+    Run: in its most basic form, the Run subsystem provides a mechanism to
+    submit a job, cancel the job, and interrogate the job's status.  The
+    submitting of a job might, for some Sites, involve a batch scheduler.
+    Or, for some Sites (like a "local" Site), the run might be immediate.
+    On submit of a job the method returns a JobStatus.  A job definition
+    (JobDefn) is a description of the job.  Its the role of the Site's Run
+    subsystem to interpret the abstract JobDefn in the context of that
+    Site.  Thus the JobDefn permits arbitrary name=value pairs which might
+    be necessary to submit a job at that Site.  The JobStatus returned is
+    canonical - the Site's own status name set is mapped into the lwfm
+    canonical name set by the implementation of the Site.Run itself.
     """
 
     @classmethod
     def _submitJob(cls, jobDefn, jobContext=None):
         """
-        This helper function, not a member of the public interface, lets Python threading
-        instantiate a SiteRunDriver of the correct subtype on demand. It is used, for example,
-        by the lwfm middleware's event handler mechanism to reflectively instantiate a Site Run
-        driver of the correct subtype, and then call its submitJob() method.
+        This helper function, not a member of the public interface, lets Python
+        threading instantiate a SiteRunDriver of the correct subtype on demand.
+        It is used, for example, by the lwfm middleware's event handler mechanism
+        to reflectively instantiate a Site Run driver of the correct subtype,
+        and then call its submitJob() method.
         """
         runDriver = cls()
         runDriver.submit(jobDefn, jobContext)
@@ -194,31 +150,22 @@ class SiteRun(SitePillar):
         Returns:
             JobStatus - preliminary status, containing a JobContext including
                 the canonical and Site-specific native job id
-
-        Example:
-            site = Site.getSite(siteName)
-            jobStatus = site.getRunDriver().submitJob(jobDefn)
         """
         pass
 
     @abstractmethod
     def getStatus(self, jobId: str) -> JobStatus:
         """
-        Check the status of a job running on this Site.  The JobContext is an attribute
-        of the JobStatus, and contains the canonical and Site-specific native job id.
-        The call to submitJob() will have returned an initial JobStatus.
-        The implementation of getJobStatus() may use any portion of the JobContext to
-        obtain the status of the job, as needed by the Site.
+        Check the status of a job running on this Site.  The JobContext is an 
+        attribute of the JobStatus, and contains the canonical and Site-specific 
+        native job id. The implementation of getJobStatus() may use any portion
+        of the JobContext to obtain the status of the job, as needed by the Site.
 
-        Params:
-            jobContext - the context of the executing job, including the native job id
+        Parameters:
+            jobContext - the context of the executing job, including the native
+                job id
         Returns:
             JobStatus - the current known status of the job
-
-        Example:
-            site = Site.getSite(siteName)
-            jobStatus = site.getRunDriver().submitJob(jobDefn)
-            jobStatus = site.getRunDriver().getJobStatus(jobStatus.getJobContext())
         """
         pass
 
@@ -237,11 +184,6 @@ class SiteRun(SitePillar):
                 getJobStatus() method to obtain final terminal status (e.g., the job
                 might have completed successfully prior to the cancel being received,
                 the cancel might not be instantaneous, etc.)
-
-        Example:
-            site = Site.getSite(siteName)
-            jobStatus = site.getRunDriver().submitJob(jobDefn)
-            site.getRunDriver().cancelJob(jobStatus.getJobContext())
         """
         pass
 
@@ -255,33 +197,11 @@ class SiteRun(SitePillar):
 
         Returns:
             List[str] - a list of names, potentially empty or None
-
-        Example:
-            site = Site.getSite(siteName)
-            computeTypes = site.getRunDriver().listComputeTypes()
         """
         pass
 
-    @abstractmethod
-    def getJobList(self, startTime: int, endTime: int) -> List[JobStatus]:
-        """
-        Get a list of jobs which changed state between two timestamps.
 
-        Params:
-            int - a timestamp in the Unix epoch, the beginning of the returned period
-            int - a timestamp in the Unix epoch, the end of the returned period
-        Returns:
-            [JobStatus] - a list of JobStatus objects, or an empty list
-
-        Example:
-            site = Site.getSite(siteName)
-            jobStatusList = site.getRunDriver().getJobList(startTime, endTime)
-        """
-        # TODO needed?
-        pass
-
-
-# *************************************************************************************
+# ****************************************************************************
 
 
 class SiteRepo(SitePillar):
@@ -361,20 +281,21 @@ class SiteRepo(SitePillar):
         pass
 
 
-# **********************************************************************************
-# Spin: vaporware.  In theory some Sites would expose mechanisms to create (provision)
-# and destroy various kinds of computing devices.  These might be single nodes, or entire
-# turnkey cloud-bases HPC systems.  Spin operations are modeled as jobs in
-# order to permit sequential workflows which spin up resources, send them jobs, and then
-# spin them down as part of a autonomous operation.  Basic verbs include: show cafeteria,
-# spin up, spin down.  Spins would be wrapped as Jobs allowing normal status interrogation.
+# *****************************************************************************
+# Spin: vaporware.  In theory some Sites would expose mechanisms to create 
+# (provision) and destroy various kinds of computing devices.  These might be
+# single nodes, or entire turnkey cloud-bases HPC systems.  Spin operations are
+# modeled as jobs in order to permit sequential workflows which spin up resources,
+# send them jobs, and then spin them down as part of a autonomous operation.  
+# Basic verbs include: show cafeteria, spin up, spin down.  Spins would be 
+# wrapped as Jobs allowing normal status interrogation.
 
 
-# *********************************************************************************
+# ****************************************************************************
 # Site: the Site is simply a name and the getters and setters for its Auth, Run,
 # Repo subsystems.
 #
-# The Site factory utility method returns the Python class which implements the
+# The getSite() factory utility method returns the Python class which implements the
 # interfaces for the named Site. ~/.lwfm/sites.txt can be used to augment the list
 # of sites provided here with a user's own custom Site implementations. In the
 # event of a name collision between the user's sites.txt and those hardcoded here,
@@ -391,9 +312,9 @@ class Site(LwfmBase):
     _runDriver: SiteRun = None
     _repoDriver: SiteRepo = None
 
-    # pre-defined Sites and their associated driver implementations, each which implements
-    # Auth, Run, Repo, [Spin]  these mappings can be extended in the ~/.lwfm/sites.txt
-    # configuration
+    # pre-defined Sites and their associated driver implementations, each which
+    # implements Auth, Run, Repo, [Spin]  these mappings can be extended in 
+    # the ~/.lwfm/sites.txt configuration
     _SITES = {"local": "lwfm.sites.LocalSite.LocalSite"}
 
     @staticmethod
@@ -421,9 +342,9 @@ class Site(LwfmBase):
         Logger.info("Obtaining site driver " + fullPath + " for " + site)
         if fullPath is not None:
             # parse the path into package and class parts for convenience
-            xpackage = fullPath.rsplit(".", 1)[0]
-            xclass = fullPath.rsplit(".", 1)[1]
-            return [xpackage, xclass]
+            xPackage = fullPath.rsplit(".", 1)[0]
+            xClass = fullPath.rsplit(".", 1)[1]
+            return [xPackage, xClass]
         else:
             return None
 

@@ -1,7 +1,7 @@
 # TODO logging vs. print
 
-# The Workflow Event Processor watches for Job Status events and fires a JobDefn to a
-# Site when an event of interest occurs.
+# The Workflow Event Processor watches for Job Status events and fires a JobDefn 
+# to a Site when an event of interest occurs.
 
 import threading
 from typing import List
@@ -16,7 +16,7 @@ from lwfm.midware.LwfManager import LwfManager
 
 
 
-# ************************************************************************************
+# ***************************************************************************
 
 
 class LwfmEventProcessor:
@@ -26,7 +26,7 @@ class LwfmEventProcessor:
     _infoQueue: List[JobStatus] = []
 
     # TODO
-    # We can make this adaptive later on, for now let's just wait 15 sec between polls
+    # We can make this adaptive later on, for now just wait 15 sec between polls
     STATUS_CHECK_INTERVAL_SECONDS = 15
 
     def __init__(self):
@@ -38,8 +38,6 @@ class LwfmEventProcessor:
         self._timer.start()
 
     def _runAsyncOnSite(self, trigger: WfEvent, jobContext: JobContext = None) -> None:
-        Logger.info("_runAsyncOnSite Running job on site: " + trigger.getFireSite() + " from parent context: " + \
-            str(jobContext))
         site = Site.getSite(trigger.getFireSite())
         runDriver = site.getRun().__class__
         newJobContext = jobContext
@@ -68,37 +66,30 @@ class LwfmEventProcessor:
         return True
 
     def checkEventTriggers(self):
-        print("here in checkEventTriggers len = " + str(len(self._infoQueue)))
+        Logger.info("here in checkEventTriggers len = " + \
+                    str(len(self._infoQueue)))
         if len(self._infoQueue) > 0:
             for key in list(self._eventHandlerMap):
-                # TODO assume for now that job events will be processed as events warrant
+                # TODO assume for now that job events will be processed as needed
                 # if the key ends with "INFO.dt" then it is a data trigger
                 if not key.endswith("INFO.dt"):
                     continue
                 for infoStatus in self._infoQueue:
                     messageConsumed = False
-                    print("*** getting trigger: " + str(key))
                     trigger = self._eventHandlerMap[key]
-                    print("*** got trigger: " + str(trigger))
                     try:
-                        print(
-                            "Checking trigger native status: "
-                            + str(infoStatus.getNativeInfo())
-                        )
                         passedFilter = trigger.runTriggerFilter(
                             infoStatus.getNativeInfo()
                         )
-                        print("*** passed filter: " + str(passedFilter))
                         if passedFilter:
                             # fire the trigger defn
                             self.fireTrigger(trigger)
                             self.unsetEventTrigger(key)
                             messageConsumed = True
                     except Exception as ex:
-                        print("Exception checking trigger: " + str(ex))
+                        Logger.error("Exception checking trigger: " + str(ex))
                         continue
                     if messageConsumed:
-                        print("Message consumed, removing from queue")
                         self._infoQueue.remove(infoStatus)
 
         # Timers only run once, so re-trigger it
@@ -110,32 +101,20 @@ class LwfmEventProcessor:
         self._timer.start()
 
     def _initJobEventTrigger(self, wfe: JobEvent) -> JobContext:
-        # set the job context under which the new job will run, it will have a new id
-        # and be a child of the setting job
+        # set the job context under which the new job will run, it will have a 
+        # new id and be a child of the setting job
         newJobContext = JobContext()
         newJobContext.setSiteName(wfe.getFireSite())
         newJobContext.setParentJobId(wfe.getRuleJobId())
-        newJobContext.setOriginJobId(wfe.getRuleJobId())    # TODO there would be a lookup to know the parent's origin
+        newJobContext.setOriginJobId(wfe.getRuleJobId())    
+        # TODO there would be a lookup to know the parent's origin
         # fire the initial status showing the new job ready on the shelf 
         LwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY)
         return newJobContext
 
-    """     def _initDataEventTrigger(self, wfet: DataEvent) -> WfEvent:
-        # TODO
-        # set the job context under which the new job will run
-        newJobContext = JobContext()  # will assign a new job id
-        newJobContext.setSiteName(wfet.getTargetSiteName())
-        wfet.setTargetContext(newJobContext)
-        # fire the initial status showing the new job pending
-        newStatus = JobStatus(newJobContext)
-        newStatus.setStatus(JobStatusValues.PENDING)
-        newStatus.emit()
-        return wfet """
-
     # Register an event handler.  When a jobId running on a job Site
-    # emits a particular Job Status, fire the given JobDefn (serialized) at the target
-    # Site.  Return the new job id.
-    # TODO update doc, logging 
+    # emits a particular Job Status, fire the given JobDefn (serialized) 
+    # at the target Site.  Return the new job id.
     def setEventTrigger(self, wfe: WfEvent) -> str:
         try:
             if isinstance(wfe, JobEvent):
@@ -145,7 +124,6 @@ class LwfmEventProcessor:
                 return None
             # store the event handler in the cache
             wfe.setFireJobId(context.getId())
-            Logger.info("Storing event handler in cache for key: " + str(wfe.getKey()))
             self._eventHandlerMap[wfe.getKey()] = wfe
             return context.getId()
         except Exception as ex:
@@ -154,7 +132,6 @@ class LwfmEventProcessor:
 
     def unsetEventTrigger(self, handlerId: str) -> bool:
         try:
-            Logger.info("Removing event handler from cache for key: " + str(handlerId))
             self._eventHandlerMap.pop(handlerId)
             return True
         except Exception as ex:
@@ -180,15 +157,18 @@ class LwfmEventProcessor:
                 return 
 
             # here, do i have a job trigger for this job id and its current state?
-            key = JobEvent.getJobEventKey(jobStatus.getJobId(), jobStatus.getStatus())
+            key = JobEvent.getJobEventKey(jobStatus.getJobId(), 
+                                          jobStatus.getStatus())
             if key in self._eventHandlerMap:
                 # we have a job trigger 
                 jobTrigger = self._eventHandlerMap[key]
                 # consume it, un-setting ASAP 
                 self.unsetEventTrigger(key)
 
-                if (jobTrigger.getFireDefn() is None) or (jobTrigger.getFireDefn() == "") \
-                    or (jobTrigger.getFireSite() is None) or (jobTrigger.getFireSite() == ""):
+                if (jobTrigger.getFireDefn() is None) \
+                    or (jobTrigger.getFireDefn() == "") \
+                    or (jobTrigger.getFireSite() is None) \
+                    or (jobTrigger.getFireSite() == ""):
                     return 
 
                 self._runAsyncOnSite(jobTrigger, jobStatus.getJobContext())

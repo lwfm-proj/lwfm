@@ -1,34 +1,24 @@
-# Job Status: a record of a state of the job's execution.  The job may go through many
-# states in its lifetime - on the actual runtime Site the job status will be expressed
-# in terms of their native status codes.  In lwfm, we desire canonical status messages
-# so job chaining is permitted across sites.  Its the role of the Site's Run subsystem
-# to produce these datagrams in their canonical form, though we leave room to express
-# the native info too.  Some status codes might be emitted more than once (e.g. "INFO").
-# We provide a mechanism to track the job's parent-child relationships.
-
 
 from enum import Enum
-import logging
 import os
 from datetime import datetime
-import pickle
-import json
 
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobContext import JobContext
+from lwfm.midware.Logger import Logger
 
 class _JobStatusFields(Enum):
-    STATUS = "status"  # canonical status
+    STATUS = "status"   # canonical status
     NATIVE_STATUS = (
         "nativeStatus"  # the status code for the specific Run implementation
     )
     EMIT_TIME = "emitTime"
     RECEIVED_TIME = "receivedTime"
-    NATIVE_INFO = "nativeInfo"
+    NATIVE_INFO = "nativeInfo"      # the site-specific status body
 
 
-# The canonical set of status codes.  Run implementations will have their own sets, and
-# they must provide a mapping into these.
+# The canonical set of lwfm status codes.  Run implementations will have their 
+# own sets, and they must provide a mapping into these.
 class JobStatusValues(Enum):
     UNKNOWN = "UNKNOWN"
     READY = "READY"
@@ -41,46 +31,25 @@ class JobStatusValues(Enum):
     CANCELLED = "CANCELLED"  # terminal state
 
 
-# *************************************************************************************
+# ***********************************************************************
 
 
 class JobStatus(LwfmBase):
     """
-    TODO: cleanup docs
+    A record of a state of the job's execution.  The job may go through many
+    states in its lifetime - on the actual runtime Site the job status will be 
+    expressed in terms of their native status codes.  In lwfm, we desire 
+    canonical status codes so job chaining is permitted across sites.  Its the
+    role of the Site's Run subsystem to produce these datagrams in their 
+    canonical form, though we leave room to express the native info too.  Some 
+    status codes might be emitted more than once (e.g. "INFO").
 
-    Over the lifetime of the running job, it may emit many status messages.  (Or, more
-    specifically, lwfm might poll the remote Site for an updated status of a job it is
-    tracking.)
+    The JobStatus references the JobContext of the running job, which contains
+    the id of the job and other originating information.
 
-    The Job Status references the Job Context of the running job, which contains the id
-    of the job and other originating information.
-
-    The Job Status is then augmented with the updated status info.  Like job ids, which
-    come in canonical lwfm and Site-specific forms (and we track both), so do job status
-    strings - there's the native job status, and the mapped canonical status.
-
-    Attributes:
-
-    job context - the Job Context for the job, which includes the job id
-
-    status - the current canonical status string
-
-    native status - the current native status string
-
-    emit time - the timestamp when the Site emitted the status - the Site driver will
-        need to populate this value
-
-    received time - the timestamp when lwfm received the Job Status from the Site; this
-        can be used to study latency in status receipt (which is by polling)
-
-    native info - the Site may inject Site-specific status information into the Job Status
-        message
-
-    status map - a constant, the mapping of Site-native status strings to canonical
-        status strings; native lwfm local jobs will use the literal mapping, and Site
-        drivers will implement Job Status subclasses which provide their own
-        Site-to-canonical mapping.
-
+    Specific sites implement their own subclass of JobStatus to provide their own 
+    status map - the mapping of Site-native status strings to canonical
+    status strings.  Native lwfm local jobs will use a pass-thru mapping.
     """
 
     statusMap: dict = None  # maps native status to canonical status
@@ -119,7 +88,8 @@ class JobStatus(LwfmBase):
         return self.jobContext.getId()
 
     def setStatus(self, status: JobStatusValues) -> None:
-        # TODO relate to automatically setting the native status as a default behavior
+        # TODO relate to automatically setting the native status as a 
+        # default behavior
         LwfmBase._setArg(self, _JobStatusFields.STATUS.value, status)
 
     def getStatus(self) -> JobStatusValues:
@@ -142,7 +112,7 @@ class JobStatus(LwfmBase):
         try:
             self.setStatus(self.statusMap[self.getNativeStatusStr()])
         except Exception as ex:
-            logging.error("Unable to map the native status to canonical: {}".format(ex))
+            Logger.error("Unable to map the native status to canonical: {}".format(ex))
             self.setStatus(JobStatusValues.UNKNOWN)
 
     def getStatusMap(self) -> dict:
@@ -163,12 +133,13 @@ class JobStatus(LwfmBase):
                 microsecond=ms % 1000 * 1000
             )
         except Exception as ex:
-            logging.error("Can't determine emit time " + str(ex))
+            Logger.error("JobStatus: can't determine emit time " + str(ex))
             return datetime.now()
 
     def setReceivedTime(self, receivedTime: datetime) -> None:
         LwfmBase._setArg(
-            self, _JobStatusFields.RECEIVED_TIME.value, receivedTime.timestamp() * 1000
+            self, _JobStatusFields.RECEIVED_TIME.value, 
+            receivedTime.timestamp() * 1000
         )
 
     def getReceivedTime(self) -> datetime:
@@ -182,15 +153,6 @@ class JobStatus(LwfmBase):
 
     def getNativeInfo(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.NATIVE_INFO.value)
-
-    # zero out state-sensative fields
-    def clear(self):
-        zeroTime = (
-            0 if os.name != "nt" else 24 * 60 * 60
-        )  # Windows requires an extra day or we get an OS error
-        self.setReceivedTime(datetime.fromtimestamp(zeroTime))
-        self.setEmitTime(datetime.fromtimestamp(zeroTime))
-        self.setNativeInfo("")
 
     def isTerminalSuccess(self) -> bool:
         return self.getStatus() == JobStatusValues.COMPLETE

@@ -11,7 +11,7 @@ class _JobContextFields(Enum):
     PARENT_JOB_ID = "parentJobId"   # immediate predecessor of this job, if any - 
                                     # seminal job has no parent
     ORIGIN_JOB_ID = (
-        "originJobId"               # oldest ancestor - a seminal job is its own originator
+        "originJobId"               # oldest ancestor - a seminal job is its own origin
     )
     SET_ID = "setId"                # optional id of a set if the job is part of a set
     SITE_NAME = "siteName"          # name of the Site which emitted the message
@@ -20,35 +20,9 @@ class _JobContextFields(Enum):
 
 class JobContext(LwfmBase):
     """
-    TODO cleanup docs
-
-    The runtime execution context of the job.  It contains the id of the job and references
-    to its parent jobs, if any.  A Job Status can reference a Job Context, and then augument 
-    it with updated job status information.
-
-    Attributes:
-
-    id - the lwfm id of the executing job.  This is distinct from the "native job id" below, 
-         which is the id of the job on the specific Site.  
-         If the Site is "lwfm local", then one might expect that the id and the native id
-         are the same, else one should assume they are not.  lwfm ids are generated as uuids.
-         Sites can use whatever mechanism they prefer.
-
-    native id - the Site-generated job id
-
-    parent job id - a lwfm generated id, the immediate parent of this job, if any; a 
-        seminal job has no parent
-
-    origin job id - the eldest parent in the job chain; a seminal job is its own originator
-
-    name - the job can have an optional name for human consumption, else the name is the 
-        lwfm job id
-
-    site name - the job is running (or has been submitted to the Site for queuing), 
-        therefore the Site name is known
-
-    compute type - if the Site distinguishes compute types, it can be noted here
-
+    The runtime execution context of the job.  It contains the id of the job and 
+    references to its parent jobs, if any.  A JobStatus can reference a JobContext,
+    and then augment it with updated job status information.
     """
 
     def __init__(self, parentContext: "JobContext" = None):
@@ -61,11 +35,14 @@ class JobContext(LwfmBase):
         )  # a seminal job would be its own originator - it may be set later
         self.setName(self.getId())
         self.setComputeType("default")
-        self.setSiteName("local")  # default to local
+        self.setSiteName("local")  # default to local site
         if (parentContext is not None):
             self.setParentJobId(parentContext.getJobId())
             self.setOriginJobId(parentContext.getOriginJobId())
             self.setSiteName(parentContext.getSiteName())
+            self.setName(
+                parentContext.getName() + "_" + self.getName()
+            )  # name is parent name + '_' + child name
 
     def setId(self, idValue: str) -> None:
         LwfmBase._setArg(self, _JobContextFields.ID.value, idValue)
@@ -137,7 +114,8 @@ class JobContext(LwfmBase):
     def __str__(self):
         return f"[ctx id:{self.getId()} native:{self.getNativeId()} " + \
             f"parent:{self.getParentJobId()} origin:{self.getOriginJobId()} " + \
-            f"set:{self.getJobSetId()} site:{self.getSiteName()} compute:{self.getComputeType()}]"
+            f"set:{self.getJobSetId()} site:{self.getSiteName()} " + \
+            f"compute:{self.getComputeType()}]"
     
 
 

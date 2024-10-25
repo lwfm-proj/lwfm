@@ -5,13 +5,14 @@ import pickle
 import json
 
 
-# Many base classes extend LwfmBase to permit the passing of arbitrary name=value maps 
-# in addition to the fixed parameters specified by various classes in the object model.  
-# This aids in generalization and serialization.  
+# Many base classes extend LwfmBase to permit the passing of arbitrary name=value
+# maps in addition to the fixed parameters specified by various classes in the 
+# object model.  This aids in generalization and serialization.  
+# I don't doubt there's a better way... 
 
 class LwfmBase(ABC):
 
-    _shortJobIds = False
+    _shortJobIds = True # TODO set to false to use long ids in a production environment
 
     id: str = None
 
@@ -58,8 +59,8 @@ class LwfmBase(ABC):
         in_obj = pickle.loads(json.loads(in_json).encode(encoding="ascii"))
         return in_obj
 
-# UUID generator used to give jobs lwfm ids which obviates collisions between job sites.  
-# Other objects in the system may also benefit from this generator.
+# UUID generator used to give jobs lwfm ids which obviates collisions between 
+# job sites.  Other objects in the system may also use this generator.
 class _IdGenerator:
     @staticmethod
     def generateId():
