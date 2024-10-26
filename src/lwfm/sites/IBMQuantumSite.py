@@ -1,12 +1,8 @@
-# LocalSiteDriver: an implementation of Site and its constituent Auth, Run, Repo 
-# interfaces for a local to the user runtime environment.  Unsecure, as this is 
-# local and we assume the user is themselves already.
+# IBM Quantum cloud service Site driver for lwfm.
 
 from typing import List
 import os
 import multiprocessing
-
-from pathlib import Path
 
 from lwfm.base.Site import Site, SiteAuth, SiteRun
 from lwfm.base.JobDefn import JobDefn
@@ -14,20 +10,22 @@ from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.JobContext import JobContext
 from lwfm.midware.LwfManager import LwfManager
 from lwfm.midware.Logger import Logger
+from lwfm.midware.Store import AuthStore
 
+from qiskit_ibm_runtime import QiskitRuntimeService
 
 # *********************************************************************
 
 # TODO make more flexible with configuration
-SITE_NAME = "local"
+SITE_NAME = "ibm_quantum"
 
 
 # *********************************************************************
 
 
-class LocalJobStatus(JobStatus):
+class IBMQuantumJobStatus(JobStatus):
     def __init__(self, context: JobContext = None):
-        super(LocalJobStatus, self).__init__(context)
+        super(IBMQuantumJobStatus, self).__init__(context)
         # use default canonical status map
         self.getJobContext().setSiteName(SITE_NAME)
 
@@ -35,20 +33,29 @@ class LocalJobStatus(JobStatus):
 # **********************************************************************
 
 
-class LocalSiteAuth(SiteAuth):
-    # Because this is running locally, we don't need any authentication
+class IBMQuantumSiteAuth(SiteAuth):
     def login(self, force: bool = False) -> bool:
+        authStore = AuthStore()
+        token_data = authStore.getAuthForSite(SITE_NAME)
+        if token_data is None:
+            return False
+        QiskitRuntimeService.save_account(channel="ibm_quantum", 
+            token=token_data, 
+            overwrite=True,
+            set_as_default=True)
+        Logger.info("IBM Quantum login successful")
         return True
 
+
     def isAuthCurrent(self) -> bool:
-        return True
+        # implied to force another call to the above 
+        return False
 
 
 # ************************************************************************
 
 
-class LocalSiteRun(SiteRun):
-    _pendingJobs = {}
+class IBMQuantumSiteRun(SiteRun):
 
     def getStatus(self, jobId: str) -> JobStatus:
         return LwfManager.getStatus(jobId)
@@ -97,47 +104,24 @@ class LocalSiteRun(SiteRun):
 
 
     def cancel(self, jobContext: JobContext) -> bool:
-        # Find the locally running thread and kill it
-        try:
-            thread = self._pendingJobs[jobContext.getId()]
-            if thread is None:
-                return False
-            Logger.info(
-                "LocalSiteDriver.cancelJob(): calling terminate on job "
-                + jobContext.getId()
-            )
-            thread.terminate()
-            jStatus = LocalJobStatus(jobContext)
-            jStatus.emit(JobStatusValues.CANCELLED.value)
-            self._pendingJobs[jobContext.getId()] = None
-            return True
-        except Exception as ex:
-            Logger.error(
-                "ERROR: Could not cancel job %d: %s" % (jobContext.getId(), ex)
-            )
-            return False
+        return False
+
 
     def listComputeTypes(self) -> List[str]:
-        return ["default"]
-
+        service = QiskitRuntimeService()
+        backends = service.backends()
+        l = list()
+        for b in backends:
+            l.append(b.name)
+        return l
 
 
 
 # *************************************************************************************
 
-
-
-# *************************************************************************************
-
-# TODO 
-# _repoDriver = LocalSiteRepo()
-
-
-class LocalSite(Site):
-    # There are no required args to instantiate a local site.
+class IBMQuantumSite(Site):
     def __init__(self):
-        super(LocalSite, self).__init__(
-            # SITE_NAME, LocalSiteAuth(), LocalSiteRun(), _repoDriver, None
-            SITE_NAME, LocalSiteAuth(), LocalSiteRun(), None, None
-
+        super(IBMQuantumSite, self).__init__(
+            SITE_NAME, IBMQuantumSiteAuth(), IBMQuantumSiteRun(), None, None
         )
+

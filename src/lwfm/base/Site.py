@@ -315,7 +315,8 @@ class Site(LwfmBase):
     # pre-defined Sites and their associated driver implementations, each which
     # implements Auth, Run, Repo, [Spin]  these mappings can be extended in 
     # the ~/.lwfm/sites.txt configuration
-    _SITES = {"local": "lwfm.sites.LocalSite.LocalSite"}
+    _SITES = {"local": "lwfm.sites.LocalSite.LocalSite", 
+              "ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"}
 
     @staticmethod
     def _getSiteEntry(site: str):

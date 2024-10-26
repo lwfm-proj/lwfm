@@ -8,16 +8,18 @@ to set the logging level and log messages at different severity levels.
 import logging
 import datetime
 
-# TODO persistence to the lwfm provenance
+from lwfm.midware.Store import LoggingStore
 
 
 class Logger:
     _logger = None
+    _loggingStore = None
 
     def __init__(self):
         logging.basicConfig()
         self._logger = logging.getLogger()
         self._logger.setLevel(logging.INFO)
+        self._loggingStore = LoggingStore()
 
     def _getTimestamp(self) -> str:
         current_time = datetime.datetime.now(datetime.timezone.utc)
@@ -51,7 +53,9 @@ class Logger:
         :param jobStatus: the job status info to add to the log message (optional)
         :type jobStatus: JobStatus
         """
-        self._logger.info(self._buildMsg(msg, status))
+        msg = self._buildMsg(msg, status)
+        self._logger.info(msg)
+        self._loggingStore.putLogging("INFO", msg)
 
     def error(self, msg: str, status: str = None) -> None:
         """
@@ -62,7 +66,9 @@ class Logger:
         :param JobStatus: the job status info to add to the log message (optional)
         :type context: JobContext
         """
-        self._logger.error(self._buildMsg(msg, status))
+        msg = self._buildMsg(msg, status)
+        self._logger.error(msg)
+        self._loggingStore.putLogging("ERROR", msg)
 
 
 # create a singleton logger
