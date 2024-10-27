@@ -1,9 +1,9 @@
 
 from qiskit import QuantumCircuit
+from qiskit_ibm_runtime import SamplerV2 as Sampler, QiskitRuntimeService
 from lwfm.base.Site import Site
 from lwfm.midware.Logger import Logger
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
-
 
 def circuit_n_qubit_GHZ_state(n: int) -> QuantumCircuit:
     if isinstance(n, int) and n >= 2:
@@ -21,24 +21,34 @@ if __name__ == "__main__":
     site = Site.getSite("ibm_quantum")
 
     # we previously saved our token in the AuthStore - this send to the cloud
-    site.getAuth().login()
+    if (site.getAuth().isAuthCurrent() == False):
+        # fresh login 
+        site.getAuth().login()
 
     # list the compute types supported by the site - names of quantum backends
     backends = site.getRun().listComputeTypes()
     Logger.info("list of IBM quantum compute types: " + str(backends))
 
-    # we'll pick the first one at random and send a circuit to it; 
-    # this will be a generic circuit, not one for a specific backend
-    qubits = 5
-    qc = circuit_n_qubit_GHZ_state(qubits)
+    qubits = 3
+    circuit = circuit_n_qubit_GHZ_state(qubits)
+    circuit.measure_all()
 
-    
 
-    pm = generate_preset_pass_manager(optimization_level=1)
-    isa_circuit = pm.run(qc)
-    isa_operators_list = [op.apply_layout(isa_circuit.layout) for op in operators]
 
-    name = backends[0]
-    Logger.info("sending circuit to compute type: " + name)
-    site.getRun().sendCircuit(qc, name, [str(i) for i in range(qubits)])
+    service = QiskitRuntimeService()
+    backend = service.least_busy(simulator=False, operational=True)
+    Logger.info("Least busy backend: " + backend.name)
+
+    # rewrite the circuit to match the backend
+    pm = generate_preset_pass_manager(backend=backend, optimization_level=1)
+    isa_circuit = pm.run(circuit)
+
+    sampler = Sampler(mode=backend)
+    job = sampler.run([isa_circuit], shots=10)
+    print(job.result())
+
+
+
+
+
 
