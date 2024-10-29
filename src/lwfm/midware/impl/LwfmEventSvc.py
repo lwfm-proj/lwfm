@@ -6,8 +6,7 @@ from flask import Flask, request, jsonify
 import pickle
 from lwfm.midware.impl.LwfmEventProcessor import LwfmEventProcessor
 from lwfm.base.JobStatus import JobStatus
-
-from lwfm.midware.impl.RunStore import RunJobStatusStore
+from lwfm.midware.Store import JobStatusStore
 import logging
 
 app = Flask(__name__)
@@ -15,6 +14,8 @@ app.logger.disabled = True
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
 wfProcessor = LwfmEventProcessor()
+
+_statusStore = JobStatusStore()
 
 print("*** service starting")
 
@@ -35,7 +36,7 @@ def emitStatus():
     try:
         statusBlob = request.form["statusBlob"]
         statusObj = JobStatus.deserialize(statusBlob)
-        RunJobStatusStore().write(statusObj)
+        _statusStore.putJobStatus(statusObj)
     except Exception as ex:
         print("exception persisting status")
         print(ex)

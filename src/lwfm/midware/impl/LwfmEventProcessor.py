@@ -14,7 +14,7 @@ from lwfm.base.WfEvent import WfEvent, JobEvent
 from lwfm.base.Site import Site
 from lwfm.midware.LwfManager import LwfManager
 
-
+from lwfm.midware.Store import EventStore
 
 # ***************************************************************************
 
@@ -24,6 +24,7 @@ class LwfmEventProcessor:
     _eventHandlerMap = dict()
 
     _infoQueue: List[JobStatus] = []
+    _eventStore: EventStore = None
 
     # TODO
     # We can make this adaptive later on, for now just wait 15 sec between polls
@@ -36,6 +37,7 @@ class LwfmEventProcessor:
             (self,),
         )
         self._timer.start()
+        self._eventStore = EventStore()
 
     def _runAsyncOnSite(self, trigger: WfEvent, jobContext: JobContext = None) -> None:
         site = Site.getSite(trigger.getFireSite())
@@ -66,8 +68,6 @@ class LwfmEventProcessor:
         return True
 
     def checkEventTriggers(self):
-        Logger.info("here in checkEventTriggers len = " + \
-                    str(len(self._infoQueue)))
         if len(self._infoQueue) > 0:
             for key in list(self._eventHandlerMap):
                 # TODO assume for now that job events will be processed as needed
@@ -125,6 +125,7 @@ class LwfmEventProcessor:
             # store the event handler in the cache
             wfe.setFireJobId(context.getId())
             self._eventHandlerMap[wfe.getKey()] = wfe
+            self._eventStore.putWfEvent(wfe)
             return context.getId()
         except Exception as ex:
             Logger.error(__class__.__name__, str(ex))

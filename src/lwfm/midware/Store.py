@@ -1,6 +1,7 @@
 from abc import ABC
 from typing import List
 from tinydb import TinyDB, Query
+from tinydb.table import Document
 import os
 
 from lwfm.base.LwfmBase import _IdGenerator
@@ -11,22 +12,20 @@ _DB_FILE = os.path.join(os.path.expanduser("~"), ".lwfm", "store.json")
 class Store(ABC):
     _db = TinyDB(_DB_FILE)
         
-    def makeRecord(self, siteName: str, pillar: str, key: str, doc: str) -> dict:
-        return {
-            "id": _IdGenerator().generateId(),
-            "site": siteName,
-            "pillar": pillar,
-            "key": key,
-            "doc": doc
-        }
-
     def _get(self, siteName: str, pillar: str, key: str) -> List[dict]:
         Q = Query()
         return self._db.search((Q.site == siteName) & (Q.pillar == pillar) & (Q.key == key))
 
     def _put(self, siteName: str, pillar: str, key: str, doc: str) -> None:
-        record = self.makeRecord(siteName, pillar, key, doc)
-        self._db.insert(record)
+        id = _IdGenerator().generateInteger()
+        record = {
+            "id": id,
+            "site": siteName,
+            "pillar": pillar,
+            "key": key,
+            "doc": doc
+        }
+        self._db.insert(Document(record, doc_id=id))
         return
 
 # ****************************************************************************
@@ -49,6 +48,28 @@ class LoggingStore(Store):
 
     def putLogging(self, level: str, doc: str) -> None:
         self._put("local", "run.log", _IdGenerator().generateId(), doc)
+
+
+# ****************************************************************************
+
+class EventStore(Store):
+    def __init__(self):
+        super(EventStore, self).__init__()
+
+    def putWfEvent(self, datum: "WfEvent") -> bool: # type: ignore
+        self._put(datum.getFireSite(), "run.event", 
+                  datum.getId(), datum.__str__())
+
+
+# ****************************************************************************
+
+class JobStatusStore(Store):
+    def __init__(self):
+        super(JobStatusStore, self).__init__()
+
+    def putJobStatus(self, datum: "JobStatus") -> None: # type: ignore
+        self._put(datum.getJobContext().getSiteName(), 
+                  "run.status", datum.getJobId(), datum.__str__())
 
 
 # ****************************************************************************

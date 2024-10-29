@@ -6,9 +6,7 @@ from typing import List
 import os
 import multiprocessing
 
-from pathlib import Path
-
-from lwfm.base.Site import Site, SiteAuth, SiteRun
+from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.JobContext import JobContext
@@ -80,7 +78,8 @@ class LocalSiteRun(SiteRun):
                                   JobStatusValues.FAILED)
 
 
-    def submit(self, jDefn: JobDefn, useContext: JobContext = None) -> JobStatus:
+    def submit(self, jDefn: JobDefn, useContext: JobContext = None, 
+        computeType: str = None, runArgs: dict = None) -> JobStatus:
         if (useContext is None):
             useContext = JobContext()
             # we can test validity of the job defn here, reject it, or say its ready
@@ -117,14 +116,13 @@ class LocalSiteRun(SiteRun):
             )
             return False
 
-    def listComputeTypes(self) -> List[str]:
-        return ["default"]
-
-
-
 
 # *************************************************************************************
 
+class LocalSiteSpin(SiteSpin):
+    
+    def listComputeTypes(self) -> List[str]:
+        return ["default"]
 
 
 # *************************************************************************************
@@ -138,6 +136,5 @@ class LocalSite(Site):
     def __init__(self):
         super(LocalSite, self).__init__(
             # SITE_NAME, LocalSiteAuth(), LocalSiteRun(), _repoDriver, None
-            SITE_NAME, LocalSiteAuth(), LocalSiteRun(), None, None
-
+            SITE_NAME, LocalSiteAuth(), LocalSiteRun(), None, LocalSiteSpin()
         )

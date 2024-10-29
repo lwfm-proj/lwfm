@@ -108,7 +108,7 @@ class SiteRun(SitePillar):
     """
 
     @classmethod
-    def _submitJob(cls, jobDefn, jobContext=None):
+    def _submitJob(cls, jobDefn, parentContext=None, computeType=None, runArgs=None):
         """
         This helper function, not a member of the public interface, lets Python
         threading instantiate a SiteRunDriver of the correct subtype on demand.
@@ -117,10 +117,11 @@ class SiteRun(SitePillar):
         and then call its submitJob() method.
         """
         runDriver = cls()
-        runDriver.submit(jobDefn, jobContext)
+        runDriver.submit(jobDefn, parentContext)
 
     @abstractmethod
-    def submit(self, jobDefn: JobDefn, parentContext: JobContext = None) -> JobStatus:
+    def submit(self, jobDefn: JobDefn, parentContext: JobContext = None, 
+        computeType: str = None, runArgs: dict = None) -> JobStatus:
         """
         Submit the job for execution on this Site. It is an implementation
         detail of the Site what that means - everything from pseudo-immediate
@@ -184,19 +185,6 @@ class SiteRun(SitePillar):
                 getJobStatus() method to obtain final terminal status (e.g., the job
                 might have completed successfully prior to the cancel being received,
                 the cancel might not be instantaneous, etc.)
-        """
-        pass
-
-    @abstractmethod
-    def listComputeTypes(self) -> List[str]:
-        """
-        List the compute types supported by the Site.  Compute types are specific
-        runtime resources (if any) within the Site. The Site might not have any concept
-        and return an empty list, or a list of one singular type of the Site.  Or, the
-        Site might front a number of resources, and return a list of names.
-
-        Returns:
-            List[str] - a list of names, potentially empty or None
         """
         pass
 
@@ -290,6 +278,21 @@ class SiteRepo(SitePillar):
 # Basic verbs include: show cafeteria, spin up, spin down.  Spins would be 
 # wrapped as Jobs allowing normal status interrogation.
 
+class SiteSpin(SitePillar):
+
+    @abstractmethod
+    def listComputeTypes(self) -> List[str]:
+        """
+        List the compute types supported by the Site.  Compute types are specific
+        runtime resources (if any) within the Site. The Site might not have any concept
+        and return an empty list, or a list of one singular type of the Site.  Or, the
+        Site might front a number of resources, and return a list of names.
+
+        Returns:
+            List[str] - a list of names, potentially empty or None
+        """
+        pass
+
 
 # ****************************************************************************
 # Site: the Site is simply a name and the getters and setters for its Auth, Run,
@@ -311,6 +314,7 @@ class Site(LwfmBase):
     _authDriver: SiteAuth = None
     _runDriver: SiteRun = None
     _repoDriver: SiteRepo = None
+    _spinDriver: SiteSpin = None
 
     # pre-defined Sites and their associated driver implementations, each which
     # implements Auth, Run, Repo, [Spin]  these mappings can be extended in 
@@ -369,6 +373,7 @@ class Site(LwfmBase):
         authDriver: SiteAuth,
         runDriver: SiteRun,
         repoDriver: SiteRepo,
+        spinDriver: SiteSpin,
         args: dict = None,
     ):
         super(Site, self).__init__(args)
@@ -376,6 +381,7 @@ class Site(LwfmBase):
         self.setAuth(authDriver)
         self.setRun(runDriver)
         self.setRepo(repoDriver)
+        self.setSpin(spinDriver)
 
     def setName(self, name: str) -> None:
         LwfmBase._setArg(self, _SiteFields.SITE_NAME.value, name)
@@ -400,3 +406,11 @@ class Site(LwfmBase):
 
     def getRepo(self) -> SiteRepo:
         return self._repoDriver
+    
+    def setSpin(self, spinDriver: SiteSpin) -> None:
+        self._spinDriver = spinDriver
+
+    def getSpin(self) -> SiteSpin:
+        return self._spinDriver
+    
+    

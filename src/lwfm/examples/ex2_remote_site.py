@@ -1,9 +1,12 @@
 
-from qiskit import QuantumCircuit
-from qiskit_ibm_runtime import SamplerV2 as Sampler, QiskitRuntimeService
+import io
+
+from qiskit import QuantumCircuit, qpy
 from lwfm.base.Site import Site
 from lwfm.midware.Logger import Logger
-from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+from lwfm.base.JobDefn import JobDefn
+
+from lwfm.sites.IBMQuantumSite import IBMQuantumSite
 
 def circuit_n_qubit_GHZ_state(n: int) -> QuantumCircuit:
     if isinstance(n, int) and n >= 2:
@@ -11,6 +14,7 @@ def circuit_n_qubit_GHZ_state(n: int) -> QuantumCircuit:
         qc.h(0)
         for i in range(n-1):
             qc.cx(i, i+1)
+        qc.measure_all()
     else:
         raise Exception("n is not a valid input")
     return qc
@@ -20,33 +24,25 @@ if __name__ == "__main__":
     # load the site driver for the ibm cloud site
     site = Site.getSite("ibm_quantum")
 
-    # we previously saved our token in the AuthStore - this send to the cloud
+    # login, if needed
     if (site.getAuth().isAuthCurrent() == False):
-        # fresh login 
-        site.getAuth().login()
+        site.getAuth().login()  # fresh login
 
     # list the compute types supported by the site - names of quantum backends
-    backends = site.getRun().listComputeTypes()
+    backends = site.getSpin().listComputeTypes()
     Logger.info("list of IBM quantum compute types: " + str(backends))
+    backend = backends[0]   # use the first one, which is known to be least busy 
 
+    # make a qiskit circuit 
     qubits = 3
     circuit = circuit_n_qubit_GHZ_state(qubits)
-    circuit.measure_all()
 
-
-
-    service = QiskitRuntimeService()
-    backend = service.least_busy(simulator=False, operational=True)
-    Logger.info("Least busy backend: " + backend.name)
-
-    # rewrite the circuit to match the backend
-    pm = generate_preset_pass_manager(backend=backend, optimization_level=1)
-    isa_circuit = pm.run(circuit)
-
-    sampler = Sampler(mode=backend)
-    job = sampler.run([isa_circuit], shots=10)
-    print(job.result())
-
+    # run it, which will transpile the circuit to the backend; 
+    # pass in a QASM string and some site-specific runtime args; 
+    # get back a provisional status right away, it will complete asynchronously
+    jobStatus = site.getRun().submit(IBMQuantumSite.circuit_to_JobDefn(circuit), 
+                                     None, backend, {"shots": 10})
+    print(f"{jobStatus}")
 
 
 

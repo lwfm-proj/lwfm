@@ -20,13 +20,12 @@ from lwfm.base.LwfmBase import LwfmBase
 class _JobDefnFields(Enum):
     NAME               = "name"         # optional - jobs do not need to be named - 
                                         #   they have ids
-    COMPUTE_TYPE       = "computeType"  # some sites define addressable compute resources 
-                                        #   within it
     ENTRY_POINT        = "entryPoint"   # defines the top-level "executable" command to 
                                         #   pass to the site scheduler
     JOB_ARGS           = "jobArgs"      # positional arguments to the job - an array of 
                                         #   string - the run driver will construct the 
                                         #   command line from these args
+
     REPO_OP            = "repoOp"       # put, get - for data movement jobs, the relative 
                                         #   direction is noted
                                         # see the RepoOp enum in this module  
@@ -76,12 +75,6 @@ class JobDefn(LwfmBase):
     def getName(self) -> str:
         return LwfmBase._getArg(self, _JobDefnFields.NAME.value)
 
-    def setComputeType(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.COMPUTE_TYPE.value, name)
-
-    def getComputeType(self) -> str:
-        return LwfmBase._getArg(self, _JobDefnFields.COMPUTE_TYPE.value)
-
     def setEntryPoint(self, entryPoint: str) -> None:
         LwfmBase._setArg(self, _JobDefnFields.ENTRY_POINT.value, entryPoint)
 
@@ -96,6 +89,5 @@ class JobDefn(LwfmBase):
 
 
 #****************************************************************************
-
 
 

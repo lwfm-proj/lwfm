@@ -47,6 +47,29 @@ class WfEvent(LwfmBase, ABC):
     def getKey(self) -> str:
         return self.getId()
 
+# ***************************************************************************
+
+class _RemoteJobPollerFields(Enum):
+    JOB_ID = "jobId"
+    NATIVE_JOB_ID = "nativeJobId"
+    SITE_NAME = "siteName"
+
+class RemoteJobPoller(WfEvent):
+    def __init__(self, context: JobContext):
+        super(RemoteJobPoller, self).__init__(None, None)
+        LwfmBase._setArg(self, _RemoteJobPollerFields.JOB_ID.value, context.getJobId())
+        LwfmBase._setArg(self, _RemoteJobPollerFields.NATIVE_JOB_ID.value, context.getNativeId())
+        LwfmBase._setArg(self, _RemoteJobPollerFields.SITE_NAME.value, context.getSiteName())
+
+    def getJobId(self) -> str:
+        return LwfmBase._getArg(self, _RemoteJobPollerFields.JOB_ID.value)
+
+    def getNativeJobId(self) -> str:
+        return LwfmBase._getArg(self, _RemoteJobPollerFields.NATIVE_JOB_ID.value)
+
+    def getSiteName(self) -> str:
+        return LwfmBase._getArg(self, _RemoteJobPollerFields.SITE_NAME.value)
+
 
 # ***************************************************************************
 class _JobEventFields(Enum):

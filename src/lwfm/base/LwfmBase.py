@@ -3,6 +3,8 @@ from abc import ABC
 import uuid
 import pickle
 import json
+import sys
+import random 
 
 
 # Many base classes extend LwfmBase to permit the passing of arbitrary name=value
@@ -11,8 +13,6 @@ import json
 # I don't doubt there's a better way... 
 
 class LwfmBase(ABC):
-
-    _shortJobIds = True # TODO set to false to use long ids in a production environment
 
     id: str = None
 
@@ -63,9 +63,10 @@ class LwfmBase(ABC):
 # job sites.  Other objects in the system may also use this generator.
 class _IdGenerator:
     @staticmethod
-    def generateId():
-        if (LwfmBase._shortJobIds):
-            return str(uuid.uuid4())[:8]
-        else:
-            return str(uuid.uuid4())
+    def generateId() -> str:
+        return str(uuid.uuid4())
 
+    @staticmethod
+    def generateInteger() -> int:
+        max_int = sys.maxsize
+        return random.randint(1, max_int)

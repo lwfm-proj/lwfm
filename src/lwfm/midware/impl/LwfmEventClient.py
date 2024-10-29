@@ -77,7 +77,7 @@ class LwfmEventClient:
             if response.ok:
                 return
             else:
-                logging.error("emitStatus error: " + response)
+                logging.error(f"emitStatus error: {response}")
                 return
         except Exception as ex:
             logging.error("emitStatus error: " + ex)
