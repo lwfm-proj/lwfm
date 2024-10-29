@@ -5,19 +5,16 @@
 
 import threading
 from typing import List
-import logging                # TODO
 
 from lwfm.midware.Logger import Logger
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.JobContext import JobContext
 from lwfm.base.WfEvent import WfEvent, JobEvent
 from lwfm.base.Site import Site
+from lwfm.midware.impl.Store import EventStore, JobStatusStore
 from lwfm.midware.LwfManager import LwfManager
 
-from lwfm.midware.Store import EventStore
-
 # ***************************************************************************
-
 
 class LwfmEventProcessor:
     _timer = None
@@ -25,6 +22,7 @@ class LwfmEventProcessor:
 
     _infoQueue: List[JobStatus] = []
     _eventStore: EventStore = None
+    _jobStatusStore: JobStatusStore = None
 
     # TODO
     # We can make this adaptive later on, for now just wait 15 sec between polls
@@ -38,6 +36,8 @@ class LwfmEventProcessor:
         )
         self._timer.start()
         self._eventStore = EventStore()
+        self._jobStatusStore = JobStatusStore()
+
 
     def _runAsyncOnSite(self, trigger: WfEvent, jobContext: JobContext = None) -> None:
         site = Site.getSite(trigger.getFireSite())
@@ -59,15 +59,30 @@ class LwfmEventProcessor:
         thread.start()
 
 
+    def getStatusBlob(self, jobId: str) -> str:
+        return self._jobStatusStore.getJobStatusBlob(jobId)
+
+
     def fireTrigger(self, trigger: WfEvent) -> bool:
         try: 
             self._runAsyncOnSite(trigger)
         except Exception as ex:
-            logging.error("Could not run job: " + ex)
+            Logger.error("Could not run job: " + str(ex))
             return False
         return True
 
+
+    def checkRemotePollers(self):
+        try:
+            pass
+        except Exception as ex:
+            Logger.error("Could not check remote pollers: " + str(ex))
+            return False
+        return True
+
+
     def checkEventTriggers(self):
+        self.checkRemotePollers()
         if len(self._infoQueue) > 0:
             for key in list(self._eventHandlerMap):
                 # TODO assume for now that job events will be processed as needed
@@ -100,6 +115,7 @@ class LwfmEventProcessor:
         )
         self._timer.start()
 
+
     def _initJobEventTrigger(self, wfe: JobEvent) -> JobContext:
         # set the job context under which the new job will run, it will have a 
         # new id and be a child of the setting job
@@ -112,6 +128,11 @@ class LwfmEventProcessor:
         LwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY)
         return newJobContext
 
+
+    def findAllEventTriggers(self) -> List[str]:
+        return self._eventStore.getAllWfEvents()
+
+
     # Register an event handler.  When a jobId running on a job Site
     # emits a particular Job Status, fire the given JobDefn (serialized) 
     # at the target Site.  Return the new job id.
@@ -122,14 +143,14 @@ class LwfmEventProcessor:
             else:
                 Logger.error(__class__.__name__ + ".setEventTrigger: Unknown type")
                 return None
-            # store the event handler in the cache
+            # store the event handler 
             wfe.setFireJobId(context.getId())
-            self._eventHandlerMap[wfe.getKey()] = wfe
             self._eventStore.putWfEvent(wfe)
             return context.getId()
         except Exception as ex:
             Logger.error(__class__.__name__, str(ex))
             return None 
+
 
     def unsetEventTrigger(self, handlerId: str) -> bool:
         try:
@@ -139,25 +160,23 @@ class LwfmEventProcessor:
             print(ex)
             return False
 
+
     #def unsetAllEventTriggers(self) -> None:
     #    self._eventHandlerMap = dict()
-
-    """     def listActiveTriggers(self) -> List[WfEvent]:
-        handlers = []
-        for key in self._eventHandlerMap:
-            handlers.append(key)
-        return handlers """
     
 
-    def testJobEvents(self, jobStatus: JobStatus) -> None:
-        try:
-            # is this an INFO status?  if so, put it in queue for later inspection
-            # for user defined data triggers 
-            if jobStatus.getStatus() == JobStatusValues.INFO:
-                self._infoQueue.append(jobStatus)
-                return 
+    def testDataTrigger(self, jobStatus: JobStatus) -> None:
+        # TODO implement
+        pass
 
-            # here, do i have a job trigger for this job id and its current state?
+
+    def testJobStatus(self, jobStatus: JobStatus) -> None:
+        try:
+            # is this an INFO status? inspect for user defined data events 
+            if jobStatus.getStatus() == JobStatusValues.INFO:
+                self.testDataTrigger(jobStatus)
+
+            # do i have a job event for this job id and its current state?
             key = JobEvent.getJobEventKey(jobStatus.getJobId(), 
                                           jobStatus.getStatus())
             if key in self._eventHandlerMap:
@@ -175,7 +194,7 @@ class LwfmEventProcessor:
                 self._runAsyncOnSite(jobTrigger, jobStatus.getJobContext())
                 return 
         except Exception as ex:
-            logging.error("Could not prepare to run job: " + str(ex))
+            Logger.error("Could not prepare to run job: " + str(ex))
             return 
     
     def exit(self):

@@ -11,7 +11,7 @@ from lwfm.base.JobContext import JobContext
 from lwfm.base.WfEvent import RemoteJobPoller
 from lwfm.midware.LwfManager import LwfManager
 from lwfm.midware.Logger import Logger
-from lwfm.midware.Store import AuthStore
+from lwfm.src.lwfm.midware.impl.Store import AuthStore
 from qiskit import QuantumCircuit, qpy
 from qiskit_ibm_runtime import SamplerV2 as Sampler, QiskitRuntimeService
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager

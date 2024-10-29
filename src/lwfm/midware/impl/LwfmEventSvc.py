@@ -6,7 +6,7 @@ from flask import Flask, request, jsonify
 import pickle
 from lwfm.midware.impl.LwfmEventProcessor import LwfmEventProcessor
 from lwfm.base.JobStatus import JobStatus
-from lwfm.midware.Store import JobStatusStore
+from lwfm.midware.impl.Store import JobStatusStore
 import logging
 
 app = Flask(__name__)
@@ -41,13 +41,10 @@ def emitStatus():
         print("exception persisting status")
         print(ex)
         return "", 400
-    # TODO - no...
-    # store it locally for convenience
-    _jobStatusCache[statusObj.getJobId()] = statusObj
     # TODO
     try:
         # This will check to see if there is a job trigger and if so run it
-        wfProcessor.testJobEvents(statusObj)
+        wfProcessor.testJobStatus(statusObj)
         return "", 200
     except Exception as ex:
         print("exception checking events")
@@ -58,12 +55,7 @@ def emitStatus():
 @app.route("/status/<jobId>")
 def getStatus(jobId: str):
     try:
-        stat = _jobStatusCache[jobId]
-        try:
-            return stat.serialize()
-        except Exception as ex:
-            print("*** exception from stat.serialize() " + str(ex))
-            return ""
+        return wfProcessor.getStatusBlob(jobId)
     except Exception:
         return ""
 
@@ -122,9 +114,11 @@ def unsetAllTriggers():
 
 
 # list the ids of all active handlers
-@app.route("/list")
+@app.route("/lisEvents")
 def listTriggers():
-    return str(wfProcessor.listActiveTriggers())
+    return wfProcessor.listActiveTriggers()
+
+
 
 
 

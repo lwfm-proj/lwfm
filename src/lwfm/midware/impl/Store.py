@@ -3,6 +3,7 @@ from typing import List
 from tinydb import TinyDB, Query
 from tinydb.table import Document
 import os
+import time
 
 from lwfm.base.LwfmBase import _IdGenerator
 
@@ -14,19 +15,29 @@ class Store(ABC):
         
     def _get(self, siteName: str, pillar: str, key: str) -> List[dict]:
         Q = Query()
-        return self._db.search((Q.site == siteName) & (Q.pillar == pillar) & (Q.key == key))
+        if (key is None) or (key == ""):
+            return self._db.search((Q.site == siteName) & (Q.pillar == pillar))
+        else:
+            return self._db.search((Q.site == siteName) & (Q.pillar == pillar) & (Q.key == key))
+
 
     def _put(self, siteName: str, pillar: str, key: str, doc: str) -> None:
         id = _IdGenerator().generateInteger()
         record = {
-            "id": id,
+            "db_id": id,
             "site": siteName,
             "pillar": pillar,
             "key": key,
+            "timestamp": time.perf_counter_ns(),
             "doc": doc
         }
         self._db.insert(Document(record, doc_id=id))
         return
+
+
+    def _sortMostRecent(self, docs: List[dict]) -> List[dict]:
+        return sorted(docs, key=lambda x: x['timestamp'], reverse=True)
+
 
 # ****************************************************************************
 
@@ -60,6 +71,9 @@ class EventStore(Store):
         self._put(datum.getFireSite(), "run.event", 
                   datum.getId(), datum.__str__())
 
+    def getAllWfEvents(self) -> List[dict]: # type: ignore
+        return self._sortMostRecent(self._get("local", "run.event"))
+
 
 # ****************************************************************************
 
@@ -69,7 +83,15 @@ class JobStatusStore(Store):
 
     def putJobStatus(self, datum: "JobStatus") -> None: # type: ignore
         self._put(datum.getJobContext().getSiteName(), 
-                  "run.status", datum.getJobId(), datum.__str__())
+                  "run.status", datum.getJobId(), datum.serialize())
+
+    # return the most recent status record for this jobId
+    def getJobStatusBlob(self, jobId: str) -> str: 
+        try:
+            return self._sortMostRecent(self._get("local", "run.status", jobId))[0]["doc"]   
+        except Exception as e:
+            print("Error in getJobStatusBlob: " + str(e))
+            return ""
 
 
 # ****************************************************************************

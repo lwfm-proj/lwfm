@@ -1,55 +1,45 @@
 
-import datetime
+from abc import ABC, abstractmethod
 import time
 from enum import Enum
+from typing import List
+import importlib
 
 from lwfm.base.WfEvent import WfEvent
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
-from lwfm.midware.Logger import Logger
-from lwfm.midware.impl.LwfmEventClient import LwfmEventClient
-
 
 # ***************************************************************************
-class LwfManager:
+class LwfManager(ABC):
 
-    def __init__(self):
-        super(LwfManager, self).__init__()
-
+    # given a job id, get back the current status
+    @abstractmethod
     def getStatus(self, jobId: str) -> JobStatus:
-        """
-        Given a canonical job id, fetch the latest JobStatus from the lwfm service.
-        (The lwfm service may need to call on the host site to obtain up-to-date 
-        status.)
+        pass 
 
-        Args:
-            jobId (str): canonical job id
 
-        Returns:
-            JobStatus: or None if the job is not found
-        """
-        try:
-            return LwfmEventClient().getStatus(jobId)
-        except Exception as ex:
-            Logger.error("Error fetching job status: " + str(ex))
-            return None
-        
-    # register an event handler
-    def setEvent(self, wfe: WfEvent) -> str: 
-        return LwfmEventClient().setEvent(wfe)
+    @abstractmethod
+    def getAllStatuses(self, jobId: str) -> List[JobStatus]:
+        pass
     
+
+    # register an event handler, get back the id of the future job 
+    @abstractmethod
+    def setEvent(self, wfe: WfEvent) -> str: 
+        pass
+    
+
+    # get all active event handlers
+    @abstractmethod
+    def getActiveWfEvents(self) -> List[WfEvent]: 
+        pass
+
+
     # emit a status message, perhaps triggering event handlers 
+    @abstractmethod
     def emitStatus(self, context: JobContext, statusClass: type, 
                    nativeStatus: Enum, nativeInfo: str = None) -> None:
-        try:
-            status = statusClass(context)
-            # forces call on setStatus() producing a mapped native status -> status
-            status.setNativeStatus(nativeStatus)    
-            status.setNativeInfo(nativeInfo)
-            status.setEmitTime(datetime.datetime.now(datetime.UTC))
-            LwfmEventClient().emitStatus(status)
-        except Exception as ex:
-            Logger.error("Error emitting job status: " + str(ex))
+        pass
 
 
     # Wait synchronously until the job reaches a terminal state, then return 
@@ -73,4 +63,15 @@ class LwfManager:
         return status
     
 
-LwfManager = LwfManager()
+    @staticmethod
+    def _getInstance() -> "LwfManager":
+        module = importlib.import_module(__package__ + ".impl.LwfmEventClient")
+        class_ = getattr(module, "LwfmEventClient")
+        inst = class_()
+        return inst
+
+
+LwfManager = LwfManager._getInstance()
+
+
+

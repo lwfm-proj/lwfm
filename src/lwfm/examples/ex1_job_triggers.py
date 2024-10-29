@@ -22,21 +22,23 @@ if __name__ == "__main__":
     statusA = site.getRun().submit(jobDefnA)    # a new job context is created
     Logger.info("job A submitted", statusA)
 
-    # when job A reaches the COMPLETE state, fire job B 
+    # when job A asynchronously reaches the COMPLETE state, fire job B 
     futureJobIdB = LwfManager.setEvent(
         JobEvent(statusA.getJobId(), JobStatusValues.COMPLETE, 
                  JobDefn("echo date = `date` > " + dataFile), "local")
     )
     Logger.info(f"job B {futureJobIdB} set as a job event on A")
 
-    # when job B gets to the COMPLETE state, fire job C 
+    # when job B asynchronously gets to the COMPLETE state, fire job C 
     futureJobIdC = LwfManager.setEvent(
         JobEvent(futureJobIdB, JobStatusValues.COMPLETE,
                  JobDefn("cat " + dataFile), "local")
     )
     Logger.info(f"job C {futureJobIdC} set as a job event on B")
 
+    Logger.info(LwfManager.getAllWfEvents())
+
     # for the purposes of this example, let's wait synchronously on the
-    # conclusion of job C, which implies B also finished
+    # conclusion of job C, which implies B and A also finished
     statusC = LwfManager.wait(futureJobIdC)
     Logger.info("job C finished, implying B and A also finished", statusC)

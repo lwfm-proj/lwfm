@@ -8,7 +8,7 @@ to set the logging level and log messages at different severity levels.
 import logging
 import datetime
 
-from lwfm.midware.Store import LoggingStore
+from lwfm.midware.impl.Store import LoggingStore
 
 
 class Logger:

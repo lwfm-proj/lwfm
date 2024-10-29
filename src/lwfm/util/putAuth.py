@@ -1,5 +1,5 @@
 
-from lwfm.midware.Store import AuthStore
+from lwfm.src.lwfm.midware.impl.Store import AuthStore
 
 if __name__ == "__main__":
     import sys

@@ -92,6 +92,7 @@ class LocalSiteRun(SiteRun):
         # Run the job in a new thread so we can wrap it in a bit more code
         # this will kick the status the rest of the way to a terminal state 
         multiprocessing.Process(target=self._runJob, args=[jDefn, useContext]).start()
+        Logger.info("LocalSite: submitted job %s" % (useContext.getId()))
         return LwfManager.getStatus(useContext.getId())
 
 
