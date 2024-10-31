@@ -16,7 +16,6 @@ from lwfm.midware.Logger import Logger
 
 # *********************************************************************
 
-# TODO make more flexible with configuration
 SITE_NAME = "local"
 
 

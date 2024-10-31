@@ -1,46 +1,31 @@
 
-from abc import ABC, abstractmethod
 import time
 from enum import Enum
 from typing import List
-import importlib
 
 from lwfm.base.WfEvent import WfEvent
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
+from lwfm.midware.impl.LwfmEventClient import LwfmEventClient
 
 # ***************************************************************************
-class LwfManager(ABC):
+class LwfManager():
+
+    _client = LwfmEventClient()
+
+
+    #***********************************************************************
+    # status methods
 
     # given a job id, get back the current status
-    @abstractmethod
     def getStatus(self, jobId: str) -> JobStatus:
-        pass 
+        return self._client.getStatus(jobId)
 
-
-    @abstractmethod
-    def getAllStatuses(self, jobId: str) -> List[JobStatus]:
-        pass
     
-
-    # register an event handler, get back the id of the future job 
-    @abstractmethod
-    def setEvent(self, wfe: WfEvent) -> str: 
-        pass
-    
-
-    # get all active event handlers
-    @abstractmethod
-    def getActiveWfEvents(self) -> List[WfEvent]: 
-        pass
-
-
-    # emit a status message, perhaps triggering event handlers 
-    @abstractmethod
+    # emit a status message 
     def emitStatus(self, context: JobContext, statusClass: type, 
                    nativeStatus: Enum, nativeInfo: str = None) -> None:
-        pass
-
+        return self._client.emitStatus(context, statusClass, nativeStatus, nativeInfo)
 
     # Wait synchronously until the job reaches a terminal state, then return 
     # that state.  Uses a progressive sleep time to avoid polling too frequently.
@@ -63,15 +48,24 @@ class LwfManager(ABC):
         return status
     
 
-    @staticmethod
-    def _getInstance() -> "LwfManager":
-        module = importlib.import_module(__package__ + ".impl.LwfmEventClient")
-        class_ = getattr(module, "LwfmEventClient")
-        inst = class_()
-        return inst
+    #***********************************************************************
+    # event methods
+
+    # register an event handler, get back the id of the future job 
+    def setEvent(self, wfe: WfEvent) -> str: 
+        return self._client.setEvent(wfe)
+    
+    def unsetEvent(self, wfe: WfEvent) -> None: 
+        return self._client.unsetEvent(wfe)
+
+    # get all active event handlers
+    def getActiveWfEvents(self) -> List[WfEvent]: 
+        return self._client.getActiveWfEvents()
 
 
-LwfManager = LwfManager._getInstance()
+LwfManager = LwfManager()
 
-
+if __name__ == "__main__":
+    for e in LwfManager.getActiveWfEvents():
+        print(e)
 

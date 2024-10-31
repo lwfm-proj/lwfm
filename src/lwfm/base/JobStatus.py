@@ -1,11 +1,9 @@
 
 from enum import Enum
-import os
 from datetime import datetime
 
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobContext import JobContext
-from lwfm.midware.Logger import Logger
 
 class _JobStatusFields(Enum):
     STATUS = "status"   # canonical status
@@ -88,8 +86,6 @@ class JobStatus(LwfmBase):
         return self.jobContext.getId()
 
     def setStatus(self, status: JobStatusValues) -> None:
-        # TODO relate to automatically setting the native status as a 
-        # default behavior
         LwfmBase._setArg(self, _JobStatusFields.STATUS.value, status)
 
     def getStatus(self) -> JobStatusValues:
@@ -100,6 +96,7 @@ class JobStatus(LwfmBase):
 
     def setNativeStatusStr(self, status: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.NATIVE_STATUS.value, status)
+        # now map the native status to a canonical
         self.mapNativeStatus()
 
     def getNativeStatusStr(self) -> str:
@@ -112,7 +109,6 @@ class JobStatus(LwfmBase):
         try:
             self.setStatus(self.statusMap[self.getNativeStatusStr()])
         except Exception as ex:
-            Logger.error("Unable to map the native status to canonical: {}".format(ex))
             self.setStatus(JobStatusValues.UNKNOWN)
 
     def getStatusMap(self) -> dict:
@@ -133,7 +129,6 @@ class JobStatus(LwfmBase):
                 microsecond=ms % 1000 * 1000
             )
         except Exception as ex:
-            Logger.error("JobStatus: can't determine emit time " + str(ex))
             return datetime.now()
 
     def setReceivedTime(self, receivedTime: datetime) -> None:

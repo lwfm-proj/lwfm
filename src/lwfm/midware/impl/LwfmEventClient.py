@@ -1,18 +1,15 @@
-import pickle
 import json
 import requests
 from typing import List
 from enum import Enum
 import datetime
+import logging    # don't use the lwfm Logger here else circular import
 
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobContext import JobContext
 from lwfm.base.WfEvent import WfEvent
-from lwfm.midware.LwfManager import LwfManager
-from lwfm.midware.Logger import Logger
 
-
-class LwfmEventClient(LwfManager):
+class LwfmEventClient():
     # TODO url of the actual service we expose to our little gaggle 
     _JSS_URL = "http://127.0.0.1:3000"
 
@@ -20,18 +17,7 @@ class LwfmEventClient(LwfManager):
         return self._JSS_URL
 
     #***********************************************************************
-
-    def getAllStatuses(self, jobId: str) -> List[JobStatus]:
-        response = requests.get(f"{self.getUrl()}/all/statuses")
-        if response.ok:
-            if response.text == "":
-                return None
-            else:
-                statuses = json.loads(str(response.text))
-                return statuses
-        else:
-            return None
-
+    # status methods
 
     def getStatus(self, jobId: str) -> JobStatus:
         response = requests.get(f"{self.getUrl()}/status/{jobId}")
@@ -39,32 +25,10 @@ class LwfmEventClient(LwfManager):
             if response.ok:
                 return JobStatus.deserialize(response.text)
             else:
-                print("response not ok")
+                self.emitLogging("ERROR", f"response not ok: {response.text}")    
                 return None
         except Exception as ex:
-            Logger.error("getStatusBlob error: " + str(ex))
-            return None
-
-
-    def setEvent(self, wfe: WfEvent) -> str:
-        payload = {}
-        payload["triggerObj"] = pickle.dumps(wfe, 0).decode()
-        response = requests.post(f"{self.getUrl()}/setWorkflowEvent", payload)
-        if response.ok:
-            # this is the job id of the registered job
-            return response.text
-        else:
-            Logger.error("setEvent error: " + response.text)
-            return None
-        
-
-    def getActiveWfEvents(self) -> List[WfEvent]:
-        response = requests.get(f"{self.getUrl()}/listEvents")
-        if response.ok:
-            blobs = response.text.split("\n")
-            return [WfEvent.deserialize(blob) for blob in blobs]
-        else:
-            Logger.error("listActiveEventTriggers error: " + str(response))
+            self.emitLogging("ERROR", "getStatusBlob error: " + str(ex))
             return None
 
 
@@ -83,38 +47,70 @@ class LwfmEventClient(LwfManager):
             if response.ok:
                 return
             else:
-                Logger.error(f"emitStatus error: {response}")
+                self.emitLogging("ERROR", f"emitStatus error: {response}")
                 return
         except Exception as ex:
-            Logger.error("Error emitting job status: " + str(ex))
+            self.emitLogging("ERROR", "Error emitting job status: " + str(ex))
+            return
+
+    #***********************************************************************
+    # event methods
+
+    def setEvent(self, wfe: WfEvent) -> str:
+        payload = {}
+        payload["eventObj"] = wfe.serialize()
+        response = requests.post(f"{self.getUrl()}/setEvent", payload)
+        if response.ok:
+            # return the job id of the registered job
+            return response.text
+        else:
+            self.emitLogging("ERROR", "setEvent error: " + response.text)
+            return None
+        
+    def unsetEvent(self, wfe: WfEvent) -> None:
+        payload = {}
+        payload["eventObj"] = wfe.serialize()
+        response = requests.post(f"{self.getUrl()}/unsetEvent", payload)
+        if response.ok:
+            # return the job id of the registered job
+            return 
+        else:
+            self.emitLogging("ERROR", "unsetEvent error: " + response.text)
+            return 
+
+    def getActiveWfEvents(self) -> List[WfEvent]:
+        response = requests.get(f"{self.getUrl()}/listEvents")
+        if response.ok:
+            l = json.loads(response.text)
+            return [WfEvent.deserialize(blob) for blob in l]
+        else:
+            self.emitLogging("ERROR", "getActiveWfEvents error: " + str(response.text))
+            return None
+
+
+    #***********************************************************************
+    # logging methods
+
+    def emitLogging(self, level: str, doc: str) -> None: 
+        try:
+            data = {"level": level, 
+                    "errorMsg": doc}
+            response = requests.post(f"{self.getUrl()}/emitLogging", data)
+            if response.ok:
+                return
+            else:
+                # use the plain logger when logging logging errors
+                logging.error(f"emitLogging error: {response.text}")
+                return
+        except Exception as ex:
+            # use the plain logger when logging logging errors
+            logging.error("error emitting logging: " + str(ex))
+
+
+    #***********************************************************************
+    # auth methods 
+
 
 
     #***********************************************************************
 
-
-    #def unsetEventTrigger(self, handlerId: str) -> bool:
-    #    response = requests.get(f"{self.getUrl()}/unset/{handlerId}")
-    #    if response.ok:
-            return True
-    #    else:
-    #        return False
-
-    #def unsetAllEventTriggers(self) -> bool:
-    #    response = requests.get(f"{self.getUrl()}/unsetAll")
-    #    if response.ok:
-    #        return True
-    #    else:
-    #        return False
-
-
-
-
-    def getSiteName(self, jobId):
-        response = requests.get(f"{self.getUrl()}/site/jobId/{jobId}")
-        if response.ok:
-            return response.text
-        else:
-            return None
-
-    def getWorkflowUrl(self, jobContext) -> str:
-        return "" + self.getUrl() + "/wfthread/" + jobContext.getId()

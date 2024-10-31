@@ -36,8 +36,6 @@ if __name__ == "__main__":
     )
     Logger.info(f"job C {futureJobIdC} set as a job event on B")
 
-    Logger.info(LwfManager.getAllWfEvents())
-
     # for the purposes of this example, let's wait synchronously on the
     # conclusion of job C, which implies B and A also finished
     statusC = LwfManager.wait(futureJobIdC)

@@ -18,7 +18,6 @@ from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
 # *********************************************************************
 
-# TODO make more flexible with configuration
 SITE_NAME = "ibm_quantum"
 
 class IBMQuantumJobStatusValues(Enum):

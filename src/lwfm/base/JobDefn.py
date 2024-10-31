@@ -26,16 +26,6 @@ class _JobDefnFields(Enum):
                                         #   string - the run driver will construct the 
                                         #   command line from these args
 
-    REPO_OP            = "repoOp"       # put, get - for data movement jobs, the relative 
-                                        #   direction is noted
-                                        # see the RepoOp enum in this module  
-    REPO_LOCAL_REF     = "repoLocalRef" # local file reference - the "from" reference for 
-                                        #   a put, the "to" reference for a get
-    REPO_SITE_REF      = "repoSiteRef"  # site file reference, the "to" reference for a put, 
-                                        #   the "from" reference for a get
-    # EXTRA_ARGS                        # TODO site schedulers vary widely - this dict 
-                                        #   permits arbitrary args
-
 
 class JobDefn(LwfmBase):
     """

@@ -8,32 +8,36 @@ to set the logging level and log messages at different severity levels.
 import logging
 import datetime
 
-from lwfm.midware.impl.Store import LoggingStore
+from lwfm.midware.impl.LwfmEventClient import LwfmEventClient
 
 
 class Logger:
     _logger = None
-    _loggingStore = None
+    _lwfmClient = None
 
+    # create a singleton logger
     def __init__(self):
         logging.basicConfig()
         self._logger = logging.getLogger()
         self._logger.setLevel(logging.INFO)
-        self._loggingStore = LoggingStore()
+        self._lwfmClient = LwfmEventClient()
 
     def _getTimestamp(self) -> str:
         current_time = datetime.datetime.now(datetime.timezone.utc)
         formatted_time = current_time.strftime("%Y-%m-%dT%H:%M:%SZ")
         return formatted_time
 
-    def _buildMsg(self, msg: str, status: str = None) -> str:
-        if status is not None:
-            msg = " {} [{}] {}".format(
-                self._getTimestamp(),
-                status,
-                msg,
-            )
-        return msg
+    def _buildMsg(self, msg: str, status: str) -> str:
+        if (status is None):
+            status = ""
+        if (msg is None):
+            msg = ""
+        out = " {} [{}] {}".format(
+            self._getTimestamp(),
+            status,
+            msg,
+        )
+        return out
 
     def setLevel(self, level) -> None:
         """
@@ -53,9 +57,9 @@ class Logger:
         :param jobStatus: the job status info to add to the log message (optional)
         :type jobStatus: JobStatus
         """
-        msg = self._buildMsg(msg, status)
-        self._logger.info(msg)
-        self._loggingStore.putLogging("INFO", msg)
+        out = self._buildMsg(msg, status)
+        self._logger.info(out)
+        self._lwfmClient.emitLogging("INFO", out)
 
     def error(self, msg: str, status: str = None) -> None:
         """
@@ -63,12 +67,13 @@ class Logger:
 
         :param msg: the message to log
         :type msg: str
-        :param JobStatus: the job status info to add to the log message (optional)
-        :type context: JobContext
+        :param status: the job status info to add to the log message (optional)
+        :type status: JobStatus
         """
-        msg = self._buildMsg(msg, status)
-        self._logger.error(msg)
-        self._loggingStore.putLogging("ERROR", msg)
+        out = self._buildMsg(msg, status)
+        self._logger.error(out)
+        self._lwfmClient.emitLogging("ERROR", out)
+
 
 
 # create a singleton logger
