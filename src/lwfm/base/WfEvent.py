@@ -1,7 +1,6 @@
 
 
 from enum import Enum
-from abc import ABC
 
 from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobDefn import JobDefn
@@ -15,7 +14,7 @@ class _WfEventFields(Enum):
     FIRE_JOB_ID = "fireJobId"
 
 
-class WfEvent(LwfmBase, ABC):
+class WfEvent(LwfmBase):
     """
     fire defn: the JobDefn to fire if the event handler rule is satisfied
     fire site: the site on which the job defn will run
@@ -30,7 +29,7 @@ class WfEvent(LwfmBase, ABC):
     def getFireDefn(self) -> JobDefn:
         return LwfmBase._getArg(self, _WfEventFields.FIRE_DEFN.value)
     
-    def getFireSite(self) -> JobContext:
+    def getFireSite(self) -> str:
         return LwfmBase._getArg(self, _WfEventFields.FIRE_SITE.value)
     
     def setFireJobId(self, fireJobId: str) -> None:
@@ -49,27 +48,21 @@ class WfEvent(LwfmBase, ABC):
 
 # ***************************************************************************
 
-class _RemoteJobPollerFields(Enum):
-    JOB_ID = "jobId"
-    NATIVE_JOB_ID = "nativeJobId"
-    SITE_NAME = "siteName"
+class _RemoteJobEventFields(Enum):
+    NATIVE_JOB_ID   = "nativeJobId"
 
-class RemoteJobPoller(WfEvent):
+class RemoteJobEvent(WfEvent):
     def __init__(self, context: JobContext):
-        super(RemoteJobPoller, self).__init__(None, None)
-        LwfmBase._setArg(self, _RemoteJobPollerFields.JOB_ID.value, context.getJobId())
-        LwfmBase._setArg(self, _RemoteJobPollerFields.NATIVE_JOB_ID.value, context.getNativeId())
-        LwfmBase._setArg(self, _RemoteJobPollerFields.SITE_NAME.value, context.getSiteName())
-
-    def getJobId(self) -> str:
-        return LwfmBase._getArg(self, _RemoteJobPollerFields.JOB_ID.value)
+        super(RemoteJobEvent, self).__init__(JobDefn(), context.getSiteName())
+        LwfmBase._setArg(self, _RemoteJobEventFields.NATIVE_JOB_ID.value, context.getNativeId())
+        LwfmBase._setArg(self, _WfEventFields.FIRE_JOB_ID.value, context.getId())
 
     def getNativeJobId(self) -> str:
-        return LwfmBase._getArg(self, _RemoteJobPollerFields.NATIVE_JOB_ID.value)
+        return LwfmBase._getArg(self, _RemoteJobEventFields.NATIVE_JOB_ID.value)
 
-    def getSiteName(self) -> str:
-        return LwfmBase._getArg(self, _RemoteJobPollerFields.SITE_NAME.value)
-
+    def __str__(self):
+        return super().__str__() + \
+            f"+[remote nativeId:{self.getNativeJobId()}]"
 
 # ***************************************************************************
 class _JobEventFields(Enum):

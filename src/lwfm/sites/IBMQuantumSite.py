@@ -8,10 +8,10 @@ from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.JobContext import JobContext
-from lwfm.base.WfEvent import RemoteJobPoller
+from lwfm.base.WfEvent import RemoteJobEvent
 from lwfm.midware.LwfManager import LwfManager
 from lwfm.midware.Logger import Logger
-from lwfm.src.lwfm.midware.impl.Store import AuthStore
+from lwfm.midware.impl.Store import AuthStore
 from qiskit import QuantumCircuit, qpy
 from qiskit_ibm_runtime import SamplerV2 as Sampler, QiskitRuntimeService
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
@@ -20,26 +20,27 @@ from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
 SITE_NAME = "ibm_quantum"
 
+# the job status codes for IBM Quantum site - see constructor below for mapping
+# to lwfm canonical status strings
 class IBMQuantumJobStatusValues(Enum):
-    INITIALIZING = "INITIALIZING"
-    QUEUED = "QUEUED"
-    VALIDATING = "VALIDATING"
-    #FINISHING = "FINISHING"
-    RUNNING = "RUNNING"
-    CANCELLED = "CANCELLED"
-    DONE = "DONE"
-    ERROR = "ERROR"
-    INFO = "INFO"
+    INITIALIZING    = "INITIALIZING"
+    QUEUED          = "QUEUED"
+    VALIDATING      = "VALIDATING"
+    RUNNING         = "RUNNING"
+    CANCELLED       = "CANCELLED"
+    DONE            = "DONE"
+    ERROR           = "ERROR"
+    INFO            = "INFO"
 
 
 class IBMQuantumJobStatus(JobStatus):
-    def __init__(self, context: JobContext = None):
-        super(IBMQuantumJobStatus, self).__init__(context)
-        self.getJobContext().setSiteName(SITE_NAME)
-        # override the default status mapping
+    def __init__(self, jobContext: JobContext = None):
+        super(IBMQuantumJobStatus, self).__init__(jobContext)
+        # override the default status mapping for the specifics of this site
         self.setStatusMap({
             IBMQuantumJobStatusValues.INITIALIZING.value  : JobStatusValues.READY    ,
             IBMQuantumJobStatusValues.QUEUED.value        : JobStatusValues.PENDING  ,
+            IBMQuantumJobStatusValues.VALIDATING.value    : JobStatusValues.PENDING  ,
             IBMQuantumJobStatusValues.RUNNING.value       : JobStatusValues.RUNNING  ,
             IBMQuantumJobStatusValues.CANCELLED.value     : JobStatusValues.CANCELLED,
             # nothing in IBM maps to lwfm FINISHING
@@ -47,10 +48,11 @@ class IBMQuantumJobStatus(JobStatus):
             IBMQuantumJobStatusValues.ERROR.value         : JobStatusValues.FAILED   ,
             IBMQuantumJobStatusValues.INFO.value          : JobStatusValues.INFO     ,
             })
+        self.getJobContext().setSiteName(SITE_NAME)
 
 
 # **********************************************************************
-
+# Auth - login to IBM Quantum cloud service
 
 class IBMQuantumSiteAuth(SiteAuth):
     def login(self, force: bool = False) -> bool:
@@ -76,23 +78,30 @@ class IBMQuantumSiteAuth(SiteAuth):
 
 
 # ************************************************************************
-
+# Run - submit a circuit, get job status
 
 class IBMQuantumSiteRun(SiteRun):
 
     def getStatus(self, jobId: str) -> JobStatus:
-        return LwfManager.getStatus(jobId)
+        status = LwfManager.getStatus(jobId)
+        if (status is not None and status.isTerminal()):
+            return status
+        # its not terminal yet, so poke the remote site 
+        service = QiskitRuntimeService()
+        job = service.job(status.getJobContext().getNativeId())
+        status = IBMQuantumJobStatus(status.getJobContext())
+        status.setNativeStatus(IBMQuantumJobStatusValues(job.status()))
+        LwfManager.emitStatus(status)
+        return status
 
 
     def submit(self, jDefn: JobDefn, useContext: JobContext = None,
                computeType: str = None, runArgs: dict = None) -> JobStatus:
         if (useContext is None):
             useContext = JobContext()
-            LwfManager.emitStatus(useContext, IBMQuantumJobStatus, 
-                                  IBMQuantumJobStatusValues.INITIALIZING)
         
         try: 
-            # rewrite the circuit to match the backend
+            # transpile the circuit to match the backend
             service = QiskitRuntimeService()
             backend = service.backend(computeType)
             pm = generate_preset_pass_manager(backend=backend, optimization_level=1)
@@ -104,27 +113,45 @@ class IBMQuantumSiteRun(SiteRun):
             else:
                 shots = 10
             job = sampler.run([isa_circuit], shots=shots)
-        
+            Logger.info("running ibm quantum job id: " + job.job_id())
+
+            useContext.setNativeId(job.job_id())
+            useContext.setSiteName(SITE_NAME)
+            useContext.setComputeType(computeType)
+            
+            print(useContext)
+
+            # now that we have the native job id we can emit status 
+            LwfManager.emitStatus(useContext, IBMQuantumJobStatus, 
+                                  IBMQuantumJobStatusValues.INITIALIZING)
             # horse at the gate...
             LwfManager.emitStatus(useContext, IBMQuantumJobStatus, 
                                 IBMQuantumJobStatusValues.QUEUED)
             
-            # set an event handler to poll the remote job status 
-            LwfManager.setEvent(RemoteJobPoller(useContext))
+            # set an event handler to poll the remote job status
+            LwfManager.setEvent(RemoteJobEvent(useContext))
+
+            # capture current job info & return 
+            return LwfManager.getStatus(useContext.getId())
         except Exception as ex:
             Logger.error("IBMQuantumSiteRun.submit error: " + str(ex))
             LwfManager.emitStatus(useContext, IBMQuantumJobStatus, 
                 IBMQuantumJobStatusValues.ERROR, str(ex))
+            return None
 
-        # capture current job info & return 
-        return LwfManager.getStatus(useContext.getId())
 
 
     def cancel(self, jobContext: JobContext) -> bool:
+        # TODO implement 
         return False
 
 
 # ***************************************************************************
+# Repo   
+
+
+# ***************************************************************************
+# Spin - show the computing resource types available on this site 
 
 class IBMQuantumSiteSpin(SiteSpin):
 
@@ -142,6 +169,8 @@ class IBMQuantumSiteSpin(SiteSpin):
 
 
 # ***************************************************************************
+# the site, with its constituent site pillar (auth, run, repo, spin) interfaces
+# and additional site-specific methods
 
 class IBMQuantumSite(Site):
     def __init__(self):

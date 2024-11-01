@@ -7,7 +7,7 @@ from typing import List
 
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.JobContext import JobContext
-from lwfm.base.WfEvent import WfEvent, JobEvent
+from lwfm.base.WfEvent import RemoteJobEvent, WfEvent, JobEvent
 from lwfm.base.Site import Site
 from lwfm.midware.impl.Store import EventStore, JobStatusStore, LoggingStore
 from lwfm.midware.LwfManager import LwfManager
@@ -24,7 +24,7 @@ class LwfmEventProcessor:
     _loggingStore: LoggingStore = None
 
     # TODO We can make this adaptive later on, for now just wait 15 sec between polls
-    STATUS_CHECK_INTERVAL_SECONDS = 1
+    STATUS_CHECK_INTERVAL_SECONDS = 60
 
     def __init__(self):
         self._timer = threading.Timer(
@@ -56,13 +56,19 @@ class LwfmEventProcessor:
         thread.start()
 
 
-    def checkRemotePollers(self):
+    # monitor remote jobs until they reach terminal states
+    def checkRemoteJobEvents(self):
         try:
-            pass
+            events = self.findAllEvents("REMOTE")
+            for e in events:
+                # hit the remote site to inquire status
+                site = Site.getSite(e.getFireSite())
+                status = site.getRun().getStatus(e.getNativeJobId())
+                if (status.isTerminal()):
+                    # remote job is done
+                    self.unsetEventHandler(e.getId())
         except Exception as ex:
             self._loggingStore.putLogging("ERROR", "Exception checking remote pollers: " + str(ex)) 
-            return False
-        return True
 
 
     def checkJobEvent(self, jobEvent: JobEvent) -> JobStatus:
@@ -121,8 +127,8 @@ class LwfmEventProcessor:
 
     def checkEventHandlers(self):
         self.checkJobEvents()
+        self.checkRemoteJobEvents()
         #self.checkDataEvents()
-        #self.checkRemotePollers()
 
         # Timers only run once, so re-trigger it
         self._timer = threading.Timer(
@@ -145,6 +151,15 @@ class LwfmEventProcessor:
         return newJobContext
 
 
+    def _initRemoteJobHandler(self, wfe: RemoteJobEvent) -> JobContext:
+        newJobContext = JobContext()
+        newJobContext.setSiteName(wfe.getFireSite())
+        newJobContext.setParentJobId(wfe.getFireJobId())
+        newJobContext.setOriginJobId(wfe.getFireJobId())    
+        newJobContext.setNativeId(wfe.getNativeJobId())
+        return newJobContext
+
+
     def findAllEvents(self, typeT: str = None) -> List[WfEvent]:
         try:
             return self._eventStore.getAllWfEvents(typeT)
@@ -161,12 +176,15 @@ class LwfmEventProcessor:
         try:
             if isinstance(wfe, JobEvent):
                 context = self._initJobEventHandler(wfe)
+                wfe.setFireJobId(context.getId())
                 typeT = "JOB"
+            elif isinstance(wfe, RemoteJobEvent):
+                context = self._initRemoteJobHandler(wfe)
+                typeT = "REMOTE"
             else:
                 self._loggingStore.putLogging("ERROR", __class__.__name__ + ".setEventHandler: Unknown type")
                 return None
             # store the event handler 
-            wfe.setFireJobId(context.getId())
             self._eventStore.putWfEvent(wfe, typeT)
             return context.getId()
         except Exception as ex:

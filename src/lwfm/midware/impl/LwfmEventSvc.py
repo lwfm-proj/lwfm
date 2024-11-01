@@ -40,6 +40,7 @@ def emitStatus():
     try:
         statusBlob = request.form["statusBlob"]
         statusObj = JobStatus.deserialize(statusBlob)
+        print("emitting statusObj: " + str(statusObj))
         _statusStore.putJobStatus(statusObj)
         return "", 200
     except Exception as ex:

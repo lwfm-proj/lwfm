@@ -23,12 +23,13 @@ class LwfmEventClient():
         response = requests.get(f"{self.getUrl()}/status/{jobId}")
         try:
             if response.ok:
+                print(f"response: {response.text}")
                 return JobStatus.deserialize(response.text)
             else:
                 self.emitLogging("ERROR", f"response not ok: {response.text}")    
                 return None
         except Exception as ex:
-            self.emitLogging("ERROR", "getStatusBlob error: " + str(ex))
+            self.emitLogging("ERROR", "getStatus error: " + str(ex))
             return None
 
 
