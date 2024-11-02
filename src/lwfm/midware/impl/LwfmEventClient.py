@@ -23,8 +23,10 @@ class LwfmEventClient():
         response = requests.get(f"{self.getUrl()}/status/{jobId}")
         try:
             if response.ok:
-                print(f"response: {response.text}")
-                return JobStatus.deserialize(response.text)
+                if (response.text is not None):
+                    return JobStatus.deserialize(response.text)
+                else:
+                    return None
             else:
                 self.emitLogging("ERROR", f"response not ok: {response.text}")    
                 return None
@@ -35,7 +37,7 @@ class LwfmEventClient():
 
     # emit a status message, perhaps triggering event handlers 
     def emitStatus(self, context: JobContext, statusClass: type, 
-                   nativeStatus: Enum, nativeInfo: str = None) -> None:
+                   nativeStatus: str, nativeInfo: str = None) -> None:
         try:
             status = statusClass(context)
             # forces call on setStatus() producing a mapped native status -> status

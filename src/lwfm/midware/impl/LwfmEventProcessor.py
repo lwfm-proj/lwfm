@@ -27,15 +27,15 @@ class LwfmEventProcessor:
     STATUS_CHECK_INTERVAL_SECONDS = 60
 
     def __init__(self):
+        self._eventStore = EventStore()
+        self._jobStatusStore = JobStatusStore()
+        self._loggingStore = LoggingStore()
         self._timer = threading.Timer(
             self.STATUS_CHECK_INTERVAL_SECONDS,
             LwfmEventProcessor.checkEventHandlers,
             (self,),
         )
         self._timer.start()
-        self._eventStore = EventStore()
-        self._jobStatusStore = JobStatusStore()
-        self._loggingStore = LoggingStore()
 
 
     def _runAsyncOnSite(self, trigger: JobEvent, parentContext: JobContext) -> None:
@@ -56,14 +56,17 @@ class LwfmEventProcessor:
         thread.start()
 
 
+
     # monitor remote jobs until they reach terminal states
     def checkRemoteJobEvents(self):
         try:
-            events = self.findAllEvents("REMOTE")
+            events: List[RemoteJobEvent] = self.findAllEvents("REMOTE")
             for e in events:
-                # hit the remote site to inquire status
+                print(f"id:{e.getFireJobId()} native:{e.getNativeJobId()} site:{e.getFireSite()}")
+                # ask the remote site to inquire status
                 site = Site.getSite(e.getFireSite())
-                status = site.getRun().getStatus(e.getNativeJobId())
+                status = site.getRun().getStatus(e.getFireJobId())   # canonical job id
+                print(f"status: {status}")
                 if (status.isTerminal()):
                     # remote job is done
                     self.unsetEventHandler(e.getId())
@@ -77,7 +80,7 @@ class LwfmEventProcessor:
             # the statuses will be in reverse chron order  
             # does the history contain the state we want to fire on?
             for s in statuses:
-                if (s.getStatus() == jobEvent.getRuleStatus()):
+                if (s.getStatus().value == jobEvent.getRuleStatus()):
                     return s
             return None
         except Exception as ex:
@@ -139,15 +142,23 @@ class LwfmEventProcessor:
         self._timer.start()
 
 
+    def _getOriginJobId(self, jobId: str) -> str:
+        status = self._jobStatusStore.getJobStatus(jobId)
+        if (status is None):
+            return jobId
+        return status.getJobContext().getOriginJobId()
+
+
     def _initJobEventHandler(self, wfe: JobEvent) -> JobContext:
         # set the job context under which the new job will run, it will have a 
         # new id and be a child of the setting job
+        # need to also determine its originator  
         newJobContext = JobContext()
         newJobContext.setSiteName(wfe.getFireSite())
         newJobContext.setParentJobId(wfe.getRuleJobId())
-        newJobContext.setOriginJobId(wfe.getRuleJobId())    
+        newJobContext.setOriginJobId(self._getOriginJobId(wfe.getRuleJobId()))    
         # fire the initial status showing the new job ready on the shelf 
-        LwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY)
+        LwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY.value)
         return newJobContext
 
 
@@ -162,6 +173,7 @@ class LwfmEventProcessor:
 
     def findAllEvents(self, typeT: str = None) -> List[WfEvent]:
         try:
+            print(f"findAllEvents: {typeT}")
             return self._eventStore.getAllWfEvents(typeT)
         except Exception as ex:
             self._loggingStore.putLogging("ERROR", __class__.__name__ + ".findAllEvents: " + str(ex))
@@ -207,3 +219,4 @@ class LwfmEventProcessor:
     
     def exit(self):
         self._timer.cancel()
+

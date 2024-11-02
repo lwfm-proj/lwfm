@@ -24,14 +24,14 @@ if __name__ == "__main__":
 
     # when job A asynchronously reaches the COMPLETE state, fire job B 
     futureJobIdB = LwfManager.setEvent(
-        JobEvent(statusA.getJobId(), JobStatusValues.COMPLETE, 
+        JobEvent(statusA.getJobId(), JobStatusValues.COMPLETE.value, 
                  JobDefn("echo date = `date` > " + dataFile), "local")
     )
     Logger.info(f"job B {futureJobIdB} set as a job event on A")
 
     # when job B asynchronously gets to the COMPLETE state, fire job C 
     futureJobIdC = LwfManager.setEvent(
-        JobEvent(futureJobIdB, JobStatusValues.COMPLETE,
+        JobEvent(futureJobIdB, JobStatusValues.COMPLETE.value,
                  JobDefn("cat " + dataFile), "local")
     )
     Logger.info(f"job C {futureJobIdC} set as a job event on B")

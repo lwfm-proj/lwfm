@@ -55,7 +55,7 @@ class LocalSiteRun(SiteRun):
         # while still emitting statuses before and after
         # Emit RUNNING status
         LwfManager.emitStatus(jobContext, LocalJobStatus, 
-                              JobStatusValues.RUNNING)
+                              JobStatusValues.RUNNING.value)
         try:
             # This is synchronous, so we wait here until the subprocess is over.
             # Check=True raises an exception on non-zero returns
@@ -67,14 +67,14 @@ class LocalSiteRun(SiteRun):
             os.system(cmd)
             # Emit success statuses
             LwfManager.emitStatus(jobContext, LocalJobStatus, 
-                                  JobStatusValues.FINISHING)
+                                  JobStatusValues.FINISHING.value)
             LwfManager.emitStatus(jobContext, LocalJobStatus, 
-                                  JobStatusValues.COMPLETE)
+                                  JobStatusValues.COMPLETE.value)
         except Exception as ex:
             Logger.error("ERROR: Job failed %s" % (ex))
             # Emit FAILED status
             LwfManager.emitStatus(jobContext, LocalJobStatus, 
-                                  JobStatusValues.FAILED)
+                                  JobStatusValues.FAILED.value)
 
 
     def submit(self, jDefn: JobDefn, useContext: JobContext = None, 
@@ -84,10 +84,10 @@ class LocalSiteRun(SiteRun):
             # we can test validity of the job defn here, reject it, or say its ready
             # if we were given a context, then we assume its ready 
             LwfManager.emitStatus(useContext, LocalJobStatus, 
-                                  JobStatusValues.READY)
+                                  JobStatusValues.READY.value)
         # horse at the gate...
         LwfManager.emitStatus(useContext, LocalJobStatus, 
-                              JobStatusValues.PENDING)
+                              JobStatusValues.PENDING.value)
         # Run the job in a new thread so we can wrap it in a bit more code
         # this will kick the status the rest of the way to a terminal state 
         multiprocessing.Process(target=self._runJob, args=[jDefn, useContext]).start()

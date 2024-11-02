@@ -85,10 +85,10 @@ class JobStatus(LwfmBase):
     def getJobId(self) -> str:
         return self.jobContext.getId()
 
-    def setStatus(self, status: JobStatusValues) -> None:
+    def setStatus(self, status: str) -> None:
         LwfmBase._setArg(self, _JobStatusFields.STATUS.value, status)
 
-    def getStatus(self) -> JobStatusValues:
+    def getStatus(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.STATUS.value)
 
     def getStatusValue(self) -> str:
@@ -102,8 +102,8 @@ class JobStatus(LwfmBase):
     def getNativeStatusStr(self) -> str:
         return LwfmBase._getArg(self, _JobStatusFields.NATIVE_STATUS.value)
 
-    def setNativeStatus(self, nativeStatus: JobStatusValues) -> None:
-        self.setNativeStatusStr(nativeStatus.value)
+    def setNativeStatus(self, nativeStatus: str) -> None:
+        self.setNativeStatusStr(nativeStatus)
 
     def mapNativeStatus(self) -> None:
         try:

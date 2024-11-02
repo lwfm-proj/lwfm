@@ -16,17 +16,6 @@ _DB_FILE = os.path.join(os.path.expanduser("~"), ".lwfm", "store.json")
 class Store(ABC):
     _db = TinyDB(_DB_FILE)
         
-    # returns list of raw records, containing header fields and the "doc" field
-    def _get(self, siteName: str, pillar: str, key: str = None) -> List[dict]:
-        Q = Query()
-        if (siteName is None) or (siteName == ""):
-            return self._db.search((Q.pillar == pillar) & (Q.key == key))
-        elif (key is None) or (key == ""):
-            return self._db.search((Q.site == siteName) & (Q.pillar == pillar))
-        else:
-            return self._db.search((Q.site == siteName) & (Q.pillar == pillar) & (Q.key == key))
-
-
     def _put(self, siteName: str, pillar: str, key: str, doc: str) -> None:
         id = _IdGenerator().generateInteger()
         ts = time.perf_counter_ns()
@@ -54,9 +43,21 @@ class AuthStore(Store):
     def __init__(self):
         super(AuthStore, self).__init__()
 
+    def getAllAuth(self) -> List[str]:
+        Q = Query()
+        results = self._db.search((Q.pillar == "auth"))
+        if (results is not None): 
+            blobs = self._sortMostRecent(results)
+            return [({ "site": blob["site"], "auth": blob["doc"] }) for blob in blobs]
+        return None
+    
     # return the site-specific auth blob for this site
     def getAuthForSite(self, siteName: str) -> str:
-        return self._get(siteName, "auth", "auth")[0]["doc"]
+        Q = Query()
+        result = self._db.search((Q.site == siteName) & (Q.pillar == "auth") & (Q.key == "auth"))
+        if (result is not None): 
+            return result[0]["doc"]
+        return None
 
     # set the site-specific auth blob for this site
     def putAuthForSite(self, siteName: str, doc: str) -> None:
@@ -69,10 +70,17 @@ class LoggingStore(Store):
     def __init__(self):
         super(LoggingStore, self).__init__()
 
+    def getAllLogging(self, level: str) -> List[str]:
+        Q = Query()
+        results = self._db.search((Q.pillar == level))
+        if (results is not None): 
+            blobs = self._sortMostRecent(results)
+            return [({ "ts": blob["timestamp"], "log": blob["doc"] }) for blob in blobs]
+        return None
+
     # put a record in the logging store
     def putLogging(self, level: str, doc: str) -> None:
         self._put("local", "run.log." + level, None, doc)
-
 
 # ****************************************************************************
 
@@ -97,8 +105,12 @@ class EventStore(Store):
             t = "run.event"
         else:
             t = "run.event." + typeT
-        blobs = self._sortMostRecent(self._get(None, t))
-        return [WfEvent.deserialize(blob["doc"]) for blob in blobs]
+        Q = Query()
+        results = self._db.search((Q.pillar == t))
+        if (results is not None):
+            blobs = self._sortMostRecent(results)
+            return [WfEvent.deserialize(blob["doc"]) for blob in blobs]
+        return None
 
     def deleteAllWfEvents(self) -> None:
         q = Query()
@@ -127,43 +139,76 @@ class JobStatusStore(Store):
         self._put(datum.getJobContext().getSiteName(), 
                   "run.status", datum.getJobId(), datum.serialize())
 
-    # return the most recent status record for this jobId
-    def getJobStatus(self, jobId: str) -> JobStatus: 
+    def _getAllJobStatuses(self) -> List[JobStatus]:
         try:
-            results = self._get("local", "run.status", jobId)
-            if len(results) == 0:
+            Q = Query()
+            results = self._db.search((Q.pillar == "run.status"))
+            if (results is not None): 
+                blobs = self._sortMostRecent(results)
+                return [JobStatus.deserialize(blob["doc"]) for blob in blobs]
+            return None
+        except Exception as e:
+            self._loggingStore.putLogging("ERROR", "Error in getAllJobStatuses: " + str(e))
+            return None        
+
+
+    def getAllJobStatuses(self, jobId: str) -> List[JobStatus]:
+        if (jobId is None):
+            return self._getAllJobStatuses()
+        try:
+            Q = Query()
+            results = self._db.search((Q.pillar == "run.status") & (Q.key == jobId))
+            if (results is not None): 
+                blobs = self._sortMostRecent(results)
+                return [JobStatus.deserialize(blob["doc"]) for blob in blobs]
+            return None
+        except Exception as e:
+            self._loggingStore.putLogging("ERROR", "Error in getAllJobStatuses: " + str(e))
+            return None
+        
+    def getJobStatus(self, jobId: str) -> JobStatus:    
+        try:
+            statuses = self.getAllJobStatuses(jobId)
+            if (statuses is not None):
+                return statuses[0]
+            else:
                 return None
-            return JobStatus.deserialize(self._sortMostRecent(results)[0]["doc"])
         except Exception as e:
             self._loggingStore.putLogging("ERROR", "Error in getJobStatus: " + str(e))
             return None
 
-    def getAllJobStatuses(self, jobId: str) -> List[JobStatus]:
-        try:
-            blobs = self._sortMostRecent(self._get(None, "run.status", jobId))
-            return [JobStatus.deserialize(blob["doc"]) for blob in blobs]
-        except Exception as e:
-            self._loggingStore.putLogging("ERROR", "Error in getAllJobStatuses: " + str(e))
-            return None
+
         
 # ****************************************************************************
 # testing 
 
 if __name__ == "__main__":
-    eStore = EventStore()
-    sStore = JobStatusStore()
+    import sys
+    if len(sys.argv) != 2:
+        print("Usage: python Store.py <type>")
+        sys.exit(1)
+    if (sys.argv[1] == "auth"):
+        authStore = AuthStore()
+        print(authStore.getAllAuth())
+    elif (sys.argv[1] == "run.log.ERROR") or (sys.argv[1] == "run.log.INFO"):
+        logStore = LoggingStore()
+        for log in logStore.getAllLogging(sys.argv[1]):
+            print(log)
+    elif (sys.argv[1] == "run.status"):
+        statusStore = JobStatusStore()
+        for status in statusStore.getAllJobStatuses(None):
+            print(status)
 
-    #events = eStore.getAllWfEvents("JOB")
-    #for e in events:
-    #    print(e)    
 
-    #events = eStore.getAllWfEvents("REMOTE")
-    #for e in events:
-    #    print(e)   
+    
 
-    statuses = sStore.getAllJobStatuses("def2eca8-734e-4bdf-bedf-fa784f951503")
-    for s in statuses:
-        print(s)
+
+
+
+
+
+
+
 
     
 

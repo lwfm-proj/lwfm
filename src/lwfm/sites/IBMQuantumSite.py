@@ -15,6 +15,7 @@ from lwfm.midware.impl.Store import AuthStore
 from qiskit import QuantumCircuit, qpy
 from qiskit_ibm_runtime import SamplerV2 as Sampler, QiskitRuntimeService
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+from qiskit_ibm_runtime.fake_provider import FakeManilaV2
 
 # *********************************************************************
 
@@ -31,6 +32,10 @@ class IBMQuantumJobStatusValues(Enum):
     DONE            = "DONE"
     ERROR           = "ERROR"
     INFO            = "INFO"
+
+    @property
+    def value(self):
+        return self._value_
 
 
 class IBMQuantumJobStatus(JobStatus):
@@ -84,14 +89,22 @@ class IBMQuantumSiteRun(SiteRun):
 
     def getStatus(self, jobId: str) -> JobStatus:
         status = LwfManager.getStatus(jobId)
-        if (status is not None and status.isTerminal()):
+        if (status is None):
+            return None
+        Logger.info(f"IBMQuantumSiteRun.getStatus: remote IBM job {status.getJobContext().getNativeId()}")
+        if (status.isTerminal()):
             return status
-        # its not terminal yet, so poke the remote site 
+        # its not terminal yet, so poke the remote site using the native id
         service = QiskitRuntimeService()
         job = service.job(status.getJobContext().getNativeId())
+        if (job is None):
+            return status
         status = IBMQuantumJobStatus(status.getJobContext())
-        status.setNativeStatus(IBMQuantumJobStatusValues(job.status()))
-        LwfManager.emitStatus(status)
+        status.setNativeStatus(job.status())
+        if (job.status() == "DONE"):
+            status.setNativeInfo(str(job.result()[0].data.meas.get_counts()))
+        LwfManager.emitStatus(status.getJobContext(), IBMQuantumJobStatus, 
+                              job.status(), status.getNativeInfo())
         return status
 
 
@@ -103,7 +116,12 @@ class IBMQuantumSiteRun(SiteRun):
         try: 
             # transpile the circuit to match the backend
             service = QiskitRuntimeService()
-            backend = service.backend(computeType)
+            if (computeType is None):
+                computeType = "FakeManilaV2"
+            if (computeType == "FakeManilaV2"):
+                backend = FakeManilaV2()
+            else:
+                backend = service.backend(computeType)
             pm = generate_preset_pass_manager(backend=backend, optimization_level=1)
             isa_circuit = pm.run(qpy.load(io.BytesIO(jDefn.getEntryPoint())))
             # run the circuit
@@ -112,10 +130,19 @@ class IBMQuantumSiteRun(SiteRun):
                 shots = runArgs["shots"]
             else:
                 shots = 10
-            job = sampler.run([isa_circuit], shots=shots)
-            Logger.info("running ibm quantum job id: " + job.job_id())
+            
+            results = None
+            if (computeType == "FakeManilaV2"):
+                # simulator runs now 
+                print("running circuit in simulator")
+                job = sampler.run([isa_circuit], shots=shots)
+                useContext.setNativeId(LwfManager.generateId())
+            else:
+                # else its a batch job 
+                job = sampler.run([isa_circuit], shots=shots)
+                Logger.info("submitting ibm quantum job id: " + job.job_id())
+                useContext.setNativeId(job.job_id())
 
-            useContext.setNativeId(job.job_id())
             useContext.setSiteName(SITE_NAME)
             useContext.setComputeType(computeType)
             
@@ -123,20 +150,28 @@ class IBMQuantumSiteRun(SiteRun):
 
             # now that we have the native job id we can emit status 
             LwfManager.emitStatus(useContext, IBMQuantumJobStatus, 
-                                  IBMQuantumJobStatusValues.INITIALIZING)
+                                  IBMQuantumJobStatusValues.INITIALIZING.value)
             # horse at the gate...
             LwfManager.emitStatus(useContext, IBMQuantumJobStatus, 
-                                IBMQuantumJobStatusValues.QUEUED)
+                                IBMQuantumJobStatusValues.QUEUED.value)
             
-            # set an event handler to poll the remote job status
-            LwfManager.setEvent(RemoteJobEvent(useContext))
+            if (computeType == "FakeManilaV2"):
+                LwfManager.emitStatus(useContext, IBMQuantumJobStatus, 
+                                IBMQuantumJobStatusValues.VALIDATING.value)
+                LwfManager.emitStatus(useContext, IBMQuantumJobStatus,
+                                IBMQuantumJobStatusValues.RUNNING.value)
+                LwfManager.emitStatus(useContext, IBMQuantumJobStatus,
+                                IBMQuantumJobStatusValues.DONE.value, str(job.result()[0].data.meas.get_counts()))
+            else:
+                # set an event handler to poll the remote job status
+                LwfManager.setEvent(RemoteJobEvent(useContext))
 
             # capture current job info & return 
             return LwfManager.getStatus(useContext.getId())
         except Exception as ex:
             Logger.error("IBMQuantumSiteRun.submit error: " + str(ex))
             LwfManager.emitStatus(useContext, IBMQuantumJobStatus, 
-                IBMQuantumJobStatusValues.ERROR, str(ex))
+                IBMQuantumJobStatusValues.ERROR.value, str(ex))
             return None
 
 
@@ -161,7 +196,7 @@ class IBMQuantumSiteSpin(SiteSpin):
         backends = service.backends()
         l = list()
         l.append(leastBackend.name)
-        l.append("ibmq_qasm_simulator")
+        l.append("FakeManilaV2")
         for b in backends:
             if not b.name == leastBackend.name:
                 l.append(b.name)        
@@ -186,4 +221,8 @@ class IBMQuantumSite(Site):
         return JobDefn(cFile.getvalue())
     
 
+if __name__ == "__main__":
+    status = IBMQuantumJobStatus()
+    status.setNativeStatus("VALIDATING")
+    print(f"{status}")
 

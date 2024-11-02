@@ -6,6 +6,7 @@ from typing import List
 from lwfm.base.WfEvent import WfEvent
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
+from lwfm.base.LwfmBase import _IdGenerator
 from lwfm.midware.impl.LwfmEventClient import LwfmEventClient
 
 # ***************************************************************************
@@ -13,6 +14,8 @@ class LwfManager():
 
     _client = LwfmEventClient()
 
+    def generateId(self):
+        return _IdGenerator.generateId()
 
     #***********************************************************************
     # status methods
@@ -24,7 +27,7 @@ class LwfManager():
     
     # emit a status message 
     def emitStatus(self, context: JobContext, statusClass: type, 
-                   nativeStatus: Enum, nativeInfo: str = None) -> None:
+                   nativeStatus: str, nativeInfo: str = None) -> None:
         return self._client.emitStatus(context, statusClass, nativeStatus, nativeInfo)
 
     # Wait synchronously until the job reaches a terminal state, then return 

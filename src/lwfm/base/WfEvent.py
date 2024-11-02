@@ -85,7 +85,7 @@ class JobEvent(WfEvent):
     def __init__(
         self,
         ruleJobId: str,                   # when this job 
-        ruleStatus: Enum,                 # reaches this status       
+        ruleStatus: str,                 # reaches this status       
         fireDefn: JobDefn,                # fire this job defn
         fireSite: str                     # on this site
     ):
@@ -100,7 +100,7 @@ class JobEvent(WfEvent):
     def getRuleJobId(self) -> str:
         return LwfmBase._getArg(self, _JobEventFields.RULE_JOB_ID.value)
     
-    def getRuleStatus(self) -> Enum:
+    def getRuleStatus(self) -> str:
         return LwfmBase._getArg(self, _JobEventFields.RULE_STATUS.value)
 
     def getKey(self) -> str:
