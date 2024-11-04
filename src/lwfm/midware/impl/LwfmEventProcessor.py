@@ -23,15 +23,17 @@ class LwfmEventProcessor:
     _jobStatusStore: JobStatusStore = None
     _loggingStore: LoggingStore = None
 
-    # TODO We can make this adaptive later on, for now just wait 15 sec between polls
-    STATUS_CHECK_INTERVAL_SECONDS = 60
+    STATUS_CHECK_INTERVAL_SECONDS_MIN = 5
+    STATUS_CHECK_INTERVAL_SECONDS_MAX = 5*60
+    STATUS_CHECK_INTERVAL_SECONDS_STEP = 30
+    _statusCheckIntervalSeconds = STATUS_CHECK_INTERVAL_SECONDS_MIN
 
     def __init__(self):
         self._eventStore = EventStore()
         self._jobStatusStore = JobStatusStore()
         self._loggingStore = LoggingStore()
         self._timer = threading.Timer(
-            self.STATUS_CHECK_INTERVAL_SECONDS,
+            self._statusCheckIntervalSeconds,
             LwfmEventProcessor.checkEventHandlers,
             (self,),
         )
@@ -58,20 +60,26 @@ class LwfmEventProcessor:
 
 
     # monitor remote jobs until they reach terminal states
-    def checkRemoteJobEvents(self):
+    def checkRemoteJobEvents(self) -> bool:
+        gotOne = False
         try:
             events: List[RemoteJobEvent] = self.findAllEvents("REMOTE")
             for e in events:
-                print(f"id:{e.getFireJobId()} native:{e.getNativeJobId()} site:{e.getFireSite()}")
-                # ask the remote site to inquire status
-                site = Site.getSite(e.getFireSite())
-                status = site.getRun().getStatus(e.getFireJobId())   # canonical job id
-                print(f"status: {status}")
-                if (status.isTerminal()):
-                    # remote job is done
-                    self.unsetEventHandler(e.getId())
+                try:
+                    print(f"id:{e.getFireJobId()} native:{e.getNativeJobId()} site:{e.getFireSite()}")
+                    # ask the remote site to inquire status
+                    site = Site.getSite(e.getFireSite())
+                    status = site.getRun().getStatus(e.getFireJobId())   # canonical job id
+                    print(f"status: {status}")
+                    if (status.isTerminal()):
+                        # remote job is done
+                        self.unsetEventHandler(e.getId())
+                    gotOne = True
+                except Exception as ex1:
+                    self._loggingStore.putLogging("ERROR", "Exception checking remote job event: " + str(ex1))
         except Exception as ex:
             self._loggingStore.putLogging("ERROR", "Exception checking remote pollers: " + str(ex)) 
+        return gotOne
 
 
     def checkJobEvent(self, jobEvent: JobEvent) -> JobStatus:
@@ -88,22 +96,29 @@ class LwfmEventProcessor:
                                           "Exception checking job event: " + jobEvent.getRuleJobId() + " " + str(ex)) 
 
 
-    def checkJobEvents(self) -> None:
+    def checkJobEvents(self) -> bool:
+        gotOne = False
         try:
             events = self.findAllEvents("JOB")
             for e in events:
-                s = self.checkJobEvent(e)
-                if (s):
-                    # job event satisfied - going to fire the handler 
-                    # but first, remove the handler 
-                    self.unsetEventHandler(e.getId())
-                    # now launch it async 
-                    self._runAsyncOnSite(e, s.getJobContext())
+                try: 
+                    s = self.checkJobEvent(e)
+                    if (s):
+                        # job event satisfied - going to fire the handler 
+                        # but first, remove the handler 
+                        self.unsetEventHandler(e.getId())
+                        # now launch it async 
+                        self._runAsyncOnSite(e, s.getJobContext())
+                        gotOne = True
+                except Exception as ex1:
+                    self._loggingStore.putLogging("ERROR", 
+                                                  "Exception checking job event: " + str(ex1))
         except Exception as ex:
             self._loggingStore.putLogging("ERROR", "Exception checking job events: " + str(ex)) 
+        return gotOne
+    
 
-
-    def checkDataEvents(self):
+    def checkDataEvents(self) -> bool:
         if len(self._infoQueue) > 0:
             for key in list(self._eventHandlerMap):
                 if not key.endswith("INFO.dt"):
@@ -129,13 +144,21 @@ class LwfmEventProcessor:
 
 
     def checkEventHandlers(self):
-        self.checkJobEvents()
-        self.checkRemoteJobEvents()
-        #self.checkDataEvents()
+        c1 = self.checkJobEvents()
+        c2 = self.checkRemoteJobEvents()
+        # c3 = self.checkDataEvents()
+
+        # we were busy, reduce the polling interval
+        if (c1) or (c2):
+            self._statusCheckIntervalSeconds = self.STATUS_CHECK_INTERVAL_SECONDS_MIN
+        else:
+            # make the next polling progressively longer unless we were busy
+            if (self._statusCheckIntervalSeconds < self.STATUS_CHECK_INTERVAL_SECONDS_MAX):
+                self._statusCheckIntervalSeconds += self.STATUS_CHECK_INTERVAL_SECONDS_STEP
 
         # Timers only run once, so re-trigger it
         self._timer = threading.Timer(
-            self.STATUS_CHECK_INTERVAL_SECONDS,
+            self._statusCheckIntervalSeconds,
             LwfmEventProcessor.checkEventHandlers,
             (self,),
         )

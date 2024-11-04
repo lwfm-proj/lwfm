@@ -2,9 +2,6 @@
 # assume we start in a folder which contains all project source folders 
 
 # TODO do we have the python requirements?
-
-# TODO can the python start the service if its not already running?
-
 # TODO make an lwfm root environment variable from which everything flows 
 
 

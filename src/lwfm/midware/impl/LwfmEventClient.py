@@ -1,7 +1,7 @@
 import json
 import requests
 from typing import List
-from enum import Enum
+import os 
 import datetime
 import logging    # don't use the lwfm Logger here else circular import
 
@@ -10,11 +10,12 @@ from lwfm.base.JobContext import JobContext
 from lwfm.base.WfEvent import WfEvent
 
 class LwfmEventClient():
-    # TODO url of the actual service we expose to our little gaggle 
-    _JSS_URL = "http://127.0.0.1:3000"
+    _SERVICE_URL = "http://127.0.0.1:3000"
+    if os.getenv("LWFM_SERVICE_URL") is not None:
+        _SERVICE_URL = os.getenv("LWFM_SERVICE_URL")    
 
     def getUrl(self):
-        return self._JSS_URL
+        return self._SERVICE_URL
 
     #***********************************************************************
     # status methods

@@ -16,7 +16,6 @@ from lwfm.midware.Logger import Logger
 
 # *********************************************************************
 
-SITE_NAME = "local"
 
 
 # *********************************************************************
@@ -41,7 +40,7 @@ class LocalSiteAuth(SiteAuth):
         return True
 
 
-# ************************************************************************
+# **********************************************************************
 
 
 class LocalSiteRun(SiteRun):
@@ -117,7 +116,7 @@ class LocalSiteRun(SiteRun):
             return False
 
 
-# *************************************************************************************
+# ************************************************************************
 
 class LocalSiteSpin(SiteSpin):
     
@@ -125,16 +124,41 @@ class LocalSiteSpin(SiteSpin):
         return ["default"]
 
 
-# *************************************************************************************
+# ************************************************************************
 
 # TODO 
 # _repoDriver = LocalSiteRepo()
 
 
 class LocalSite(Site):
+
+    SITE_NAME = "local"
+
     # There are no required args to instantiate a local site.
     def __init__(self):
         super(LocalSite, self).__init__(
             # SITE_NAME, LocalSiteAuth(), LocalSiteRun(), _repoDriver, None
-            SITE_NAME, LocalSiteAuth(), LocalSiteRun(), None, LocalSiteSpin()
+            self.SITE_NAME, LocalSiteAuth(), LocalSiteRun(), None, LocalSiteSpin()
         )
+
+
+
+# a trivial extension of LocalSite where any calls to a remote service, exemplified 
+# by the use of LwfManager, are made asynchronously as fire & forget, perhaps by 
+# using an async-savvy extension of LwfManager.
+# it may elect to implement a different Run driver, perhaps one which uses MPI, but not
+# one which talks to a cluster scheduler - we would suggest modeling that as 
+# its own Site.
+# TODO we defer this implementation for the moment and just use LocalSite with 
+# its inherent use of HTTP. 
+class InSituSite(LocalSite):
+
+    SITE_NAME = "insitu"
+
+    def __init__(self):
+        super(InSituSite, self).__init__(
+            self.SITE_NAME, LocalSiteAuth(), LocalSiteRun(), None, LocalSiteSpin()
+        )
+
+
+

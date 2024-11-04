@@ -320,6 +320,7 @@ class Site(LwfmBase):
     # implements Auth, Run, Repo, [Spin]  these mappings can be extended in 
     # the ~/.lwfm/sites.txt configuration
     _SITES = {"local": "lwfm.sites.LocalSite.LocalSite", 
+              "insitu": "lwfm.sites.InSituSite.InSituSite",
               "ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"}
 
     @staticmethod
