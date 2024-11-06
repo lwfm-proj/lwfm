@@ -29,6 +29,7 @@ from lwfm.base.LwfmBase import LwfmBase
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus
+from lwfm.base.Metasheet import Metasheet
 from lwfm.midware.Logger import Logger
 
 
@@ -36,9 +37,6 @@ from lwfm.midware.Logger import Logger
 class SitePillar(ABC):
     pass
 
-# TODO 
-class SiteFileRef:
-    pass
 
 # ***************************************************************************
 
@@ -189,83 +187,44 @@ class SiteRun(SitePillar):
         pass
 
 
+
 # ****************************************************************************
 
-
 class SiteRepo(SitePillar):
-    """
-    Repo: Permits the movement of data objects to/from the Site.  The methods require a
-    local file reference, and a reference to the remote file - a SiteFileRef.  The
-    SiteFileRef permits arbitrary name=value pairs because the Site might require them
-    to complete the transaction.
-    """
 
+    # The siteObjPath can be many things depending on the site.  For a local site,
+    # its just a path.  For a remote site, its a reference to an object in some 
+    # remote repository which might be filesystem, or use some URI, or whatever
+    # the site wants.  Some sites may provide no mechanism at all.
+    # The siteObjPath can also be blank, which is intended to mean the 
+    # data is not moved anywhere by instead is just being checked into management
+    # in place with metadata.
+
+    # ask the site to store this local file at a path as an object at the site reference 
+    # and return the metasheet
     @abstractmethod
     def put(
         self,
-        localPath: Path,
-        siteFileRef: SiteFileRef,
-        jobContext: JobContext = None,
-    ) -> SiteFileRef:
-        """
-        Take the local file by path and put it to the remote Site.  This might be
-        implemented by the Site as a simple filesystem copy, or it might be a checkin
-        to a managed service - that's up to the Site.  If we're given a context,
-        we use it, if not, we consider ourselves our own job.
-
-        Params:
-            localPath - a local file object
-            siteFileRef - a reference to an abstract "file" entity on the Site -
-                this is the target of the put operation
-            jobContext - if we have a job context we wish to use (e.g. we are already
-                inside a job and wish to indicate the digital thread parent-child
-                relationships) then pass the context in, else the put operation will be
-                performed as its own seminal job
-        Returns:
-            SiteFileRef - a reference to the entity put on the Site; the Site might also
-                raise any kind of exception depending on the error case
-        """
+        localPath: str,
+        siteObjPath: str,
+        metasheet: Metasheet = None
+    ) -> Metasheet:
         pass
 
+
+    # ask the site to fetch an object by reference and write it locally to a path, 
+    # returning the local path where written 
     @abstractmethod
     def get(
         self,
-        siteFileRef: SiteFileRef,
-        localPath: Path,
-        jobContext: JobContext = None,
-    ) -> Path:
-        """
-        Get the file from the remote site and write it local, returning a path to the local.
-        If we're given a context, we use it, if not, we consider ourselves our own job.
-
-        Params:
-            siteFileRef - a reference to a data entity on the Site, the source of the get
-            localPath - a local file object, the destination of the get
-            jobContext - if we have a job context we wish to use (e.g. we are already
-                inside a job and wish to indicate the
-                digital thread parent-child relationships) then pass the context in,
-                else the put operation will be performed as its own seminal job
-        Returns:
-            Path - the reference to the local location of the gotten file; during the
-                get, the Site might also raise any kind of
-                exception depending on the error case
-        """
+        siteObjPath: str,
+        localPath: str
+    ) -> str:
         pass
 
+    # find metasheets by query
     @abstractmethod
-    def find(self, siteFileRef: SiteFileRef) -> List[SiteFileRef]:
-        """
-        Get info about the file/dir on the remote site
-
-        Params:
-            siteFileRef - a reference to an abstract "file" entity on the Site, may be
-                specialized partially (e.g. wildcards) though
-                it is up to the Site to determine how to implement this search
-        Returns:
-            [SiteFileRef] - the instantiated file reference(s) (not the file, but the
-                references), including the size, timestamp info, and other arbitrary
-                metadata; may be a single file reference, or a list, or none
-        """
+    def find(self, queryRegExs: dict) -> List[Metasheet]:
         pass
 
 

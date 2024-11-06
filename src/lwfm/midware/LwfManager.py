@@ -1,12 +1,13 @@
 
 import time
-from enum import Enum
+import os 
 from typing import List
 
 from lwfm.base.WfEvent import WfEvent
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.LwfmBase import _IdGenerator
+from lwfm.base.Metasheet import Metasheet
 from lwfm.midware.impl.LwfmEventClient import LwfmEventClient
 
 # ***************************************************************************
@@ -18,12 +19,23 @@ class LwfManager():
         return _IdGenerator.generateId()
 
     #***********************************************************************
-    # status methods
+    # status methods - job metadata 
 
     # given a job id, get back the current status
     def getStatus(self, jobId: str) -> JobStatus:
         return self._client.getStatus(jobId)
 
+    def getJobContextFromEnv(self) -> JobContext:
+        # see if we got passed in a job id in the os environment
+        if '_LWFM_JOB_ID' in os.environ:
+            status = self.getStatus(os.environ['_LWFM_JOB_ID'])
+            if (status is not None):
+                return status.getJobContext()
+            else:
+                context = JobContext()
+                context.setId(os.environ['_LWFM_JOB_ID'])
+                return context
+        return None
     
     # emit a status message 
     def emitStatus(self, context: JobContext, statusClass: type, 
@@ -52,7 +64,7 @@ class LwfManager():
     
 
     #***********************************************************************
-    # event methods
+    # event methods - workflow metadata
 
     # register an event handler, get back the id of the future job 
     def setEvent(self, wfe: WfEvent) -> str: 
@@ -65,6 +77,44 @@ class LwfManager():
     def getActiveWfEvents(self) -> List[WfEvent]: 
         return self._client.getActiveWfEvents()
 
+
+    #***********************************************************************
+    # repo methods - data metadata
+
+    def _notate(self, localPath: str, siteObjPath: str, metasheet: Metasheet) -> Metasheet:
+        # do we know the job context?
+        jobContext = self.getJobContextFromEnv()
+        if (jobContext is not None):
+            metasheet.setId(jobContext.getId()) 
+        # now do the metadata notate
+        args = metasheet.getArgs()
+        args['localPath'] = localPath
+        args['siteObjPath'] = siteObjPath
+        metasheet.setArgs(args)
+        # persist 
+        return LwfmEventClient().notate(metasheet.getId(), metasheet)
+
+    def put(self, localPath: str, siteObjPath: str,  
+            metasheet: Metasheet = None) -> Metasheet:
+        if (localPath is not None) and (siteObjPath is not None):
+            # copy the file from localPath to siteObjPath
+            # TODO 
+            pass
+        # now do the metadata notate    
+        return self._notate(localPath, siteObjPath, metasheet)
+    
+    def get(self, siteObjPath: str, localPath: str) -> str:
+        if (siteObjPath is not None) and (localPath is not None):
+            # copy the file from siteObjPath to localPath
+            # TODO
+            pass
+        return localPath
+    
+    def find(self, queryRegExs: dict) -> List[Metasheet]:
+        return self._client.find(queryRegExs)
+    
+
+    #***********************************************************************
 
 LwfManager = LwfManager()
 

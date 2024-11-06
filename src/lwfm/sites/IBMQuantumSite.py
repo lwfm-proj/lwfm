@@ -184,6 +184,11 @@ class IBMQuantumSiteRun(SiteRun):
 # ***************************************************************************
 # Repo   
 
+# The IBM Quantum site does not expose API methods in the Repo interface - 
+# it takes a run command including the circuit as its only input and passes back 
+# results in the job status messages.  
+
+
 # TODO implement
 
 # ***************************************************************************

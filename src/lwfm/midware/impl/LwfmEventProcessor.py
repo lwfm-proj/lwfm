@@ -66,11 +66,11 @@ class LwfmEventProcessor:
             events: List[RemoteJobEvent] = self.findAllEvents("REMOTE")
             for e in events:
                 try:
-                    print(f"id:{e.getFireJobId()} native:{e.getNativeJobId()} site:{e.getFireSite()}")
+                    self._loggingStore.putLogging("INFO", 
+                        f"remote id:{e.getFireJobId()} native:{e.getNativeJobId()} site:{e.getFireSite()}")
                     # ask the remote site to inquire status
                     site = Site.getSite(e.getFireSite())
                     status = site.getRun().getStatus(e.getFireJobId())   # canonical job id
-                    print(f"status: {status}")
                     if (status.isTerminal()):
                         # remote job is done
                         self.unsetEventHandler(e.getId())
@@ -196,7 +196,6 @@ class LwfmEventProcessor:
 
     def findAllEvents(self, typeT: str = None) -> List[WfEvent]:
         try:
-            print(f"findAllEvents: {typeT}")
             return self._eventStore.getAllWfEvents(typeT)
         except Exception as ex:
             self._loggingStore.putLogging("ERROR", __class__.__name__ + ".findAllEvents: " + str(ex))

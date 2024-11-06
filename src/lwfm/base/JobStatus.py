@@ -167,7 +167,7 @@ class JobStatus(LwfmBase):
 
 
     def __str__(self):
-        return f"[stat ctx:{self.getJobContext()} value:{self.getStatusValue()}]"
+        return f"[stat ctx:{self.getJobContext()} value:{self.getStatusValue()} info:{self.getNativeInfo()}]"
 
 
 

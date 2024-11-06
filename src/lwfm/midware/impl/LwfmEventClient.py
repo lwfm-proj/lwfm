@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import requests
 from typing import List
 import os 
@@ -7,6 +8,7 @@ import logging    # don't use the lwfm Logger here else circular import
 
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobContext import JobContext
+from lwfm.base.Metasheet import Metasheet
 from lwfm.base.WfEvent import WfEvent
 
 class LwfmEventClient():
@@ -112,9 +114,42 @@ class LwfmEventClient():
 
 
     #***********************************************************************
-    # auth methods 
+    # repo methods 
 
-
+    
+    def notate(self, jobId: str, metasheet: Metasheet = None) -> Metasheet:
+        # call to the service to put metasheet for this put 
+        try:
+            data = {"jobId": jobId, 
+                    "data": metasheet.serialize()}
+            response = requests.post(f"{self.getUrl()}/notate", data)
+            if response.ok:
+                return
+            else:
+                # use the plain logger when logging logging errors
+                logging.error(f"notate error: {response.text}")
+                return
+        except Exception as ex:
+            # use the plain logger when logging logging errors
+            logging.error("error notating: " + str(ex))
+        return metasheet
+        
+    def find(self, queryRegExs: dict) -> List[Metasheet]:
+        # call to the service to find metasheets
+        try:
+            data = {"searchDict": json.dumps(queryRegExs)}
+            response = requests.post(f"{self.getUrl()}/find", data)
+            if response.ok:
+                l = json.loads(response.text)
+                return [Metasheet.deserialize(blob) for blob in l]
+            else:
+                # use the plain logger when logging logging errors
+                logging.error(f"find error: {response.text}")
+        except Exception as ex:
+            # use the plain logger when logging logging errors
+            logging.error("error notating: " + str(ex))
+        return None
+    
 
     #***********************************************************************
 

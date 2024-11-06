@@ -5,14 +5,21 @@
 # TODO make an lwfm root environment variable from which everything flows 
 
 
-export PYTHONPATH=$PYTHONPATH:`pwd`/src
+export PYTHONPATH=$PYTHONPATH:`pwd`/src:`pwd`/../MetaRepo
 
 # start a service to expose workflow API endpoints 
+# & start the metarepo 
+
+# TODO port as an arg
 export FLASK_APP=src/lwfm/midware/impl/LwfmEventSvc
 flask run -p 3000 
 
-# start the MetaRepo server
-#cd MetaRepo2 && uvicorn src.metarepo:app --port 8000 & 
+# TODO trap the ctrl-c and kill all the processes
+
+
+
+
+
 
 
 

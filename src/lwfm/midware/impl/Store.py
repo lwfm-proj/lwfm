@@ -1,40 +1,51 @@
 from abc import ABC
 from typing import List
-from tinydb import TinyDB, Query
+from tinydb import TinyDB, Query, where
 from tinydb.table import Document
 import os
 import time
 
 from lwfm.base.LwfmBase import _IdGenerator
 from lwfm.base.JobStatus import JobStatus
+from lwfm.base.Metasheet import Metasheet
 from lwfm.base.WfEvent import WfEvent
 
+
+
 # ****************************************************************************
-_DB_FILE = os.path.join(os.path.expanduser("~"), ".lwfm", "store.json")
+_DB_FILE = os.path.join(os.path.expanduser("~"), ".lwfm", "lwfm.repo")
 
 
 class Store(ABC):
     _db = TinyDB(_DB_FILE)
         
-    def _put(self, siteName: str, pillar: str, key: str, doc: str) -> None:
-        id = _IdGenerator().generateInteger()
-        ts = time.perf_counter_ns()
-        if (key is None) or (key == ""):
-            key = ts
-        record = {
-            "db_id": id,
-            "site": siteName,
-            "pillar": pillar,
-            "key": key,
-            "timestamp": ts,
-            "doc": doc                              # the data, serialized object, etc
-        }
-        self._db.insert(Document(record, doc_id=id))
-        return
+    def _put(self, siteName: str, pillar: str, key: str, doc: str, 
+             collapse_doc: bool = False) -> None:
+        try:
+            id = _IdGenerator().generateInteger()
+            ts = time.perf_counter_ns()
+            if (key is None) or (key == ""):
+                key = ts
+            baseRecord = {
+                "_db_id": id,
+                "_site": siteName,
+                "_pillar": pillar,
+                "_key": key,
+                "_timestamp": ts
+            }
+            if (collapse_doc):
+                record = {**baseRecord, **doc}
+            else:
+                record = baseRecord
+                record["_doc"] = doc    # the data, serialized object, etc
+            self._db.insert(Document(record, doc_id=id))
+            return
+        except Exception as ex:
+            print("Error in _put: " + str(ex))
 
 
     def _sortMostRecent(self, docs: List[dict]) -> List[dict]:
-        return sorted(docs, key=lambda x: x['timestamp'], reverse=True)
+        return sorted(docs, key=lambda x: x['_timestamp'], reverse=True)
 
 
 # ****************************************************************************
@@ -45,18 +56,18 @@ class AuthStore(Store):
 
     def getAllAuth(self) -> List[str]:
         Q = Query()
-        results = self._db.search((Q.pillar == "auth"))
+        results = self._db.search((Q._pillar == "auth"))
         if (results is not None): 
             blobs = self._sortMostRecent(results)
-            return [({ "site": blob["site"], "auth": blob["doc"] }) for blob in blobs]
+            return [({ "site": blob["_site"], "auth": blob["_doc"] }) for blob in blobs]
         return None
     
     # return the site-specific auth blob for this site
     def getAuthForSite(self, siteName: str) -> str:
         Q = Query()
-        result = self._db.search((Q.site == siteName) & (Q.pillar == "auth") & (Q.key == "auth"))
+        result = self._db.search((Q._site == siteName) & (Q._pillar == "auth") & (Q._key == "auth"))
         if (result is not None): 
-            return result[0]["doc"]
+            return result[0]["_doc"]
         return None
 
     # set the site-specific auth blob for this site
@@ -72,15 +83,16 @@ class LoggingStore(Store):
 
     def getAllLogging(self, level: str) -> List[str]:
         Q = Query()
-        results = self._db.search((Q.pillar == level))
+        results = self._db.search((Q._pillar == level))
         if (results is not None): 
             blobs = self._sortMostRecent(results)
-            return [({ "ts": blob["timestamp"], "log": blob["doc"] }) for blob in blobs]
+            return [({ "ts": blob["_timestamp"], "log": blob["_doc"] }) for blob in blobs]
         return None
 
     # put a record in the logging store
     def putLogging(self, level: str, doc: str) -> None:
         self._put("local", "run.log." + level, None, doc)
+
 
 # ****************************************************************************
 
@@ -106,20 +118,20 @@ class EventStore(Store):
         else:
             t = "run.event." + typeT
         Q = Query()
-        results = self._db.search((Q.pillar == t))
+        results = self._db.search((Q._pillar == t))
         if (results is not None):
             blobs = self._sortMostRecent(results)
-            return [WfEvent.deserialize(blob["doc"]) for blob in blobs]
+            return [WfEvent.deserialize(blob["_doc"]) for blob in blobs]
         return None
 
     def deleteAllWfEvents(self) -> None:
         q = Query()
-        self._db.remove(q.pillar == 'run.event')
+        self._db.remove(q._pillar == 'run.event')
 
     def deleteWfEvent(self, eventId: str) -> bool:
         try: 
             q = Query()
-            self._db.remove(q.key == eventId)
+            self._db.remove(q._key == eventId)
             return True
         except Exception as e:
             self._loggingStore.putLogging("ERROR", "Error in deleteWfEvent: " + str(e))
@@ -142,10 +154,10 @@ class JobStatusStore(Store):
     def _getAllJobStatuses(self) -> List[JobStatus]:
         try:
             Q = Query()
-            results = self._db.search((Q.pillar == "run.status"))
+            results = self._db.search((Q._pillar == "run.status"))
             if (results is not None): 
                 blobs = self._sortMostRecent(results)
-                return [JobStatus.deserialize(blob["doc"]) for blob in blobs]
+                return [JobStatus.deserialize(blob["_doc"]) for blob in blobs]
             return None
         except Exception as e:
             self._loggingStore.putLogging("ERROR", "Error in getAllJobStatuses: " + str(e))
@@ -157,10 +169,10 @@ class JobStatusStore(Store):
             return self._getAllJobStatuses()
         try:
             Q = Query()
-            results = self._db.search((Q.pillar == "run.status") & (Q.key == jobId))
+            results = self._db.search((Q._pillar == "run.status") & (Q._key == jobId))
             if (results is not None): 
                 blobs = self._sortMostRecent(results)
-                return [JobStatus.deserialize(blob["doc"]) for blob in blobs]
+                return [JobStatus.deserialize(blob["_doc"]) for blob in blobs]
             return None
         except Exception as e:
             self._loggingStore.putLogging("ERROR", "Error in getAllJobStatuses: " + str(e))
@@ -178,7 +190,44 @@ class JobStatusStore(Store):
             return None
 
 
-        
+
+# ****************************************************************************
+# MetaRepo Store
+
+class MetaRepoStore(Store):
+    _loggingStore: LoggingStore = None
+
+    def __init__(self):
+        super(MetaRepoStore, self).__init__()
+        self._loggingStore = LoggingStore()
+
+    def putMetaRepo(self, datum: Metasheet) -> None:
+        self._put("None", "repo.meta", datum.getId(), datum.getArgs(), True)
+
+    def getAllMetasheets(self) -> List[Metasheet]:
+        Q = Query()
+        results = self._db.search((Q._pillar == "repo.meta"))
+        if (results is not None): 
+            return [Metasheet(blob) for blob in results]
+                
+    def find(self, queryRegExs: dict) -> List[Metasheet]:
+        try: 
+            qStr = None
+            for (k, v) in queryRegExs.items():
+                if (qStr is None):
+                    qStr = "where('" + k + "') == '" + v + "'"
+                else:
+                    qStr = qStr + " and where('" + k + "') == '" + v + "'"
+            blobs = self._db.search(eval(qStr))
+            if (blobs is not None): 
+                return [Metasheet(blob) for blob in blobs]
+            return None
+        except Exception as e:
+            self._loggingStore.putLogging("ERROR", "Error in find: " + str(e))
+            return None
+
+
+    
 # ****************************************************************************
 # testing 
 
@@ -198,6 +247,12 @@ if __name__ == "__main__":
         statusStore = JobStatusStore()
         for status in statusStore.getAllJobStatuses(None):
             print(status)
+    elif (sys.argv[1] == "repo.meta"):
+        metaStore = MetaRepoStore()
+        for meta in metaStore.getAllMetasheets():
+            print(meta)
+    else:
+        print("Unknown type: " + sys.argv[1])
 
 
     

@@ -2,11 +2,13 @@
 # ***********************************************************************************
 # Flask app
 
+import json
 from flask import Flask, request
 from lwfm.midware.impl.LwfmEventProcessor import LwfmEventProcessor
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.WfEvent import WfEvent
-from lwfm.midware.impl.Store import JobStatusStore, LoggingStore
+from lwfm.base.Metasheet import Metasheet
+from lwfm.midware.impl.Store import JobStatusStore, LoggingStore, MetaRepoStore
 import logging
 
 #************************************************************************
@@ -20,6 +22,7 @@ wfProcessor = LwfmEventProcessor()
 
 _statusStore = JobStatusStore()
 _loggingStore = LoggingStore()
+_metaStore = MetaRepoStore()
 
 print("*** service starting")
 
@@ -98,6 +101,31 @@ def listHandlers():
     return [e.serialize() for e in l], 200
 
 #************************************************************************
+# data endpoints
+
+@app.route("/notate", methods=["POST"])
+def notate():
+    try:
+        jobId = request.form["jobId"]
+        blob = request.form["data"]
+        sheet = Metasheet.deserialize(blob)
+        _metaStore.putMetaRepo(sheet)
+        return "", 200
+    except Exception as ex:
+        _loggingStore.putLogging("ERROR", "emitStatus: " + str(ex))
+        return "", 400
+
+
+@app.route("/find", methods=["POST"])
+def find():
+    try:
+        searchDict = json.loads(request.form["searchDict"])
+        l = _metaStore.find(searchDict)
+        return [e.serialize() for e in l], 200
+    except Exception as ex:
+        _loggingStore.putLogging("ERROR", "find: " + str(ex))
+        return "", 400
+
 
 
 
