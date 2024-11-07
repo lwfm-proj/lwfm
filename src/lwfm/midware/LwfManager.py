@@ -41,6 +41,11 @@ class LwfManager():
     def emitStatus(self, context: JobContext, statusClass: type, 
                    nativeStatus: str, nativeInfo: str = None) -> None:
         return self._client.emitStatus(context, statusClass, nativeStatus, nativeInfo)
+    
+
+    def emitRepoInfo(self, context: JobContext, metasheet: Metasheet) -> None:
+        return self.emitStatus(context, JobStatus, "INFO", metasheet)
+
 
     # Wait synchronously until the job reaches a terminal state, then return 
     # that state.  Uses a progressive sleep time to avoid polling too frequently.
@@ -81,34 +86,24 @@ class LwfManager():
     #***********************************************************************
     # repo methods - data metadata
 
-    def _notate(self, localPath: str, siteObjPath: str, metasheet: Metasheet) -> Metasheet:
+    def notate(self, localPath: str, siteObjPath: str, metasheet: Metasheet = None, 
+               isPut: bool = False) -> Metasheet:
         # do we know the job context?
         jobContext = self.getJobContextFromEnv()
         if (jobContext is not None):
             metasheet.setId(jobContext.getId()) 
         # now do the metadata notate
         args = metasheet.getArgs()
+        args['_direction'] = 'put' if isPut else 'get'
         args['localPath'] = localPath
         args['siteObjPath'] = siteObjPath
         metasheet.setArgs(args)
         # persist 
-        return LwfmEventClient().notate(metasheet.getId(), metasheet)
+        sheet = LwfmEventClient().notate(metasheet.getId(), metasheet)
+        # now emit an INFO job status
+        self.emitRepoInfo(jobContext, metasheet)   
+        return sheet
 
-    def put(self, localPath: str, siteObjPath: str,  
-            metasheet: Metasheet = None) -> Metasheet:
-        if (localPath is not None) and (siteObjPath is not None):
-            # copy the file from localPath to siteObjPath
-            # TODO 
-            pass
-        # now do the metadata notate    
-        return self._notate(localPath, siteObjPath, metasheet)
-    
-    def get(self, siteObjPath: str, localPath: str) -> str:
-        if (siteObjPath is not None) and (localPath is not None):
-            # copy the file from siteObjPath to localPath
-            # TODO
-            pass
-        return localPath
     
     def find(self, queryRegExs: dict) -> List[Metasheet]:
         return self._client.find(queryRegExs)

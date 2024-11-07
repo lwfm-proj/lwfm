@@ -12,6 +12,8 @@ from lwfm.base.WfEvent import RemoteJobEvent
 from lwfm.midware.LwfManager import LwfManager
 from lwfm.midware.Logger import Logger
 from lwfm.midware.impl.Store import AuthStore
+from lwfm.sites.LocalSite import LocalSiteRepo
+
 from qiskit import QuantumCircuit, qpy
 from qiskit_ibm_runtime import SamplerV2 as Sampler, QiskitRuntimeService
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
@@ -161,7 +163,8 @@ class IBMQuantumSiteRun(SiteRun):
                 LwfManager.emitStatus(useContext, IBMQuantumJobStatus,
                                 IBMQuantumJobStatusValues.RUNNING.value)
                 LwfManager.emitStatus(useContext, IBMQuantumJobStatus,
-                                IBMQuantumJobStatusValues.DONE.value, str(job.result()[0].data.meas.get_counts()))
+                                IBMQuantumJobStatusValues.DONE.value, 
+                                str(job.result()[0].data.meas.get_counts()))
             else:
                 # set an event handler to poll the remote job status
                 LwfManager.setEvent(RemoteJobEvent(useContext))
@@ -188,8 +191,11 @@ class IBMQuantumSiteRun(SiteRun):
 # it takes a run command including the circuit as its only input and passes back 
 # results in the job status messages.  
 
+# Can reuse the LocalSite for the IBMQuantumSiteRepo. 
 
-# TODO implement
+class IBMQuantumSiteRepo(LocalSiteRepo):
+    pass
+
 
 # ***************************************************************************
 # Spin - show the computing resource types available on this site 
@@ -217,7 +223,7 @@ class IBMQuantumSite(Site):
     def __init__(self):
         super(IBMQuantumSite, self).__init__(
             SITE_NAME, IBMQuantumSiteAuth(), IBMQuantumSiteRun(), 
-            None, IBMQuantumSiteSpin()
+            IBMQuantumSiteRepo(), IBMQuantumSiteSpin()
         )
 
     @staticmethod

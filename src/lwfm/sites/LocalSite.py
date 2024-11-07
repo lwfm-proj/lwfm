@@ -3,6 +3,7 @@
 # local and we assume the user is themselves already.
 
 from pathlib import Path
+import shutil
 from typing import List
 import os, subprocess
 import multiprocessing
@@ -142,16 +143,50 @@ class LocalSiteRun(SiteRun):
 
 
 class LocalSiteRepo(SiteRepo):
+    # For a local site, a put or get is a filesystem copy.
 
-    def put(self, localPath: str, siteObjPath: str, 
+    def _copyFile(self, fromPath: str, toPath: str) -> bool:
+        try:
+            toDir, toFilename = os.path.split(toPath)
+            print("toDir: " + toDir)
+            print("toFilename: " + toFilename)
+            shutil.copy2(fromPath, os.path.join(toDir, toFilename))
+        except Exception as ex:
+            Logger.error("Error copying file: " + str(ex))
+            return False
+        return True
+
+    def put(self, localPath: str, siteObjPath: str,  
             metasheet: Metasheet = None) -> Metasheet:
-        return LwfManager.put(localPath, siteObjPath, metasheet)
+        success = True
+        if (localPath is not None) and (siteObjPath is not None):
+            # copy the file from localPath to siteObjPath
+            success = self._copyFile(localPath, siteObjPath)
+        # now do the metadata notate    
+        if (success):
+            return LwfManager.notate(localPath, siteObjPath, metasheet, True)
+        else:
+            return None
     
     def get(self, siteObjPath: str, localPath: str) -> str:
-        return LwfManager.get(siteObjPath, localPath)
-    
+        success = True
+        if (siteObjPath is not None) and (localPath is not None):
+            # copy the file from siteObjPath to localPath
+            success = self._copyFile(siteObjPath, localPath)
+        if (success):
+            LwfManager.notate(localPath, siteObjPath)
+            return localPath
+        else:
+            return None
+
     def find(self, queryRegExs: dict) -> List[Metasheet]:
         return LwfManager.find(queryRegExs)
+
+
+
+
+    
+
 
 
 # ************************************************************************
