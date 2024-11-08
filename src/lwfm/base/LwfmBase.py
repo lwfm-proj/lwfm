@@ -56,8 +56,7 @@ class LwfmBase(ABC):
     @staticmethod
     def deserialize(s: str):
         in_json = json.dumps(s)
-        in_obj = pickle.loads(json.loads(in_json).encode(encoding="ascii"))
-        return in_obj
+        return pickle.loads(json.loads(in_json).encode(encoding="ascii"))
 
 # UUID generator used to give jobs lwfm ids which obviates collisions between 
 # job sites.  Other objects in the system may also use this generator.

@@ -148,8 +148,6 @@ class LocalSiteRepo(SiteRepo):
     def _copyFile(self, fromPath: str, toPath: str) -> bool:
         try:
             toDir, toFilename = os.path.split(toPath)
-            print("toDir: " + toDir)
-            print("toFilename: " + toFilename)
             shutil.copy2(fromPath, os.path.join(toDir, toFilename))
         except Exception as ex:
             Logger.error("Error copying file: " + str(ex))

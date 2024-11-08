@@ -23,17 +23,21 @@ class LwfmEventClient():
     # status methods
 
     def getStatus(self, jobId: str) -> JobStatus:
+        print("calling")
         response = requests.get(f"{self.getUrl()}/status/{jobId}")
+        print("returned")
         try:
             if response.ok:
-                if (response.text is not None):
-                    return JobStatus.deserialize(response.text)
+                if (response.text is not None) and (len(response.text) > 0):
+                    status = JobStatus.deserialize(response.text)
+                    return status
                 else:
                     return None
             else:
                 self.emitLogging("ERROR", f"response not ok: {response.text}")    
                 return None
         except Exception as ex:
+            print(f"*** getStatus error: {jobId}")
             self.emitLogging("ERROR", "getStatus error: " + str(ex))
             return None
 

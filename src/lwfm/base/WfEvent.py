@@ -110,3 +110,25 @@ class JobEvent(WfEvent):
     def getJobEventKey(jobId: str, status: Enum) -> str:
         return str(jobId) + "." + str(status)
 
+
+# ***************************************************************************
+class _MetadataEventFields(Enum):
+    # Event handling for a single job - job A reach a state implies the running of job B.
+    # When this job running on the named site reaches the given status, fire the
+    # registered job defn on the named target site in the given runtime context.
+    QUERY_REG_EXS = "queryRegExs"
+
+
+class MetadataEvent(WfEvent):
+    def __init__(self, queryRegExs: dict, fireDefn: JobDefn, fireSite: str):
+        super(MetadataEvent, self).__init__(fireDefn, fireSite)
+        LwfmBase._setArg(self, _MetadataEventFields.QUERY_REG_EXS.value, queryRegExs)  
+
+    def getQueryRegExs(self) -> dict:
+        return LwfmBase._getArg(self, _MetadataEventFields.QUERY_REG_EXS.value)
+    
+    def __str__(self):
+        return super().__str__() + \
+            f"+[meta dict:{self.getQueryRegExs()}]"
+    
+# ***************************************************************************

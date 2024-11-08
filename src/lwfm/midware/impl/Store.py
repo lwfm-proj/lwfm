@@ -1,4 +1,3 @@
-from abc import ABC
 from typing import List
 from tinydb import TinyDB, Query, where
 from tinydb.table import Document
@@ -16,7 +15,8 @@ from lwfm.base.WfEvent import WfEvent
 _DB_FILE = os.path.join(os.path.expanduser("~"), ".lwfm", "lwfm.repo")
 
 
-class Store(ABC):
+
+class Store():
     _db = TinyDB(_DB_FILE)
         
     def _put(self, siteName: str, pillar: str, key: str, doc: str, 
@@ -38,9 +38,11 @@ class Store(ABC):
             else:
                 record = baseRecord
                 record["_doc"] = doc    # the data, serialized object, etc
+            print(f"_put: {record}")
             self._db.insert(Document(record, doc_id=id))
             return
         except Exception as ex:
+            print(f"*** {siteName} {pillar} {key}")
             print("Error in _put: " + str(ex))
 
 
@@ -113,12 +115,8 @@ class EventStore(Store):
             return False
 
     def getAllWfEvents(self, typeT: str = None) -> List[WfEvent]: 
-        if typeT is None:
-            t = "run.event"
-        else:
-            t = "run.event." + typeT
         Q = Query()
-        results = self._db.search((Q._pillar == t))
+        results = self._db.search((Q._pillar == typeT))
         if (results is not None):
             blobs = self._sortMostRecent(results)
             return [WfEvent.deserialize(blob["_doc"]) for blob in blobs]
@@ -181,8 +179,8 @@ class JobStatusStore(Store):
     def getJobStatus(self, jobId: str) -> JobStatus:    
         try:
             statuses = self.getAllJobStatuses(jobId)
-            if (statuses is not None):
-                return statuses[0]
+            if (statuses is not None) and (len(statuses) > 0):
+                return statuses[0]  
             else:
                 return None
         except Exception as e:
@@ -251,6 +249,14 @@ if __name__ == "__main__":
         metaStore = MetaRepoStore()
         for meta in metaStore.getAllMetasheets():
             print(meta)
+    elif (sys.argv[1].startswith("run.event")):
+        eventStore = EventStore()
+        for event in eventStore.getAllWfEvents(sys.argv[1]):
+            print(event)
+    elif (sys.argv[1] == "all"):
+        store = Store()
+        for doc in store._db.all():
+            print(f"*** {doc}")
     else:
         print("Unknown type: " + sys.argv[1])
 

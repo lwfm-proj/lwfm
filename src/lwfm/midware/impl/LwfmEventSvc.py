@@ -38,13 +38,18 @@ def index():
 #************************************************************************
 # status endpoints 
 
+def _testDataTriggers(statusObj: JobStatus):
+    LwfmEventProcessor().checkDataEvents(statusObj) 
+
+
 @app.route("/emitStatus", methods=["POST"])
 def emitStatus():
     try:
         statusBlob = request.form["statusBlob"]
-        statusObj = JobStatus.deserialize(statusBlob)
-        print("emitting statusObj: " + str(statusObj))
+        statusObj : JobStatus = JobStatus.deserialize(statusBlob)
         _statusStore.putJobStatus(statusObj)
+        if (statusObj.getStatusValue() == "INFO"):
+            _testDataTriggers(statusObj)
         return "", 200
     except Exception as ex:
         _loggingStore.putLogging("ERROR", "emitStatus: " + str(ex))
@@ -54,7 +59,11 @@ def emitStatus():
 @app.route("/status/<jobId>")
 def getStatus(jobId: str):
     try:
-        return _statusStore.getJobStatus(jobId).serialize()
+        s = _statusStore.getJobStatus(jobId).serialize()
+        if (s is not None):
+            return s
+        else:
+            return ""
     except Exception:
         return ""
 

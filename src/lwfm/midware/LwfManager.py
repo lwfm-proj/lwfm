@@ -50,22 +50,32 @@ class LwfManager():
     # Wait synchronously until the job reaches a terminal state, then return 
     # that state.  Uses a progressive sleep time to avoid polling too frequently.
     def wait(self, jobId: str) -> JobStatus:  # return JobStatus when the job is done
-        status = self
-        increment = 3
-        sum = 1
-        max = 60
-        maxMax = 6000
-        status = self.getStatus(jobId)
-        while not status.isTerminal():
-            time.sleep(sum)
-            # progressive: keep increasing the sleep time until we hit max, 
-            # then keep sleeping max
-            if sum < max:
-                sum += increment
-            elif sum < maxMax:
-                sum += max
+        try:
+            increment = 3
+            sum = 1
+            max = 60
+            maxMax = 6000
+            print("calling getStatus 1")
             status = self.getStatus(jobId)
-        return status
+            fakeStatus = JobStatus(JobContext())
+            fakeStatus.setStatus("UNKNOWN")
+            if (status is None):
+                status = fakeStatus
+            while not status.isTerminal():
+                time.sleep(sum)
+                # progressive: keep increasing the sleep time until we hit max, 
+                # then keep sleeping max
+                if sum < max:
+                    sum += increment
+                elif sum < maxMax:
+                    sum += max
+                print("calling getStatus 2")
+                status = self.getStatus(jobId)
+                if (status is None):
+                    status = fakeStatus
+            return status
+        except Exception as ex: 
+            return None
     
 
     #***********************************************************************
@@ -109,11 +119,11 @@ class LwfManager():
         return self._client.find(queryRegExs)
     
 
-    #***********************************************************************
+#***********************************************************************
 
 LwfManager = LwfManager()
 
 if __name__ == "__main__":
-    for e in LwfManager.getActiveWfEvents():
-        print(e)
+    pass
+
 
