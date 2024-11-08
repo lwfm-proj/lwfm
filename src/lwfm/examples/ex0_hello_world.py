@@ -1,38 +1,30 @@
-
-# print 'hello world' but as a Job on a (local) Site
-# assumes the lwfm job status service is running
-
-import logging
+# print 'hello world' but as a Job on a local site
 
 from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn
+from lwfm.midware.Logger import Logger
+from lwfm.midware.LwfManager import LwfManager
 
-# This Site name can be an argument - name maps to a Site class implementation,
-# either one provided with this sdk, or one user-authored.
-siteName = "local"
+if __name__ == "__main__":
+    # only using one site for this example - construct an interface to it
+    site = Site.getSite("local")
 
-if __name__ == '__main__':
+    # a "local" site login is a no-op; real sites will have a login mechanism
+    site.getAuth().login()
 
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.INFO)
+    # define the job - use all defaults except the actual command to execute
+    jobDefn = JobDefn("echo 'hello world'")
 
-    # one Site for this example - construct an interface to the Site
-    site = Site.getSiteInstanceFactory(siteName)
-    # a "local" Site login is generally a no-op
-    site.getAuthDriver().login()
+    # submit the job to the site asynchronously, get back an initial status 
+    status = site.getRun().submit(jobDefn)
 
-    # define the Job - use all Job defaults except the actual command to execute
-    jobDefn = JobDefn()
-    jobDefn.setEntryPoint("echo 'hello world'")
+    # How could we tell the async job has finished? One way is to synchronously
+    # wait on its end status. (Another way is asynchronous triggering, which
+    # we'll demonstrate in another example.)
+    # So sit here until the job is done...
+    status = LwfManager.wait(status.getJobId())
 
-    # submit the Job to the Site
-    status = site.getRunDriver().submitJob(jobDefn)
-    # the run is generally asynchronous - on a remote HPC-type Site certainly,
-    # and even in a local Site the "local" driver can implement async runs (which in fact it does),
-    # so expect this Job status to be "pending"
-    logging.info("hello world job " + status.getJobId() + " " + status.getStatusValue())
+    # Let's show that we can also get the result of the job later on
+    status = LwfManager.getStatus(status.getJobId())
+    Logger.info("job status from persistence", status)
 
-    # how could we tell the async job has finished? one way is to synchronously wait on its end status
-    # (another way is asynchronous triggering, which we'll demonstrate in a separate example)
-    status = status.wait()
-    logging.info("hello world job " + status.getJobId() + " " + status.getStatusValue())

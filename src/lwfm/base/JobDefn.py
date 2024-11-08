@@ -13,44 +13,30 @@
 
 from enum import Enum
 
-from pathlib import Path
+from typing import List
 
 from lwfm.base.LwfmBase import LwfmBase
-from lwfm.base.SiteFileRef import SiteFileRef
-from lwfm.base.JobContext import JobContext
-from lwfm.base.JobStatus import JobStatus
 
 class _JobDefnFields(Enum):
     NAME               = "name"         # optional - jobs do not need to be named - 
                                         #   they have ids
-    COMPUTE_TYPE       = "computeType"  # some sites define addressable compute resources 
-                                        #   within it
     ENTRY_POINT        = "entryPoint"   # defines the top-level "executable" command to 
                                         #   pass to the site scheduler
     JOB_ARGS           = "jobArgs"      # positional arguments to the job - an array of 
                                         #   string - the run driver will construct the 
                                         #   command line from these args
-    REPO_OP            = "repoOp"       # put, get - for data movement jobs, the relative 
-                                        #   direction is noted
-                                        # see the RepoOp enum in this module  
-    REPO_LOCAL_REF     = "repoLocalRef" # local file reference - the "from" reference for 
-                                        #   a put, the "to" reference for a get
-    REPO_SITE_REF      = "repoSiteRef"  # site file reference, the "to" reference for a put, 
-                                        #   the "from" reference for a get
-    # EXTRA_ARGS                        # TODO site schedulers vary widely - this dict 
-                                        #   permits arbitrary args
 
 
 class JobDefn(LwfmBase):
     """
-    The static definition of a job, to be instantiated at runtime by the Site.Run subsystem.  
-    The Job Defn is not presumed to be portable, though it is possible and the onus is on
-    the user or the author of the Site driver.  
+    The static definition of a job, to be instantiated at runtime by the Site.Run 
+    subsystem. The JobDefn is not presumed to be portable, though it is possible 
+    and the onus is on the user or the author of the Site driver.  
     Within the JobDefn will be baked arbitrary arguments, which might very well be 
-    Site-specific (e.g., parameters to a specific Site HPC scheduler).  It is ultimately 
-    the job of the Site Run subsystem to interpret the job defn and execute it.  The 
-    standard arguments which would be needed to aid in broad portability are not specified 
-    by this framework, nor are they precluded.
+    Site-specific (e.g., parameters to a specific Site HPC scheduler).  It is 
+    ultimately the job of the Site Run subsystem to interpret the job defn and 
+    execute it.  The standard arguments which would be needed to aid in broad 
+    portability are not specified by this framework, nor are they precluded.
 
     Attributes:
 
@@ -67,7 +53,6 @@ class JobDefn(LwfmBase):
 
     job args - distinct from the entry point, the job might desire arbitrary arguments 
         at runtime
-
     """
 
     def __init__(self, entryPoint: str = None):
@@ -80,73 +65,19 @@ class JobDefn(LwfmBase):
     def getName(self) -> str:
         return LwfmBase._getArg(self, _JobDefnFields.NAME.value)
 
-    def setComputeType(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.COMPUTE_TYPE.value, name)
-
-    def getComputeType(self) -> str:
-        return LwfmBase._getArg(self, _JobDefnFields.COMPUTE_TYPE.value)
-
     def setEntryPoint(self, entryPoint: str) -> None:
         LwfmBase._setArg(self, _JobDefnFields.ENTRY_POINT.value, entryPoint)
 
     def getEntryPoint(self) -> str:
         return LwfmBase._getArg(self, _JobDefnFields.ENTRY_POINT.value)
 
-    def setJobArgs(self, args: [str]) -> None:
+    def setJobArgs(self, args: List[str]) -> None:
         LwfmBase._setArg(self, _JobDefnFields.JOB_ARGS.value, args)
 
-    def getJobArgs(self) -> [str]:
+    def getJobArgs(self) -> List[str]:
         return LwfmBase._getArg(self, _JobDefnFields.JOB_ARGS.value)
 
-    def submit(self, site, parentContext: JobContext = JobContext()) -> JobStatus:
-        return site.getRunDriver().submitJob(self, parentContext)
 
-
-#************************************************************************************************************************************
-
-# Directionality of the data movement relative to the current process.
-class RepoOp(Enum):
-    PUT = "put"
-    GET = "get"
-
-
-class RepoJobDefn(JobDefn):
-    """
-    Moving data between Sites is expected to be common, and potentially time consuming, 
-    and thus wanted to be performed asynchronously (if at all... a multi-site execution 
-    model may assist in bringing the compute to where the data already is).
-    Thus wrapping a data movement as a job and setting a job event trigger to fire when 
-    the data move is complete would be common.  The RepoJobDefn as a subclass of JobDefn 
-    provides this convenience mechanism for wrapping a data move as an 
-    independent job.
-    """
-
-    def __init__(self, repoOp: RepoOp = RepoOp.PUT, localRef: Path = None, 
-                 siteFileRef: SiteFileRef = None):
-        super(RepoJobDefn, self).__init__()
-        self.setRepoOp(repoOp)
-        if (localRef is not None):
-            self.setLocalRef(localRef)
-        if (siteFileRef is not None):
-            self.setSiteFileRef(siteFileRef)
-
-    def setRepoOp(self, repoOp: RepoOp) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.REPO_OP.value, repoOp)
-
-    def getRepoOp(self) -> RepoOp:
-        return LwfmBase._getArg(self, _JobDefnFields.REPO_OP.value)
-
-    def setLocalRef(self, localRef: Path) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.REPO_LOCAL_REF.value, str(localRef))
-
-    def getLocalRef(self) -> Path:
-        return Path(LwfmBase._getArg(self, _JobDefnFields.REPO_LOCAL_REF.value))
-
-    def setSiteFileRef(self, siteRef: SiteFileRef) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.REPO_SITE_REF.value, siteRef)
-
-    def getSiteFileRef(self) -> SiteFileRef:
-        return LwfmBase._getArg(self, _JobDefnFields.REPO_SITE_REF.value)
-
+#****************************************************************************
 
 

@@ -1,71 +1,42 @@
-
 # demonstrate asynchronous job chaining
-# assumes the lwfm job status service is running
 
-import logging
-from pathlib import Path
-
+from lwfm.midware.Logger import Logger
 from lwfm.base.Site import Site
-from lwfm.base.SiteFileRef import FSFileRef
-from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
-from lwfm.base.JobStatus import JobStatusValues, fetchJobStatus
-from lwfm.base.WorkflowEventTrigger import JobEventTrigger 
+from lwfm.base.JobDefn import JobDefn
+from lwfm.base.JobStatus import JobStatusValues
+from lwfm.base.WfEvent import JobEvent
+from lwfm.midware.LwfManager import LwfManager
 
-# This Site name can be an argument - name maps to a Site class implementation,
-# either one provided with this sdk, or one user-authored.
-siteName = "local"
 
-if __name__ == '__main__':
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.INFO)
+if __name__ == "__main__":
+    site = Site.getSite("local")
+    site.getAuth().login()
 
-    # one Site for this example - construct an interface to the Site
-    site = Site.getSiteInstanceFactory(siteName)
-    site.getAuthDriver().login()
- 
     # define job A - sit-in for some kind of "real" pre-processing
-    jobDefnA = JobDefn()
-    jobDefnA.setEntryPoint("echo Job A output pwd = `pwd`")
+    jobDefnA = JobDefn("echo hello world, job A output pwd = `pwd`")
 
-    # define job B - sit-in for some kind of "real" data-generating application
+    # a stand-in for some data file 
     dataFile = "/tmp/ex1_date.out"
-    jobDefnB = JobDefn()
-    jobDefnB.setEntryPoint("echo date = `date` > " + dataFile)
 
-    # define job C - put the data "into management", whatever that means for the given site,
-    # and do it as an async Job does a "put" operation need to be structured in this way?  no.  
-    # if we want to do a Repo.put() within the context of an existing Job, just call Repo.put().  
-    # but since this is a common async operation, we provide a subclass of
-    # JobDefn for this purpose.
-    jobDefnC = RepoJobDefn()
-    jobDefnC.setRepoOp(RepoOp.PUT)
-    jobDefnC.setLocalRef(Path(dataFile))
-    siteFileRef = FSFileRef()
-    siteFileRef.setPath("/tmp")
-    siteFileRef.setName("ex1_date.out" + ".copy")
-    jobDefnC.setSiteFileRef(siteFileRef)
-    
-    # submit job A which gives us the job id we need to set up the event handler for job B 
-    statusA = site.getRunDriver().submitJob(jobDefnA)
-    print("statusA says id = " + statusA.getJobId())
-    print("statusA says status = " + statusA.getStatusValue())
+    # submit job A
+    statusA = site.getRun().submit(jobDefnA)    # a new job context is created
+    Logger.info("job A submitted", statusA)
 
-    # for fun, read it back 
-    statusA = fetchJobStatus(statusA.getJobId())
-    print("from the call, status = " + statusA.getStatusValue())
-        
-    # when job A gets to the COMPLETE state, fire job B on the named site; registering it
-    # gives us the job id we need to set up the event handler for job C
-    statusB = site.getRunDriver().setWorkflowEventTrigger(
-        JobEventTrigger(statusA.getJobId(), JobStatusValues.COMPLETE.value, jobDefnB, siteName))
-    print("job B when it runs will have job id " + statusB.getJobId())
-    
-    # when job B gets to the COMPLETE state, fire job C on the named site
-    statusC = site.getRunDriver().setWorkflowEventTrigger(
-        JobEventTrigger(statusB.getJobId(), JobStatusValues.COMPLETE.value, jobDefnC, siteName))
-    print("job C when it runs will have job id " + statusC.getJobId())
+    # when job A asynchronously reaches the COMPLETE state, fire job B 
+    futureJobIdB = LwfManager.setEvent(
+        JobEvent(statusA.getJobId(), JobStatusValues.COMPLETE.value, 
+                 JobDefn("echo date = `date` > " + dataFile), "local")
+    )
+    Logger.info(f"job B {futureJobIdB} set as a job event on A")
 
-    # for the purposes of this example, let's wait synchronously on the conclusion of job C
-    print("waiting for job C to complete")
-    statusC = statusC.wait()
-    print(statusC.toShortString())
+    # when job B asynchronously gets to the COMPLETE state, fire job C 
+    futureJobIdC = LwfManager.setEvent(
+        JobEvent(futureJobIdB, JobStatusValues.COMPLETE.value,
+                 JobDefn("cat " + dataFile), "local")
+    )
+    Logger.info(f"job C {futureJobIdC} set as a job event on B")
+
+    # for the purposes of this example, let's wait synchronously on the
+    # conclusion of job C, which implies B and A also finished
+    statusC = LwfManager.wait(futureJobIdC)
+    Logger.info("job C finished, implying B and A also finished", statusC)

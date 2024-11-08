@@ -1,55 +1,29 @@
-# An example of managing local data.
 
-import logging
 from lwfm.base.Site import Site
-from lwfm.base.JobDefn import JobDefn, RepoJobDefn, RepoOp
-from lwfm.base.SiteFileRef import FSFileRef
-from lwfm.base.WorkflowEventTrigger import DataEventTrigger
-
-siteName = "local"
-
-
-def _triggerFilter(metadata: dict = None) -> bool:
-    if (metadata["myMetaField"] == "ex4_metaflag"):
-        return True
-
-
-def example4(site: Site):
-    dataFile = "/tmp/ex4_date.out"
-
-    # submit a job to create a file
-    jobDefnA = JobDefn("echo date = `date` > " + dataFile)
-    statusA = jobDefnA.submit(site).wait()  # sync fire & wait
-
-    # submit a job to copy the file, "put" it to the site and place it under management
-    # make a reference to the file to be put under management & add metadata
-    metadata = {"myMetaField": "ex4_metaflag"}
-    # on the remote site, the file will be put in the specified directory with the
-    # specified name, and the metadata will be stored about the file
-    siteFileRef = FSFileRef("/tmp", "ex4_date.out" + ".copy", metadata)
-    RepoJobDefn(RepoOp.PUT, dataFile, siteFileRef).submit(
-        site, statusA.getJobContext()
-    )  # async fire & forget
-
-    # set a data trigger on the file - a job will run on the site when the file
-    # is put under management
-    print("setting data trigger & waiting...")
-    jobDefnC = JobDefn("echo date = `date` > /tmp/ex4_date.out.triggered")
-    statusC = (
-        site.getRunDriver()
-        .setWorkflowEventTrigger(DataEventTrigger(_triggerFilter, jobDefnC, siteName))
-        .wait()
-    )  # sync fire & wait
-    print("data trigger job C = " + statusC.toShortString())
-
+from lwfm.base.Metasheet import Metasheet
+from lwfm.midware.Logger import Logger
+from lwfm.base.LwfmBase import _IdGenerator
+from lwfm.midware.LwfManager import LwfManager
+from lwfm.base.WfEvent import MetadataEvent
+from lwfm.base.JobDefn import JobDefn
 
 if __name__ == "__main__":
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.INFO)
+    site = Site.getSite("local")
+    site.getAuth().login()
 
-    # make a site driver for the local site and login
-    site = Site.getSiteInstanceFactory(siteName)
-    # a "local" Site login is generally a no-op
-    site.getAuthDriver().login()
+    sampleId = _IdGenerator.generateId()
 
-    example4(site)
+    # when data is put into the repo with this sampleId, fire the job 
+    futureJobId = LwfManager.setEvent(
+        MetadataEvent({"sampleId": sampleId}, JobDefn("echo hello world"), "local")
+    ) 
+    Logger.info(f"job {futureJobId} set as a data event trigger")
+    
+    # now put the file with the metadata 
+    metadata = {"foo": "bar", "hello": "world", "sampleId": sampleId}
+    site.getRepo().put("file.dat", "/tmp/file.dat", Metasheet(metadata))
+
+    # if we want we can wait for the future job to finish
+    status = LwfManager.wait(futureJobId)
+    Logger.info("data-triggered job finished", status)
+
