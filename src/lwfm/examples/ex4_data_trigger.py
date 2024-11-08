@@ -24,7 +24,6 @@ if __name__ == "__main__":
     site.getRepo().put("file.dat", "/tmp/file.dat", Metasheet(metadata))
 
     # if we want we can wait for the future job to finish
-    print("waiting")
     status = LwfManager.wait(futureJobId)
     Logger.info("data-triggered job finished", status)
 

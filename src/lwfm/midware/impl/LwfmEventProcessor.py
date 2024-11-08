@@ -2,6 +2,7 @@
 # The Workflow Event Processor watches for Job Status events and fires a JobDefn 
 # to a Site when an event of interest occurs.
 
+import re
 import threading
 from typing import List
 
@@ -25,7 +26,7 @@ class LwfmEventProcessor:
 
     STATUS_CHECK_INTERVAL_SECONDS_MIN = 5
     STATUS_CHECK_INTERVAL_SECONDS_MAX = 5*60
-    STATUS_CHECK_INTERVAL_SECONDS_STEP = 30
+    STATUS_CHECK_INTERVAL_SECONDS_STEP = 5
     _statusCheckIntervalSeconds = STATUS_CHECK_INTERVAL_SECONDS_MIN
 
     def __init__(self):
@@ -112,7 +113,10 @@ class LwfmEventProcessor:
         gotOne = False
         try:
             events = self.findAllEvents("run.event.JOB")
-            print("Job events: " + str(len(events)))
+            if (len(events) > 0):
+                print("Job events: " + str(len(events)))
+            else:
+                return False
             for e in events:
                 try: 
                     status = self.checkJobEvent(e)
@@ -132,6 +136,23 @@ class LwfmEventProcessor:
     
 
     def checkDataEvent(self, dataEvent: MetadataEvent, jobStatus: JobStatus) -> bool:
+        if (dataEvent is None):
+            return False
+        if (jobStatus is None):
+            return False
+        if (jobStatus.getNativeInfo() is None):
+            return False
+        if (jobStatus.getNativeInfo().getArgs() is None):
+            return False
+        for key in dataEvent.getQueryRegExs().keys():
+            if (key in jobStatus.getNativeInfo().getArgs().keys()):
+                keyVal = dataEvent.getQueryRegExs()[key]
+                statVal = jobStatus.getNativeInfo().getArgs()[key]
+                # the key val might have wildcards in it
+                if not (re.search(keyVal, statVal)):
+                    return False
+            else:
+                return False
         return True
 
 
@@ -145,6 +166,8 @@ class LwfmEventProcessor:
             for e in events:
                 try: 
                     if (self.checkDataEvent(e, status)):
+                        self._loggingStore.putLogging("INFO", 
+                            f"data triggered id:{e.getFireJobId()} on site:{e.getFireSite()}")
                         # event satisfied - going to fire the handler 
                         # but first, remove the handler 
                         self.unsetEventHandler(e.getId())
