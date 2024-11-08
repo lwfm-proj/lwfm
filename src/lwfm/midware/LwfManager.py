@@ -55,7 +55,6 @@ class LwfManager():
             sum = 1
             max = 60
             maxMax = 6000
-            print("calling getStatus 1")
             status = self.getStatus(jobId)
             fakeStatus = JobStatus(JobContext())
             fakeStatus.setStatus("UNKNOWN")
@@ -69,7 +68,6 @@ class LwfManager():
                     sum += increment
                 elif sum < maxMax:
                     sum += max
-                print("calling getStatus 2")
                 status = self.getStatus(jobId)
                 if (status is None):
                     status = fakeStatus

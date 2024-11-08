@@ -38,11 +38,9 @@ class Store():
             else:
                 record = baseRecord
                 record["_doc"] = doc    # the data, serialized object, etc
-            print(f"_put: {record}")
             self._db.insert(Document(record, doc_id=id))
             return
         except Exception as ex:
-            print(f"*** {siteName} {pillar} {key}")
             print("Error in _put: " + str(ex))
 
 
