@@ -12,8 +12,7 @@ argument passing scheme.  A Site which implements these four pillars can then be
 A local component tracks and orchestrates the cross-site workflows, permitting job chaining and the weaving of a
 digital thread.  This is exposed to workflows via the LwfManager class, which permits setting workflow event handlers and persisting provenancial metadata.  In addition to this, the framework itself will persist additional tracking info which permits interrogation of both control and data flows - what jobs triggered what other jobs, what data elements were created and then used by which jobs.  Job status is normalized across Sites permitting a unified flow and view.  
 
-The work is based on a paper presented by A. Gallo et al at the Smoky Mountains Conference in August 2022, and available
-here: https://drive.google.com/file/d/1c3YEVmEAUjbI5urj4PiV2TtjzBUzLlws
+The work is based on a paper presented by A. Gallo et al at the Smoky Mountains Conference in August 2022, and available in this git project along with other source material.
 
 Setup:
 1. Get the python libs (see requirements.txt)
