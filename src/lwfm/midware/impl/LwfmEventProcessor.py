@@ -1,5 +1,6 @@
 
-# The Workflow Event Processor watches for Job Status events and fires a JobDefn 
+# Run as part of the lwfm middleware.
+# The Event Processor watches for Job Status events and fires a JobDefn 
 # to a Site when an event of interest occurs.
 
 import re

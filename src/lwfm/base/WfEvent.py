@@ -1,5 +1,11 @@
 
 
+# Different kids of workflow events 
+# - job reaches a status, i.e. any job on any site reaching a canonical status
+# - a remote job reaches a status, i.e. the middleware polls for it's completion
+# - a data triggered event - data with a certain metadata profile is touched
+# in these cases, a user-provided handler is fired
+
 from enum import Enum
 
 from lwfm.base.LwfmBase import LwfmBase

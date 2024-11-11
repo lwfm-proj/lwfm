@@ -1,6 +1,6 @@
 
 # ***********************************************************************************
-# Flask app
+# Flask app service for the lwfm middleware
 
 import json
 from flask import Flask, request

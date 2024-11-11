@@ -1,4 +1,10 @@
 
+# Many base classes extend LwfmBase to permit the passing of arbitrary name=value
+# maps in addition to the fixed parameters specified by various classes in the 
+# object model.  This aids in generalization and serialization.  
+# I don't doubt there's a better way... 
+
+
 from abc import ABC
 import uuid
 import pickle
@@ -6,11 +12,6 @@ import json
 import sys
 import random 
 
-
-# Many base classes extend LwfmBase to permit the passing of arbitrary name=value
-# maps in addition to the fixed parameters specified by various classes in the 
-# object model.  This aids in generalization and serialization.  
-# I don't doubt there's a better way... 
 
 class LwfmBase(ABC):
 

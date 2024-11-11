@@ -1,4 +1,7 @@
 
+# Represents a state of a job's execution in its set of valid lifecycle states.
+# It is emitted within the job's context.
+
 from enum import Enum
 from datetime import datetime
 

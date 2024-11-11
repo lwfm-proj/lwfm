@@ -1,8 +1,7 @@
 """
 This class provides a wrapper around Python's built-in logging module,
 offering simplified logging methods with optional JobContext integration.
-It initializes a logger with INFO level by default and provides methods
-to set the logging level and log messages at different severity levels.
+It persists to the lwfm store.
 """
 
 import logging
@@ -40,36 +39,14 @@ class Logger:
         return out
 
     def setLevel(self, level) -> None:
-        """
-        Set the logging level.
-
-        :param level: the level to set (e.g. logging.INFO, logging.DEBUG, etc.)
-        :type level: int
-        """
         self._logger.setLevel(level)
 
     def info(self, msg: str, status: str = None) -> None:
-        """
-        Log an informational message.
-
-        :param msg: the message to log
-        :type msg: str
-        :param jobStatus: the job status info to add to the log message (optional)
-        :type jobStatus: JobStatus
-        """
         out = self._buildMsg(msg, status)
         self._logger.info(out)
         self._lwfmClient.emitLogging("INFO", out)
 
     def error(self, msg: str, status: str = None) -> None:
-        """
-        Log an error message.
-
-        :param msg: the message to log
-        :type msg: str
-        :param status: the job status info to add to the log message (optional)
-        :type status: JobStatus
-        """
         out = self._buildMsg(msg, status)
         self._logger.error(out)
         self._lwfmClient.emitLogging("ERROR", out)
