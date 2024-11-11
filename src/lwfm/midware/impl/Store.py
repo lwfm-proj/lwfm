@@ -1,3 +1,5 @@
+# Data stores for job status, metadata, logging, and workflow events.
+
 from typing import List
 from tinydb import TinyDB, Query, where
 from tinydb.table import Document

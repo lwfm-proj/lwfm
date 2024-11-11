@@ -2,14 +2,6 @@
 # A Job Definition is the abstract representation of a job, the non-instantiated 
 # description. The JobDefn will be passed to the Site's Run driver which will use the 
 # args to instantiate a job from the definition.
-#
-# Of note is "compute type" which is a mechanism to address jobs at specific computing
-# resources within the Site on which the job is run.  For example, an HPC site which 
-# has CPU and CPU+GPU nodes - a workflow script can indicate that the job should be run 
-# on a certain named compute configuration.  Its completely optional for a site to expose 
-# a "compute type" concept - a site might have only one compute configuration.  Thanks
-# to object oriented programming, a site can also model specific compute configurations 
-# as subclasses of its Site class.
 
 from enum import Enum
 
@@ -41,10 +33,6 @@ class JobDefn(LwfmBase):
     Attributes:
 
     name - an optional name for human consumption
-
-    compute type - we can target the job at an optional compute type on the Site, a 
-        specific resource the Site provides;
-        the Site might have no such concept and present only one runtime option
 
     entry point - a declaration of the command to run, from the perspective of the Site.  
         This can be anything from an actual command string, or a complex serialized object 

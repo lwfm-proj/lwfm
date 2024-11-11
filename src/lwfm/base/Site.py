@@ -1,21 +1,19 @@
 """
 Site: Defines an abstract computing location which exposes canonical verbs for
-the Auth, Run, and Repo (and optionally Spin) logical subsystems. The purpose
+the Auth, Run, and Repo and Spin logical subsystems. The purpose
 of lwfm is to permit workflows which span Sites. A new Site would inherit or
 implement a driver for each of the subsystems. An application will instantiate
 a Site driver using the Site factory method.
 
 The Auth portion of the Site is responsible for user authentication and
 authorization. The Run sub-interface provides verbs such as job submit and job
-cancel. The Repo portion provides verbs for managing files and directories.
-The Spin portion is vaporware, and would provide verbs for spinning up and
-spinning down computing resources.
+cancel. The Repo portion provides verbs for managing files and metadata.
+The Spin portion provides verbs for spinning up and spinning down computing 
+resources from a cafeteria of options.
 
 The Site factory method returns the Python class which implements the
 interfaces for the named Site. ~/.lwfm/sites.txt can be used to augment the
-list of sites provided here with a user's own custom Site implementations. In
-the event of a name collision between the user's sites.txt and those hardcoded
-here, the user's sites.txt config trumps.
+list of sites provided here with a user's own custom Site implementations. 
 """
 
 from enum import Enum
@@ -229,13 +227,9 @@ class SiteRepo(SitePillar):
 
 
 # *****************************************************************************
-# Spin: vaporware.  In theory some Sites would expose mechanisms to create 
+# Spin: mostly vaporware.  In theory some Sites would expose mechanisms to create 
 # (provision) and destroy various kinds of computing devices.  These might be
-# single nodes, or entire turnkey cloud-bases HPC systems.  Spin operations are
-# modeled as jobs in order to permit sequential workflows which spin up resources,
-# send them jobs, and then spin them down as part of a autonomous operation.  
-# Basic verbs include: show cafeteria, spin up, spin down.  Spins would be 
-# wrapped as Jobs allowing normal status interrogation.
+# single nodes, or entire turnkey cloud-bases HPC systems.  
 
 class SiteSpin(SitePillar):
 

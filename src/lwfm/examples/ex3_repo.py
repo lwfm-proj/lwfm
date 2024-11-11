@@ -13,7 +13,7 @@ if __name__ == "__main__":
     Logger.info(f"sampleId: {sampleId}")
     
     metadata = {"foo": "bar", "hello": "world", "sampleId": sampleId}
-    site.getRepo().put("file.dat", "/tmp/file.dat", Metasheet(metadata))
+    site.getRepo().put("someFile.dat", "/tmp/someFile.dat", Metasheet(metadata))
 
     sheets = site.getRepo().find({"foo": "*", "sampleId": sampleId})
     for s in sheets:

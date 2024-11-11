@@ -1,4 +1,8 @@
 
+# LwfManager - exposes the services of the lwfm middleware to workflows and Site 
+# implementations.  Permits emitting and fetching job status, setting workflow
+# event handlers, and notating provenancial metadata.
+
 import time
 import os 
 from typing import List
@@ -121,7 +125,6 @@ class LwfManager():
 
 LwfManager = LwfManager()
 
-if __name__ == "__main__":
-    pass
+
 
 

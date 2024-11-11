@@ -21,7 +21,7 @@ if __name__ == "__main__":
     
     # now put the file with the metadata 
     metadata = {"foo": "bar", "hello": "world", "sampleId": sampleId}
-    site.getRepo().put("file.dat", "/tmp/file.dat", Metasheet(metadata))
+    site.getRepo().put("someFile.dat", "/tmp/someFile.dat", Metasheet(metadata))
 
     # if we want we can wait for the future job to finish
     status = LwfManager.wait(futureJobId)

@@ -1,3 +1,8 @@
+
+# implementation behind the LwfManager - use it instead
+# this gives the HTTP calls to the lwfm middleware to account for the case
+# where its not running on the same machine as the workflow 
+
 import json
 from pathlib import Path
 import requests

@@ -1,4 +1,5 @@
 
+# A basic dictionary to hold metadata about data objects under management by lwfm
 
 from lwfm.base.LwfmBase import LwfmBase
 

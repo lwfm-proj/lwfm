@@ -233,8 +233,4 @@ class IBMQuantumSite(Site):
         return JobDefn(cFile.getvalue())
     
 
-if __name__ == "__main__":
-    status = IBMQuantumJobStatus()
-    status.setNativeStatus("VALIDATING")
-    print(f"{status}")
 

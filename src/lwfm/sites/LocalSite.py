@@ -1,6 +1,6 @@
 # LocalSiteDriver: an implementation of Site and its constituent Auth, Run, Repo 
-# interfaces for a local to the user runtime environment.  Unsecure, as this is 
-# local and we assume the user is themselves already.
+# and (trivial) Spin interfaces for a local to the user runtime environment.  
+# Unsecure, as this is local and we assume the user is themselves already.
 
 from pathlib import Path
 import shutil
