@@ -137,7 +137,7 @@ class LwfmEventClient():
         # call to the service to put metasheet for this put
         try:
             data = {"jobId": jobId,
-                    "data": metasheet.serialize()}
+                    "data": ObjectSerializer.serialize(metasheet)}
             response = requests.post(f"{self.getUrl()}/notate", data,
                 timeout=self._REST_TIMEOUT)
             if response.ok:
