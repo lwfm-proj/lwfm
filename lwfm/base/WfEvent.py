@@ -1,16 +1,24 @@
+"""
+Different kids of workflow events 
+- job reaches a status, i.e. any job on any site reaching a canonical status
+- a remote job reaches a status, i.e. the middleware polls for it's completion
+- a data triggered event - data with a certain metadata profile is touched
+in these cases, a user-provided handler is fired
+"""
 
-
-# Different kids of workflow events 
-# - job reaches a status, i.e. any job on any site reaching a canonical status
-# - a remote job reaches a status, i.e. the middleware polls for it's completion
-# - a data triggered event - data with a certain metadata profile is touched
-# in these cases, a user-provided handler is fired
+#pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
 
 from enum import Enum
 
-from lwfm.base.LwfmBase import LwfmBase
-from lwfm.base.JobDefn import JobDefn
-from lwfm.base.JobContext import JobContext
+from typing import TYPE_CHECKING
+
+from .LwfmBase import LwfmBase
+from .JobContext import JobContext
+
+# Only import for type checking, not at runtime
+#if TYPE_CHECKING:
+from .JobDefn import JobDefn
+
 
 
 # ************************************************************************
@@ -27,19 +35,19 @@ class WfEvent(LwfmBase):
     fire id: the lwfm id to be used on fire 
     """
 
-    def __init__(self, fireDefn : JobDefn, fireSite: str):
+    def __init__(self, fireDefn : 'JobDefn', fireSite: str):
         super(WfEvent, self).__init__(None)
         LwfmBase._setArg(self, _WfEventFields.FIRE_DEFN.value, fireDefn)
         LwfmBase._setArg(self, _WfEventFields.FIRE_SITE.value, fireSite)
 
-    def getFireDefn(self) -> JobDefn:
+    def getFireDefn(self) -> 'JobDefn':
         return LwfmBase._getArg(self, _WfEventFields.FIRE_DEFN.value)
-    
+
     def getFireSite(self) -> str:
         return LwfmBase._getArg(self, _WfEventFields.FIRE_SITE.value)
-    
+
     def setFireJobId(self, fireJobId: str) -> None:
-        LwfmBase._setArg(self, _WfEventFields.FIRE_JOB_ID.value, fireJobId) 
+        LwfmBase._setArg(self, _WfEventFields.FIRE_JOB_ID.value, fireJobId)
 
     def getFireJobId(self) -> str:
         return LwfmBase._getArg(self, _WfEventFields.FIRE_JOB_ID.value)
@@ -79,7 +87,7 @@ class _JobEventFields(Enum):
     RULE_STATUS = "jobStatus"
 
 
-class JobEvent(WfEvent): 
+class JobEvent(WfEvent):
     """
     Jobs emit status, including informational status.  Some status events are terminal -
     "finished", "cancelled" - and some are interim states.  Status strings in lwfm are
@@ -90,14 +98,14 @@ class JobEvent(WfEvent):
 
     def __init__(
         self,
-        ruleJobId: str,                   # when this job 
-        ruleStatus: str,                 # reaches this status       
-        fireDefn: JobDefn,                # fire this job defn
-        fireSite: str                     # on this site
+        ruleJobId: str,                  # when this job
+        ruleStatus: str,                 # reaches this status
+        fireDefn: 'JobDefn',             # fire this job defn
+        fireSite: str                    # on this site
     ):
         super(JobEvent, self).__init__(fireDefn, fireSite)
         LwfmBase._setArg(self, _JobEventFields.RULE_JOB_ID.value, ruleJobId)
-        LwfmBase._setArg(self, _JobEventFields.RULE_STATUS.value, ruleStatus)  
+        LwfmBase._setArg(self, _JobEventFields.RULE_STATUS.value, ruleStatus)
 
     def __str__(self) -> str:
         return super().__str__() + \
@@ -105,7 +113,7 @@ class JobEvent(WfEvent):
 
     def getRuleJobId(self) -> str:
         return LwfmBase._getArg(self, _JobEventFields.RULE_JOB_ID.value)
-    
+
     def getRuleStatus(self) -> str:
         return LwfmBase._getArg(self, _JobEventFields.RULE_STATUS.value)
 
@@ -126,15 +134,15 @@ class _MetadataEventFields(Enum):
 
 
 class MetadataEvent(WfEvent):
-    def __init__(self, queryRegExs: dict, fireDefn: JobDefn, fireSite: str):
+    def __init__(self, queryRegExs: dict, fireDefn: 'JobDefn', fireSite: str):
         super(MetadataEvent, self).__init__(fireDefn, fireSite)
-        LwfmBase._setArg(self, _MetadataEventFields.QUERY_REG_EXS.value, queryRegExs)  
+        LwfmBase._setArg(self, _MetadataEventFields.QUERY_REG_EXS.value, queryRegExs)
 
     def getQueryRegExs(self) -> dict:
         return LwfmBase._getArg(self, _MetadataEventFields.QUERY_REG_EXS.value)
-    
+
     def __str__(self):
         return super().__str__() + \
             f"+[meta dict:{self.getQueryRegExs()}]"
-    
+
 # ***************************************************************************

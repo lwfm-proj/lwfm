@@ -1,20 +1,25 @@
-# LocalSiteDriver: an implementation of Site and its constituent Auth, Run, Repo 
-# and (trivial) Spin interfaces for a local to the user runtime environment.  
-# Unsecure, as this is local and we assume the user is themselves already.
+"""
+LocalSiteDriver: an implementation of Site and its constituent Auth, Run, Repo 
+and (trivial) Spin interfaces for a local to the user runtime environment.  
+Unsecure, as this is local and we assume the user is themselves already.
+"""
 
-from pathlib import Path
+#pylint: disable = missing-function-docstring, invalid-name, missing-class-docstring
+#pylint: disable = broad-exception-caught
+
 import shutil
 from typing import List
-import os, subprocess
+import os
+import subprocess
 import multiprocessing
 
-from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
-from lwfm.base.JobDefn import JobDefn
-from lwfm.base.JobStatus import JobStatus, JobStatusValues
-from lwfm.base.JobContext import JobContext
-from lwfm.base.Metasheet import Metasheet
-from lwfm.midware.LwfManager import LwfManager
-from lwfm.midware.Logger import Logger
+from ..base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
+from ..base.JobDefn import JobDefn
+from ..base.JobStatus import JobStatus, JobStatusValues
+from ..base.JobContext import JobContext
+from ..base.Metasheet import Metasheet
+from ..midware.LwfManager import lwfManager
+from ..midware.Logger import logger
 
 
 # *********************************************************************
@@ -46,16 +51,16 @@ class LocalSiteRun(SiteRun):
     _pendingJobs = {}
 
     def getStatus(self, jobId: str) -> JobStatus:
-        return LwfManager.getStatus(jobId)
+        return lwfManager.getStatus(jobId)
 
     # at this point we have emitted initial status and have a job id
-    # we're about to spawn a subprocess locally to run the job 
+    # we're about to spawn a subprocess locally to run the job
     # we can tell the subprocess its job id via the os environment
     def _runJob(self, jDefn: JobDefn, jobContext: JobContext) -> None:
         # Putting the job in a new thread means we can easily run it asynchronously
         # while still emitting statuses before and after
         # Emit RUNNING status
-        LwfManager.emitStatus(jobContext, LocalJobStatus, 
+        lwfManager.emitStatus(jobContext, LocalJobStatus,
                               JobStatusValues.RUNNING.value)
         try:
             # This is synchronous, so we wait here until the subprocess is over.
@@ -69,52 +74,52 @@ class LocalSiteRun(SiteRun):
             env['_LWFM_JOB_ID'] = jobContext.getId()
             subprocess.run(cmd, shell=True, env=env)
             # Emit success statuses
-            LwfManager.emitStatus(jobContext, LocalJobStatus, 
+            lwfManager.emitStatus(jobContext, LocalJobStatus,
                                   JobStatusValues.FINISHING.value)
-            LwfManager.emitStatus(jobContext, LocalJobStatus, 
+            lwfManager.emitStatus(jobContext, LocalJobStatus, 
                                   JobStatusValues.COMPLETE.value)
         except Exception as ex:
-            Logger.error("ERROR: Job failed %s" % (ex))
+            logger.error("ERROR: Job failed %s" % (ex))
             # Emit FAILED status
-            LwfManager.emitStatus(jobContext, LocalJobStatus, 
+            lwfManager.emitStatus(jobContext, LocalJobStatus,
                                   JobStatusValues.FAILED.value)
 
 
     # this is the top of the order for running a local job - there's no expectation
-    # we know our job id yet, though we may - it can be passed in directly (e.g. the LwfManager
-    # might run the job from an event trigger and thus know the job id a priori), or it can 
+    # we know our job id yet, though we may - it can be passed in directly (e.g. the lwfManager
+    # might run the job from an event trigger and thus know the job id a priori), or it can
     # be passed in sub rosa via the os environment
-    def submit(self, jDefn: JobDefn, useContext: JobContext = None, 
+    def submit(self, jobDefn: JobDefn, parentContext: JobContext = None,
         computeType: str = None, runArgs: dict = None) -> JobStatus:
         try:
-            # this is the local Run driver - there is not (as yet) any concept of 
-            # "computeType" or "runArgs" as there might be on another more complex 
+            # this is the local Run driver - there is not (as yet) any concept of
+            # "computeType" or "runArgs" as there might be on another more complex
             # site (e.g. HPC scheduler, cloud, etc.)
 
-            if (useContext is None):
+            if parentContext is None:
                 # we don't know our job id - it wasn't passed in
-                # check the environment 
-                useContext = LwfManager.getJobContextFromEnv()
-                if (useContext is None):
+                # check the environment
+                useContext = lwfManager.getJobContextFromEnv()
+                if useContext is None:
                     # we still don't know our job id - create a new one
                     useContext = JobContext()
                     # assert readiness
-                    LwfManager.emitStatus(useContext, LocalJobStatus, 
+                    lwfManager.emitStatus(useContext, LocalJobStatus,
                         JobStatusValues.READY.value)
 
             # if we want to, we can test validity of the job defn here, reject it
             # let's say its good and carry on
 
             # horse at the gate...
-            LwfManager.emitStatus(useContext, LocalJobStatus, 
+            lwfManager.emitStatus(useContext, LocalJobStatus, 
                                 JobStatusValues.PENDING.value)
             # Run the job in a new thread so we can wrap it in a bit more code
-            # this will kick the status the rest of the way to a terminal state 
-            multiprocessing.Process(target=self._runJob, args=[jDefn, useContext]).start()
-            Logger.info("LocalSite: submitted job %s" % (useContext.getId()))
-            return LwfManager.getStatus(useContext.getId())
+            # this will kick the status the rest of the way to a terminal state
+            multiprocessing.Process(target=self._runJob, args=[jobDefn, useContext]).start()
+            logger.info("LocalSite: submitted job %s" % (useContext.getId()))
+            return lwfManager.getStatus(useContext.getId())
         except Exception as ex:
-            Logger.error("ERROR: Could not submit job %s" % (ex))
+            logger.error("ERROR: Could not submit job %s" % (ex))
             return None
 
 
@@ -124,7 +129,7 @@ class LocalSiteRun(SiteRun):
             thread = self._pendingJobs[jobContext.getId()]
             if thread is None:
                 return False
-            Logger.info(
+            logger.info(
                 "LocalSiteDriver.cancelJob(): calling terminate on job "
                 + jobContext.getId()
             )
@@ -134,7 +139,7 @@ class LocalSiteRun(SiteRun):
             self._pendingJobs[jobContext.getId()] = None
             return True
         except Exception as ex:
-            Logger.error(
+            logger.error(
                 "ERROR: Could not cancel job %d: %s" % (jobContext.getId(), ex)
             )
             return False
@@ -150,47 +155,41 @@ class LocalSiteRepo(SiteRepo):
             toDir, toFilename = os.path.split(toPath)
             shutil.copy2(fromPath, os.path.join(toDir, toFilename))
         except Exception as ex:
-            Logger.error("Error copying file: " + str(ex))
+            logger.error("Error copying file: " + str(ex))
             return False
         return True
 
-    def put(self, localPath: str, siteObjPath: str,  
+    def put(self, localPath: str, siteObjPath: str,
             metasheet: Metasheet = None) -> Metasheet:
         success = True
         if (localPath is not None) and (siteObjPath is not None):
             # copy the file from localPath to siteObjPath
             success = self._copyFile(localPath, siteObjPath)
-        # now do the metadata notate    
-        if (success):
-            return LwfManager.notate(localPath, siteObjPath, metasheet, True)
+        # now do the metadata notate
+        if success:
+            return lwfManager.notate(localPath, siteObjPath, metasheet, True)
         else:
             return None
-    
+
     def get(self, siteObjPath: str, localPath: str) -> str:
         success = True
         if (siteObjPath is not None) and (localPath is not None):
             # copy the file from siteObjPath to localPath
             success = self._copyFile(siteObjPath, localPath)
-        if (success):
-            LwfManager.notate(localPath, siteObjPath)
+        if success:
+            lwfManager.notate(localPath, siteObjPath)
             return localPath
         else:
             return None
 
     def find(self, queryRegExs: dict) -> List[Metasheet]:
-        return LwfManager.find(queryRegExs)
-
-
-
-
-    
-
+        return lwfManager.find(queryRegExs)
 
 
 # ************************************************************************
 
 class LocalSiteSpin(SiteSpin):
-    
+
     def listComputeTypes(self) -> List[str]:
         return ["default"]
 
@@ -210,14 +209,14 @@ class LocalSite(Site):
 
 
 
-# a trivial extension of LocalSite where any calls to a remote service, exemplified 
-# by the use of LwfManager, are made asynchronously as fire & forget, perhaps by 
-# using an async-savvy extension of LwfManager.
+# a trivial extension of LocalSite where any calls to a remote service, exemplified
+# by the use of lwfManager, are made asynchronously as fire & forget, perhaps by
+# using an async-savvy extension of lwfManager.
 # it may elect to implement a different Run driver, perhaps one which uses MPI, but not
-# one which talks to a cluster scheduler - we would suggest modeling that as 
+# one which talks to a cluster scheduler - we would suggest modeling that as
 # its own Site.
-# We defer that more performant implementation for the moment and just reuse 
-# LocalSite with its inherent use of HTTP. 
+# We defer that more performant implementation for the moment and just reuse
+# LocalSite with its inherent use of HTTP.
 class InSituSite(LocalSite):
 
     SITE_NAME = "insitu"
@@ -226,6 +225,3 @@ class InSituSite(LocalSite):
         super(InSituSite, self).__init__(
             self.SITE_NAME, LocalSiteAuth(), LocalSiteRun(), LocalSiteRepo(), LocalSiteSpin()
         )
-
-
-

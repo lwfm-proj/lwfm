@@ -1,25 +1,30 @@
+"""
+implementation behind the LwfManager - use it instead
+this gives the HTTP calls to the lwfm middleware to account for the case
+where its not running on the same machine as the workflow
+"""
 
-# implementation behind the LwfManager - use it instead
-# this gives the HTTP calls to the lwfm middleware to account for the case
-# where its not running on the same machine as the workflow 
+#pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
+#pylint: disable = broad-exception-caught
 
-import json
-from pathlib import Path
-import requests
 from typing import List
-import os 
+import os
 import datetime
 import logging    # don't use the lwfm Logger here else circular import
 
-from lwfm.base.JobStatus import JobStatus
-from lwfm.base.JobContext import JobContext
-from lwfm.base.Metasheet import Metasheet
-from lwfm.base.WfEvent import WfEvent
+import json
+import requests
+
+from ...base.JobStatus import JobStatus
+from ...base.JobContext import JobContext
+from ...base.Metasheet import Metasheet
+from ...base.WfEvent import WfEvent
+from ...util.ObjectSerializer import ObjectSerializer
 
 class LwfmEventClient():
     _SERVICE_URL = "http://127.0.0.1:3000"
     if os.getenv("LWFM_SERVICE_URL") is not None:
-        _SERVICE_URL = os.getenv("LWFM_SERVICE_URL")    
+        _SERVICE_URL = os.getenv("LWFM_SERVICE_URL")
 
     def getUrl(self):
         return self._SERVICE_URL
@@ -32,25 +37,25 @@ class LwfmEventClient():
         try:
             if response.ok:
                 if (response.text is not None) and (len(response.text) > 0):
-                    status = JobStatus.deserialize(response.text)
+                    status = ObjectSerializer.deserialize(response.text)
                     return status
                 else:
                     return None
             else:
-                self.emitLogging("ERROR", f"response not ok: {response.text}")    
+                self.emitLogging("ERROR", f"response not ok: {response.text}")
                 return None
         except Exception as ex:
             self.emitLogging("ERROR", "getStatus error: " + str(ex))
             return None
 
 
-    # emit a status message, perhaps triggering event handlers 
-    def emitStatus(self, context: JobContext, statusClass: type, 
+    # emit a status message, perhaps triggering event handlers
+    def emitStatus(self, context: JobContext, statusClass: type,
                    nativeStatus: str, nativeInfo: str = None) -> None:
         try:
             status = statusClass(context)
             # forces call on setStatus() producing a mapped native status -> status
-            status.setNativeStatus(nativeStatus)    
+            status.setNativeStatus(nativeStatus)
             status.setNativeInfo(nativeInfo)
             status.setEmitTime(datetime.datetime.now(datetime.UTC))
             statusBlob = status.serialize()
@@ -78,23 +83,23 @@ class LwfmEventClient():
         else:
             self.emitLogging("ERROR", "setEvent error: " + response.text)
             return None
-        
+
     def unsetEvent(self, wfe: WfEvent) -> None:
         payload = {}
         payload["eventObj"] = wfe.serialize()
         response = requests.post(f"{self.getUrl()}/unsetEvent", payload)
         if response.ok:
             # return the job id of the registered job
-            return 
+            return
         else:
             self.emitLogging("ERROR", "unsetEvent error: " + response.text)
-            return 
+            return
 
     def getActiveWfEvents(self) -> List[WfEvent]:
         response = requests.get(f"{self.getUrl()}/listEvents")
         if response.ok:
             l = json.loads(response.text)
-            return [WfEvent.deserialize(blob) for blob in l]
+            return [ObjectSerializer.deserialize(blob) for blob in l]
         else:
             self.emitLogging("ERROR", "getActiveWfEvents error: " + str(response.text))
             return None
@@ -103,9 +108,9 @@ class LwfmEventClient():
     #***********************************************************************
     # logging methods
 
-    def emitLogging(self, level: str, doc: str) -> None: 
+    def emitLogging(self, level: str, doc: str) -> None:
         try:
-            data = {"level": level, 
+            data = {"level": level,
                     "errorMsg": doc}
             response = requests.post(f"{self.getUrl()}/emitLogging", data)
             if response.ok:
@@ -120,13 +125,13 @@ class LwfmEventClient():
 
 
     #***********************************************************************
-    # repo methods 
+    # repo methods
 
-    
+
     def notate(self, jobId: str, metasheet: Metasheet = None) -> Metasheet:
-        # call to the service to put metasheet for this put 
+        # call to the service to put metasheet for this put
         try:
-            data = {"jobId": jobId, 
+            data = {"jobId": jobId,
                     "data": metasheet.serialize()}
             response = requests.post(f"{self.getUrl()}/notate", data)
             if response.ok:
@@ -139,7 +144,7 @@ class LwfmEventClient():
             # use the plain logger when logging logging errors
             logging.error("error notating: " + str(ex))
         return metasheet
-        
+
     def find(self, queryRegExs: dict) -> List[Metasheet]:
         # call to the service to find metasheets
         try:
@@ -147,7 +152,7 @@ class LwfmEventClient():
             response = requests.post(f"{self.getUrl()}/find", data)
             if response.ok:
                 l = json.loads(response.text)
-                return [Metasheet.deserialize(blob) for blob in l]
+                return [ObjectSerializer.deserialize(blob) for blob in l]
             else:
                 # use the plain logger when logging logging errors
                 logging.error(f"find error: {response.text}")
@@ -155,7 +160,6 @@ class LwfmEventClient():
             # use the plain logger when logging logging errors
             logging.error("error notating: " + str(ex))
         return None
-    
+
 
     #***********************************************************************
-

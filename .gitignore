@@ -4,4 +4,6 @@
 *.pyo
 *.so
 .DS_Store
+lwfm.egg-info
+
 

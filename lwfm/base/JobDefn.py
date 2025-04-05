@@ -1,25 +1,17 @@
+"""
+A Job Definition is the abstract representation of a job, the non-instantiated 
+description. The JobDefn will be passed to the Site's Run driver which will use the 
+args to instantiate a job from the definition.
+"""
 
-# A Job Definition is the abstract representation of a job, the non-instantiated 
-# description. The JobDefn will be passed to the Site's Run driver which will use the 
-# args to instantiate a job from the definition.
-
-from enum import Enum
+#pylint: disable = missing-function-docstring, invalid-name
 
 from typing import List
 
-from lwfm.base.LwfmBase import LwfmBase
-
-class _JobDefnFields(Enum):
-    NAME               = "name"         # optional - jobs do not need to be named - 
-                                        #   they have ids
-    ENTRY_POINT        = "entryPoint"   # defines the top-level "executable" command to 
-                                        #   pass to the site scheduler
-    JOB_ARGS           = "jobArgs"      # positional arguments to the job - an array of 
-                                        #   string - the run driver will construct the 
-                                        #   command line from these args
+from ..util.IdGenerator import IdGenerator
 
 
-class JobDefn(LwfmBase):
+class JobDefn():
     """
     The static definition of a job, to be instantiated at runtime by the Site.Run 
     subsystem. The JobDefn is not presumed to be portable, though it is possible 
@@ -43,29 +35,34 @@ class JobDefn(LwfmBase):
         at runtime
     """
 
+    _id = ""
+    _name = ""
+    _entryPoint = ""
+    _jobArgs = []
+
+
     def __init__(self, entryPoint: str = None):
-        super(JobDefn, self).__init__(None)
+        self._id = IdGenerator.generateId()
         self.setEntryPoint(entryPoint)
+        self.setName(None)
 
     def setName(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.NAME.value, name)
+        self._name = name
 
     def getName(self) -> str:
-        return LwfmBase._getArg(self, _JobDefnFields.NAME.value)
+        return self._name
 
     def setEntryPoint(self, entryPoint: str) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.ENTRY_POINT.value, entryPoint)
+        self._entryPoint = entryPoint
 
     def getEntryPoint(self) -> str:
-        return LwfmBase._getArg(self, _JobDefnFields.ENTRY_POINT.value)
+        return self._entryPoint
 
     def setJobArgs(self, args: List[str]) -> None:
-        LwfmBase._setArg(self, _JobDefnFields.JOB_ARGS.value, args)
+        self._jobArgs = args
 
     def getJobArgs(self) -> List[str]:
-        return LwfmBase._getArg(self, _JobDefnFields.JOB_ARGS.value)
+        return self._jobArgs
 
 
 #****************************************************************************
-
-

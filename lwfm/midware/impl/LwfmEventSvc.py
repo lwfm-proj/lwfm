@@ -1,18 +1,21 @@
+"""
+Flask app service for the lwfm middleware
+"""
 
-# ***********************************************************************************
-# Flask app service for the lwfm middleware
+#pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
+#pylint: disable = broad-exception-caught
 
 import json
-from flask import Flask, request
-from lwfm.midware.impl.LwfmEventProcessor import LwfmEventProcessor
-from lwfm.base.JobStatus import JobStatus
-from lwfm.base.WfEvent import WfEvent
-from lwfm.base.Metasheet import Metasheet
-from lwfm.midware.impl.Store import JobStatusStore, LoggingStore, MetaRepoStore
 import logging
 
+from flask import Flask, request
+from .LwfmEventProcessor import LwfmEventProcessor
+from .Store import JobStatusStore, LoggingStore, MetaRepoStore
+from ...base.JobStatus import JobStatus
+from ...util.ObjectSerializer import ObjectSerializer
+
 #************************************************************************
-# startup 
+# startup
 
 app = Flask(__name__)
 app.logger.disabled = True
@@ -28,7 +31,7 @@ print("*** service starting")
 
 
 #************************************************************************
-# root endpoint 
+# root endpoint
 
 @app.route("/")
 def index():
@@ -36,19 +39,19 @@ def index():
 
 
 #************************************************************************
-# status endpoints 
+# status endpoints
 
 def _testDataTriggers(statusObj: JobStatus):
-    LwfmEventProcessor().checkDataEvents(statusObj) 
+    LwfmEventProcessor().checkDataEvents(statusObj)
 
 
 @app.route("/emitStatus", methods=["POST"])
 def emitStatus():
     try:
         statusBlob = request.form["statusBlob"]
-        statusObj : JobStatus = JobStatus.deserialize(statusBlob)
+        statusObj : JobStatus = ObjectSerializer.deserialize(statusBlob)
         _statusStore.putJobStatus(statusObj)
-        if (statusObj.getStatusValue() == "INFO"):
+        if statusObj.getStatusValue() == "INFO":
             _testDataTriggers(statusObj)
         return "", 200
     except Exception as ex:
@@ -60,7 +63,7 @@ def emitStatus():
 def getStatus(jobId: str):
     try:
         s = _statusStore.getJobStatus(jobId).serialize()
-        if (s is not None):
+        if s is not None:
             return s
         else:
             return ""
@@ -89,7 +92,7 @@ def emitLogging():
 @app.route("/setEvent", methods=["POST"])
 def setHandler():
     try:
-        obj = WfEvent.deserialize(request.form["eventObj"])   
+        obj = ObjectSerializer.deserialize(request.form["eventObj"])
         return wfProcessor.setEventHandler(obj), 200
     except Exception as ex:
         _loggingStore.putLogging("ERROR", "setEvent: " + str(ex))
@@ -106,7 +109,7 @@ def unsetHandler(handlerId: str):
 # list the ids of all active handlers
 @app.route("/listEvents")
 def listHandlers():
-    l = wfProcessor.findAllEventHandlers()
+    l = wfProcessor.findAllEvents()
     return [e.serialize() for e in l], 200
 
 #************************************************************************
@@ -115,9 +118,8 @@ def listHandlers():
 @app.route("/notate", methods=["POST"])
 def notate():
     try:
-        jobId = request.form["jobId"]
         blob = request.form["data"]
-        sheet = Metasheet.deserialize(blob)
+        sheet = ObjectSerializer.deserialize(blob)
         _metaStore.putMetaRepo(sheet)
         return "", 200
     except Exception as ex:
@@ -134,9 +136,3 @@ def find():
     except Exception as ex:
         _loggingStore.putLogging("ERROR", "find: " + str(ex))
         return "", 400
-
-
-
-
-
-

@@ -1,18 +1,22 @@
+"""
+Run as part of the lwfm middleware.
+The Event Processor watches for Job Status events and fires a JobDefn 
+to a Site when an event of interest occurs.
+"""
 
-# Run as part of the lwfm middleware.
-# The Event Processor watches for Job Status events and fires a JobDefn 
-# to a Site when an event of interest occurs.
+#pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
+#pylint: disable = broad-exception-caught, protected-access
 
 import re
 import threading
 from typing import List
 
-from lwfm.base.JobStatus import JobStatus, JobStatusValues
-from lwfm.base.JobContext import JobContext
-from lwfm.base.WfEvent import RemoteJobEvent, WfEvent, JobEvent, MetadataEvent
-from lwfm.base.Site import Site
-from lwfm.midware.impl.Store import EventStore, JobStatusStore, LoggingStore
-from lwfm.midware.LwfManager import LwfManager
+from ...base.JobStatus import JobStatus, JobStatusValues
+from ...base.JobContext import JobContext
+from ...base.WfEvent import RemoteJobEvent, WfEvent, JobEvent, MetadataEvent
+from ...base.Site import Site
+from ...midware.LwfManager import lwfManager
+from .Store import EventStore, JobStatusStore, LoggingStore
 
 # ***************************************************************************
 
@@ -55,12 +59,11 @@ class LwfmEventProcessor:
             )
         thread.start()
 
-    
     def _makeJobContext(self, trigger: JobEvent, parentContext: JobContext) -> JobContext:
         newJobContext = JobContext(parentContext)
         newJobContext.setSiteName(trigger.getFireSite())
         newJobContext.setId(trigger.getFireJobId())
-        newJobContext.setNativeId(trigger.getFireJobId()) 
+        newJobContext.setNativeId(trigger.getFireJobId())
         return newJobContext
 
     def _makeDataContext(self, trigger: MetadataEvent, infoContext: JobContext) -> JobContext:
@@ -80,84 +83,85 @@ class LwfmEventProcessor:
             events: List[RemoteJobEvent] = self.findAllEvents("run.event.REMOTE")
             for e in events:
                 try:
-                    self._loggingStore.putLogging("INFO", 
+                    self._loggingStore.putLogging("INFO",
                         f"remote id:{e.getFireJobId()} native:{e.getNativeJobId()} site:{e.getFireSite()}")
                     # ask the remote site to inquire status
                     site = Site.getSite(e.getFireSite())
                     status = site.getRun().getStatus(e.getFireJobId())   # canonical job id
-                    if (status.isTerminal()):
+                    if status.isTerminal():
                         # remote job is done
                         self.unsetEventHandler(e.getId())
                     gotOne = True
                 except Exception as ex1:
-                    self._loggingStore.putLogging("ERROR", "Exception checking remote job event: " + str(ex1))
+                    self._loggingStore.putLogging("ERROR",
+                    "Exception checking remote job event: " + str(ex1))
         except Exception as ex:
-            self._loggingStore.putLogging("ERROR", "Exception checking remote pollers: " + str(ex)) 
+            self._loggingStore.putLogging("ERROR", "Exception checking remote pollers: " + str(ex))
         return gotOne
 
 
     def checkJobEvent(self, jobEvent: JobEvent) -> JobStatus:
         try:
             statuses = self._jobStatusStore.getAllJobStatuses(jobEvent.getRuleJobId())
-            # the statuses will be in reverse chron order  
+            # the statuses will be in reverse chron order
             # does the history contain the state we want to fire on?
             for s in statuses:
-                if (s.getStatus().value == jobEvent.getRuleStatus()):
+                if s.getStatus().value == jobEvent.getRuleStatus():
                     return s
             return None
         except Exception as ex:
-            self._loggingStore.putLogging("ERROR", 
-                                          "Exception checking job event: " + jobEvent.getRuleJobId() + " " + str(ex)) 
+            self._loggingStore.putLogging("ERROR",
+                "Exception checking job event: " + jobEvent.getRuleJobId() + " " + str(ex))
 
 
     def checkJobEvents(self) -> bool:
         gotOne = False
         try:
             events = self.findAllEvents("run.event.JOB")
-            if (len(events) > 0):
+            if len(events) > 0:
                 print("Job events: " + str(len(events)))
             else:
                 return False
             for e in events:
-                try: 
+                try:
                     status = self.checkJobEvent(e)
-                    if (status):
-                        # job event satisfied - going to fire the handler 
-                        # but first, remove the handler 
+                    if status:
+                        # job event satisfied - going to fire the handler
+                        # but first, remove the handler
                         self.unsetEventHandler(e.getId())
-                        # now launch it async 
+                        # now launch it async
                         self._runAsyncOnSite(e, self._makeJobContext(e, status.getJobContext()))
                         gotOne = True
                 except Exception as ex1:
-                    self._loggingStore.putLogging("ERROR", 
+                    self._loggingStore.putLogging("ERROR",
                                                   "Exception checking job event: " + str(ex1))
         except Exception as ex:
-            self._loggingStore.putLogging("ERROR", "Exception checking job events: " + str(ex)) 
+            self._loggingStore.putLogging("ERROR", "Exception checking job events: " + str(ex))
         return gotOne
-    
+
 
     def checkDataEvent(self, dataEvent: MetadataEvent, jobStatus: JobStatus) -> bool:
-        if (dataEvent is None):
+        if dataEvent is None:
             return False
-        if (jobStatus is None):
+        if jobStatus is None:
             return False
-        if (jobStatus.getNativeInfo() is None):
+        if jobStatus.getNativeInfo() is None:
             return False
-        if (jobStatus.getNativeInfo().getArgs() is None):
+        if jobStatus.getNativeInfo().getArgs() is None:
             return False
         for key in dataEvent.getQueryRegExs().keys():
-            if (key in jobStatus.getNativeInfo().getArgs().keys()):
+            if key in jobStatus.getNativeInfo().getArgs().keys():
                 keyVal = dataEvent.getQueryRegExs()[key]
                 statVal = jobStatus.getNativeInfo().getArgs()[key]
                 # the key val might have wildcards in it
-                if not (re.search(keyVal, statVal)):
+                if not re.search(keyVal, statVal):
                     return False
             else:
                 return False
         return True
 
 
-    # the provided INFO status message was just emitted - are there any data 
+    # the provided INFO status message was just emitted - are there any data
     # triggers waiting on its content?
     def checkDataEvents(self, status: JobStatus) -> bool:
         gotOne = False
@@ -165,21 +169,21 @@ class LwfmEventProcessor:
             events = self.findAllEvents("run.event.DATA")
             print("Data events: " + str(len(events)))
             for e in events:
-                try: 
-                    if (self.checkDataEvent(e, status)):
-                        self._loggingStore.putLogging("INFO", 
+                try:
+                    if self.checkDataEvent(e, status):
+                        self._loggingStore.putLogging("INFO",
                             f"data triggered id:{e.getFireJobId()} on site:{e.getFireSite()}")
-                        # event satisfied - going to fire the handler 
-                        # but first, remove the handler 
+                        # event satisfied - going to fire the handler
+                        # but first, remove the handler
                         self.unsetEventHandler(e.getId())
-                        # now launch it async 
+                        # now launch it async
                         self._runAsyncOnSite(e, self._makeDataContext(e, status.getJobContext()))
                         gotOne = True
                 except Exception as ex1:
-                    self._loggingStore.putLogging("ERROR", 
+                    self._loggingStore.putLogging("ERROR",
                                                   "Exception checking data event: " + str(ex1))
         except Exception as ex:
-            self._loggingStore.putLogging("ERROR", "Exception checking data events: " + str(ex)) 
+            self._loggingStore.putLogging("ERROR", "Exception checking data events: " + str(ex))
         return gotOne
 
 
@@ -188,11 +192,11 @@ class LwfmEventProcessor:
         c2 = self.checkRemoteJobEvents()
 
         # we were busy, reduce the polling interval
-        if (c1) or (c2): 
+        if (c1) or (c2):
             self._statusCheckIntervalSeconds = self.STATUS_CHECK_INTERVAL_SECONDS_MIN
         else:
             # make the next polling progressively longer unless we were busy
-            if (self._statusCheckIntervalSeconds < self.STATUS_CHECK_INTERVAL_SECONDS_MAX):
+            if self._statusCheckIntervalSeconds < self.STATUS_CHECK_INTERVAL_SECONDS_MAX:
                 self._statusCheckIntervalSeconds += self.STATUS_CHECK_INTERVAL_SECONDS_STEP
 
         # Timers only run once, so re-trigger it
@@ -206,21 +210,21 @@ class LwfmEventProcessor:
 
     def _getOriginJobId(self, jobId: str) -> str:
         status = self._jobStatusStore.getJobStatus(jobId)
-        if (status is None):
+        if status is None:
             return jobId
         return status.getJobContext().getOriginJobId()
 
 
     def _initJobEventHandler(self, wfe: JobEvent) -> JobContext:
-        # set the job context under which the new job will run, it will have a 
+        # set the job context under which the new job will run, it will have a
         # new id and be a child of the setting job
-        # need to also determine its originator  
+        # need to also determine its originator
         newJobContext = JobContext()
         newJobContext.setSiteName(wfe.getFireSite())
         newJobContext.setParentJobId(wfe.getRuleJobId())
-        newJobContext.setOriginJobId(self._getOriginJobId(wfe.getRuleJobId()))    
-        # fire the initial status showing the new job ready on the shelf 
-        LwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY.value)
+        newJobContext.setOriginJobId(self._getOriginJobId(wfe.getRuleJobId()))
+        # fire the initial status showing the new job ready on the shelf
+        lwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY.value)
         return newJobContext
 
 
@@ -228,17 +232,17 @@ class LwfmEventProcessor:
         newJobContext = JobContext()
         newJobContext.setSiteName(wfe.getFireSite())
         newJobContext.setParentJobId(None)                  # TODO provenance?
-        newJobContext.setOriginJobId(wfe.getFireJobId())    
+        newJobContext.setOriginJobId(wfe.getFireJobId())
         newJobContext.setNativeId(wfe.getNativeJobId())
         return newJobContext
 
     def _initMetadataJobHandler(self, wfe: MetadataEvent) -> JobContext:
         newJobContext = JobContext()
         newJobContext.setSiteName(wfe.getFireSite())
-        newJobContext.setParentJobId(None)  # we will know the parent & origin when the  
-        newJobContext.setOriginJobId(None)  # metadata event occurs  
+        newJobContext.setParentJobId(None)  # we will know the parent & origin when the
+        newJobContext.setOriginJobId(None)  # metadata event occurs
         # fire a status showing the new job ready on the shelf
-        LwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY.value)
+        lwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY.value)
         return newJobContext
 
 
@@ -251,7 +255,7 @@ class LwfmEventProcessor:
 
 
     # Register an event handler.  When a jobId running on a job Site
-    # emits a particular Job Status, fire the given JobDefn (serialized) 
+    # emits a particular Job Status, fire the given JobDefn (serialized)
     # at the target Site.  Return the new job id.
     def setEventHandler(self, wfe: WfEvent) -> str:
         typeT = ""
@@ -270,27 +274,26 @@ class LwfmEventProcessor:
             else:
                 self._loggingStore.putLogging("ERROR", "setEventHandler: Unknown type")
                 return None
-            # store the event handler 
+            # store the event handler
             self._eventStore.putWfEvent(wfe, typeT)
             return context.getId()
         except Exception as ex:
             self._loggingStore.putLogging("ERROR", "setEventHandler: " + str(ex))
-            return None 
+            return None
 
 
     def unsetEventHandler(self, handlerId: str) -> None:
         try:
             self._eventStore.deleteWfEvent(handlerId)
-            return 
+            return
         except Exception as ex:
             self._loggingStore.putLogging("ERROR", "unsetEventHandler: " + str(ex))
-            return 
-    
+            return
+
 
     def testDataHandler(self, jobStatus: JobStatus) -> None:
         pass
 
-    
+
     def exit(self):
         self._timer.cancel()
-

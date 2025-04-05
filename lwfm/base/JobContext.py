@@ -1,14 +1,19 @@
+"""
+JobContext holds the identifier for the job, info about the target site, and
+tracking info.
+"""
 
+#pylint: disable = invalid-name, missing-function-docstring
 
 from enum import Enum
 
-from lwfm.base.LwfmBase import LwfmBase
+from .LwfmBase import LwfmBase
 
 class _JobContextFields(Enum):
     ID = "id"                       # canonical job id
     NATIVE_ID = "nativeId"          # Run implementation native job id
     NAME = "name"                   # optional human-readable job name
-    PARENT_JOB_ID = "parentJobId"   # immediate predecessor of this job, if any - 
+    PARENT_JOB_ID = "parentJobId"   # immediate predecessor of this job, if any -
                                     # seminal job has no parent
     ORIGIN_JOB_ID = (
         "originJobId"               # oldest ancestor - a seminal job is its own origin
@@ -16,7 +21,10 @@ class _JobContextFields(Enum):
     SET_ID = "setId"                # optional id of a set if the job is part of a set
     SITE_NAME = "siteName"          # name of the Site which emitted the message
     COMPUTE_TYPE = "computeType"    # a named resource on the Site, if any
- 
+
+    USER = "user"       # TODO
+    GROUP = "group"     # TODO
+
 
 class JobContext(LwfmBase):
     """
@@ -36,7 +44,7 @@ class JobContext(LwfmBase):
         self.setName(self.getId())
         self.setComputeType("default")
         self.setSiteName("local")  # default to local site
-        if (parentContext is not None):
+        if parentContext is not None:
             self.setParentJobId(parentContext.getJobId())
             self.setOriginJobId(parentContext.getOriginJobId())
             self.setSiteName(parentContext.getSiteName())
@@ -49,7 +57,7 @@ class JobContext(LwfmBase):
 
     def getId(self) -> str:
         return LwfmBase._getArg(self, _JobContextFields.ID.value)
-    
+
     def setJobId(self, idValue: str) -> None:
         self.setId(idValue) # alias
 
@@ -116,7 +124,3 @@ class JobContext(LwfmBase):
             f"parent:{self.getParentJobId()} origin:{self.getOriginJobId()} " + \
             f"set:{self.getJobSetId()} site:{self.getSiteName()} " + \
             f"compute:{self.getComputeType()}]"
-    
-
-
-

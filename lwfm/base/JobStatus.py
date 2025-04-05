@@ -1,12 +1,16 @@
+"""
+Represents a state of a job's execution in its set of valid lifecycle states.
+It is emitted within the job's context.
+"""
 
-# Represents a state of a job's execution in its set of valid lifecycle states.
-# It is emitted within the job's context.
+#pylint: disable = missing-function-docstring, missing-class-docstring
+#pylint: disable = invalid-name, broad-exception-caught, line-too-long
 
 from enum import Enum
 from datetime import datetime
 
-from lwfm.base.LwfmBase import LwfmBase
-from lwfm.base.JobContext import JobContext
+from .LwfmBase import LwfmBase
+from .JobContext import JobContext
 
 class _JobStatusFields(Enum):
     STATUS = "status"   # canonical status
@@ -18,7 +22,7 @@ class _JobStatusFields(Enum):
     NATIVE_INFO = "nativeInfo"      # the site-specific status body
 
 
-# The canonical set of lwfm status codes.  Run implementations will have their 
+# The canonical set of lwfm status codes.  Run implementations will have their
 # own sets, and they must provide a mapping into these.
 class JobStatusValues(Enum):
     UNKNOWN = "UNKNOWN"
@@ -111,7 +115,7 @@ class JobStatus(LwfmBase):
     def mapNativeStatus(self) -> None:
         try:
             self.setStatus(self.statusMap[self.getNativeStatusStr()])
-        except Exception as ex:
+        except Exception:
             self.setStatus(JobStatusValues.UNKNOWN)
 
     def getStatusMap(self) -> dict:
@@ -131,12 +135,12 @@ class JobStatus(LwfmBase):
             return datetime.utcfromtimestamp(ms // 1000).replace(
                 microsecond=ms % 1000 * 1000
             )
-        except Exception as ex:
+        except Exception:
             return datetime.now()
 
     def setReceivedTime(self, receivedTime: datetime) -> None:
         LwfmBase._setArg(
-            self, _JobStatusFields.RECEIVED_TIME.value, 
+            self, _JobStatusFields.RECEIVED_TIME.value,
             receivedTime.timestamp() * 1000
         )
 
@@ -171,6 +175,3 @@ class JobStatus(LwfmBase):
 
     def __str__(self):
         return f"[stat ctx:{self.getJobContext()} value:{self.getStatusValue()} info:{self.getNativeInfo()}]"
-
-
-

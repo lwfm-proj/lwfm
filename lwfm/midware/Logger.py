@@ -4,10 +4,12 @@ offering simplified logging methods with optional JobContext integration.
 It persists to the lwfm store.
 """
 
+#pylint: disable = missing-class-docstring, invalid-name, missing-function-docstring
+
 import logging
 import datetime
 
-from lwfm.midware.impl.LwfmEventClient import LwfmEventClient
+from .impl.LwfmEventClient import LwfmEventClient
 
 
 class Logger:
@@ -54,4 +56,4 @@ class Logger:
 
 
 # create a singleton logger
-Logger = Logger()
+logger = Logger()

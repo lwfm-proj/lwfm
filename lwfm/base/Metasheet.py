@@ -1,7 +1,10 @@
+"""
+A basic dictionary to hold metadata about data objects under management by lwfm
+"""
 
-# A basic dictionary to hold metadata about data objects under management by lwfm
+#pylint: disable = invalid-name, missing-class-docstring
 
-from lwfm.base.LwfmBase import LwfmBase
+from .LwfmBase import LwfmBase
 
 # good enough for now - LwfmBase includes an id for the sheet and a place to 
 # stick an arbitrary dict, some of which will come from the user's call, and
@@ -12,4 +15,3 @@ class Metasheet(LwfmBase):
 
     def __str__(self):
         return f"{self.getArgs()}"
-

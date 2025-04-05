@@ -16,19 +16,29 @@ interfaces for the named Site. ~/.lwfm/sites.txt can be used to augment the
 list of sites provided here with a user's own custom Site implementations. 
 """
 
+#pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
+#pylint: disable = broad-exception-caught
+
 from enum import Enum
 from abc import ABC, abstractmethod
-from pathlib import Path
 import os
-from typing import List
 import importlib
 
-from lwfm.base.LwfmBase import LwfmBase
-from lwfm.base.JobContext import JobContext
-from lwfm.base.JobDefn import JobDefn
-from lwfm.base.JobStatus import JobStatus
-from lwfm.base.Metasheet import Metasheet
-from lwfm.midware.Logger import Logger
+from typing import List, TYPE_CHECKING
+
+from ..midware.Logger import logger
+
+from .LwfmBase import LwfmBase
+from .JobContext import JobContext
+from .JobStatus import JobStatus
+from .Metasheet import Metasheet
+
+# Only import for type checking, not at runtime
+if TYPE_CHECKING:
+    from .JobDefn import JobDefn
+
+
+
 
 
 # ***************************************************************************
@@ -66,7 +76,7 @@ class SiteAuth(SitePillar):
             site = Site.getSite(siteName)
             site.getAuth().login()
         """
-        pass
+
 
     @abstractmethod
     def isAuthCurrent(self) -> bool:
@@ -82,7 +92,6 @@ class SiteAuth(SitePillar):
             site.getAuth().login()
             site.getAuth().isAuthCurrent()
         """
-        pass
 
 
 # **************************************************************************
@@ -116,7 +125,7 @@ class SiteRun(SitePillar):
         runDriver.submit(jobDefn, parentContext)
 
     @abstractmethod
-    def submit(self, jobDefn: JobDefn, parentContext: JobContext = None, 
+    def submit(self, jobDefn: 'JobDefn', parentContext: JobContext = None,
         computeType: str = None, runArgs: dict = None) -> JobStatus:
         """
         Submit the job for execution on this Site. It is an implementation
@@ -148,7 +157,6 @@ class SiteRun(SitePillar):
             JobStatus - preliminary status, containing a JobContext including
                 the canonical and Site-specific native job id
         """
-        pass
 
     @abstractmethod
     def getStatus(self, jobId: str) -> JobStatus:
@@ -164,7 +172,6 @@ class SiteRun(SitePillar):
         Returns:
             JobStatus - the current known status of the job
         """
-        pass
 
     @abstractmethod
     def cancel(self, jobContext: JobContext) -> bool:
@@ -182,8 +189,6 @@ class SiteRun(SitePillar):
                 might have completed successfully prior to the cancel being received,
                 the cancel might not be instantaneous, etc.)
         """
-        pass
-
 
 
 # ****************************************************************************
@@ -191,14 +196,14 @@ class SiteRun(SitePillar):
 class SiteRepo(SitePillar):
 
     # The siteObjPath can be many things depending on the site.  For a local site,
-    # its just a path.  For a remote site, its a reference to an object in some 
+    # its just a path.  For a remote site, its a reference to an object in some
     # remote repository which might be filesystem, or use some URI, or whatever
     # the site wants.  Some sites may provide no mechanism at all.
-    # The siteObjPath can also be blank, which is intended to mean the 
+    # The siteObjPath can also be blank, which is intended to mean the
     # data is not moved anywhere by instead is just being checked into management
     # in place with metadata.
 
-    # ask the site to store this local file at a path as an object at the site reference 
+    # ask the site to store this local file at a path as an object at the site reference
     # and return the metasheet
     @abstractmethod
     def put(
@@ -210,8 +215,8 @@ class SiteRepo(SitePillar):
         pass
 
 
-    # ask the site to fetch an object by reference and write it locally to a path, 
-    # returning the local path where written 
+    # ask the site to fetch an object by reference and write it locally to a path,
+    # returning the local path where written
     @abstractmethod
     def get(
         self,
@@ -227,9 +232,9 @@ class SiteRepo(SitePillar):
 
 
 # *****************************************************************************
-# Spin: mostly vaporware.  In theory some Sites would expose mechanisms to create 
+# Spin: mostly vaporware.  In theory some Sites would expose mechanisms to create
 # (provision) and destroy various kinds of computing devices.  These might be
-# single nodes, or entire turnkey cloud-bases HPC systems.  
+# single nodes, or entire turnkey cloud-bases HPC systems.
 
 class SiteSpin(SitePillar):
 
@@ -244,7 +249,6 @@ class SiteSpin(SitePillar):
         Returns:
             List[str] - a list of names, potentially empty or None
         """
-        pass
 
 
 # ****************************************************************************
@@ -270,9 +274,9 @@ class Site(LwfmBase):
     _spinDriver: SiteSpin = None
 
     # pre-defined Sites and their associated driver implementations, each which
-    # implements Auth, Run, Repo, [Spin]  these mappings can be extended in 
+    # implements Auth, Run, Repo, [Spin]  these mappings can be extended in
     # the ~/.lwfm/sites.txt configuration
-    _SITES = {"local": "lwfm.sites.LocalSite.LocalSite", 
+    _SITES = {"local": "lwfm.sites.LocalSite.LocalSite",
               "insitu": "lwfm.sites.InSituSite.InSituSite",
               "ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"}
 
@@ -283,22 +287,22 @@ class Site(LwfmBase):
         path = os.path.expanduser("~") + "/.lwfm/sites.txt"
         # Check whether the specified path exists or not
         if os.path.exists(path):
-            Logger.info("Loading custom site configs from ~/.lwfm/sites.txt")
+            logger.info("Loading custom site configs from ~/.lwfm/sites.txt")
             with open(path) as f:
                 for line in f:
                     name, var = line.split("=")
                     name = name.strip()
                     var = var.strip()
-                    Logger.info(
+                    logger.info(
                         "Registering driver " + var + " for site " + name
                     )
                     siteSet[name] = var
         else:
-            Logger.info(
+            logger.info(
                 "No custom ~/.lwfm/sites.txt - using built-in site configs"
             )
         fullPath = siteSet[site]
-        Logger.info("Obtaining site driver " + fullPath + " for " + site)
+        logger.info("Obtaining site driver " + fullPath + " for " + site)
         if fullPath is not None:
             # parse the path into package and class parts for convenience
             xPackage = fullPath.rsplit(".", 1)[0]
@@ -317,7 +321,7 @@ class Site(LwfmBase):
             inst.setName(site)
             return inst
         except Exception as ex:
-            Logger.error(
+            logger.error(
                 "Cannot instantiate Site for " + str(site) + " {}".format(ex)
             )
 
@@ -360,11 +364,9 @@ class Site(LwfmBase):
 
     def getRepo(self) -> SiteRepo:
         return self._repoDriver
-    
+
     def setSpin(self, spinDriver: SiteSpin) -> None:
         self._spinDriver = spinDriver
 
     def getSpin(self) -> SiteSpin:
         return self._spinDriver
-    
-    
