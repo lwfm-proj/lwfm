@@ -43,13 +43,12 @@ class Store():
                 "_key": key,
                 "_timestamp": ts
             }
-            print(f"collapse {collapse_doc} mydoc: {mydoc}")
             if collapse_doc:
                 record = {**baseRecord, **mydoc}
             else:
                 record = baseRecord
                 record["_doc"] = mydoc    # the data, serialized object, etc
-            self._db.insert(Document(record, doc_id=id))
+            self._db.insert(Document(record, doc_id=db_id))
             return
         except Exception as ex:
             print("Error in _put: " + str(ex))
@@ -113,7 +112,7 @@ class EventStore(Store):
     def putWfEvent(self, datum: WfEvent, typeT: str) -> bool:
         try:
             self._put(datum.getFireSite(), "run.event." + typeT,
-                      datum.getId(), datum.serialize())
+                      datum.getId(), ObjectSerializer.serialize(datum))
             return True
         except Exception as e:
             self._loggingStore.putLogging("ERROR", "Error in putWfEvent: " + str(e))
@@ -152,7 +151,7 @@ class JobStatusStore(Store):
 
     def putJobStatus(self, datum: JobStatus) -> None:
         self._put(datum.getJobContext().getSiteName(),
-                  "run.status", datum.getJobId(), datum.serialize())
+                  "run.status", datum.getJobId(), ObjectSerializer.serialize(datum))
 
     def _getAllJobStatuses(self) -> List[JobStatus]:
         try:

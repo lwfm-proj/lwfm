@@ -1,4 +1,6 @@
-# print 'hello world' but as a Job on a local site
+"""
+print 'hello world' but as a Job on a local site
+"""
 
 from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn
@@ -15,7 +17,7 @@ if __name__ == "__main__":
     # define the job - use all defaults except the actual command to execute
     jobDefn = JobDefn("echo 'hello world'")
 
-    # submit the job to the site asynchronously, get back an initial status 
+    # submit the job to the site asynchronously, get back an initial status
     status = site.getRun().submit(jobDefn)
 
     # How could we tell the async job has finished? One way is to synchronously

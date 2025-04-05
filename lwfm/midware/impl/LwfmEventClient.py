@@ -23,6 +23,8 @@ from ...util.ObjectSerializer import ObjectSerializer
 
 class LwfmEventClient():
     _SERVICE_URL = "http://127.0.0.1:3000"
+    _REST_TIMEOUT = 100
+
     if os.getenv("LWFM_SERVICE_URL") is not None:
         _SERVICE_URL = os.getenv("LWFM_SERVICE_URL")
 
@@ -33,17 +35,16 @@ class LwfmEventClient():
     # status methods
 
     def getStatus(self, jobId: str) -> JobStatus:
-        response = requests.get(f"{self.getUrl()}/status/{jobId}")
+        response = requests.get(f"{self.getUrl()}/status/{jobId}",
+            timeout=self._REST_TIMEOUT)
         try:
             if response.ok:
                 if (response.text is not None) and (len(response.text) > 0):
                     status = ObjectSerializer.deserialize(response.text)
                     return status
-                else:
-                    return None
-            else:
-                self.emitLogging("ERROR", f"response not ok: {response.text}")
                 return None
+            self.emitLogging("ERROR", f"response not ok: {response.text}")
+            return None
         except Exception as ex:
             self.emitLogging("ERROR", "getStatus error: " + str(ex))
             return None
@@ -58,9 +59,10 @@ class LwfmEventClient():
             status.setNativeStatus(nativeStatus)
             status.setNativeInfo(nativeInfo)
             status.setEmitTime(datetime.datetime.now(datetime.UTC))
-            statusBlob = status.serialize()
+            statusBlob = ObjectSerializer.serialize(status)
             data = {"statusBlob": statusBlob}
-            response = requests.post(f"{self.getUrl()}/emitStatus", data=data)
+            response = requests.post(f"{self.getUrl()}/emitStatus", data=data,
+                timeout=self._REST_TIMEOUT)
             if response.ok:
                 return
             else:
@@ -75,8 +77,9 @@ class LwfmEventClient():
 
     def setEvent(self, wfe: WfEvent) -> str:
         payload = {}
-        payload["eventObj"] = wfe.serialize()
-        response = requests.post(f"{self.getUrl()}/setEvent", payload)
+        payload["eventObj"] = ObjectSerializer.serialize(wfe)
+        response = requests.post(f"{self.getUrl()}/setEvent", payload,
+            timeout=self._REST_TIMEOUT)
         if response.ok:
             # return the job id of the registered job
             return response.text
@@ -87,7 +90,8 @@ class LwfmEventClient():
     def unsetEvent(self, wfe: WfEvent) -> None:
         payload = {}
         payload["eventObj"] = wfe.serialize()
-        response = requests.post(f"{self.getUrl()}/unsetEvent", payload)
+        response = requests.post(f"{self.getUrl()}/unsetEvent", payload,
+            timeout=self._REST_TIMEOUT)
         if response.ok:
             # return the job id of the registered job
             return
@@ -96,13 +100,13 @@ class LwfmEventClient():
             return
 
     def getActiveWfEvents(self) -> List[WfEvent]:
-        response = requests.get(f"{self.getUrl()}/listEvents")
+        response = requests.get(f"{self.getUrl()}/listEvents",
+            timeout=self._REST_TIMEOUT)
         if response.ok:
             l = json.loads(response.text)
             return [ObjectSerializer.deserialize(blob) for blob in l]
-        else:
-            self.emitLogging("ERROR", "getActiveWfEvents error: " + str(response.text))
-            return None
+        self.emitLogging("ERROR", "getActiveWfEvents error: " + str(response.text))
+        return None
 
 
     #***********************************************************************
@@ -112,7 +116,8 @@ class LwfmEventClient():
         try:
             data = {"level": level,
                     "errorMsg": doc}
-            response = requests.post(f"{self.getUrl()}/emitLogging", data)
+            response = requests.post(f"{self.getUrl()}/emitLogging", data,
+                timeout=self._REST_TIMEOUT)
             if response.ok:
                 return
             else:
@@ -133,7 +138,8 @@ class LwfmEventClient():
         try:
             data = {"jobId": jobId,
                     "data": metasheet.serialize()}
-            response = requests.post(f"{self.getUrl()}/notate", data)
+            response = requests.post(f"{self.getUrl()}/notate", data,
+                timeout=self._REST_TIMEOUT)
             if response.ok:
                 return
             else:
@@ -149,7 +155,8 @@ class LwfmEventClient():
         # call to the service to find metasheets
         try:
             data = {"searchDict": json.dumps(queryRegExs)}
-            response = requests.post(f"{self.getUrl()}/find", data)
+            response = requests.post(f"{self.getUrl()}/find", data,
+                timeout=self._REST_TIMEOUT)
             if response.ok:
                 l = json.loads(response.text)
                 return [ObjectSerializer.deserialize(blob) for blob in l]

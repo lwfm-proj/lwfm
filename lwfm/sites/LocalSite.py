@@ -96,6 +96,8 @@ class LocalSiteRun(SiteRun):
             # "computeType" or "runArgs" as there might be on another more complex
             # site (e.g. HPC scheduler, cloud, etc.)
 
+            print(f"local submit job:{jobDefn} parent:{parentContext}")
+
             if parentContext is None:
                 # we don't know our job id - it wasn't passed in
                 # check the environment
@@ -106,20 +108,22 @@ class LocalSiteRun(SiteRun):
                     # assert readiness
                     lwfManager.emitStatus(useContext, LocalJobStatus,
                         JobStatusValues.READY.value)
+            else:
+                useContext = parentContext
 
             # if we want to, we can test validity of the job defn here, reject it
             # let's say its good and carry on
 
             # horse at the gate...
-            lwfManager.emitStatus(useContext, LocalJobStatus, 
+            lwfManager.emitStatus(useContext, LocalJobStatus,
                                 JobStatusValues.PENDING.value)
             # Run the job in a new thread so we can wrap it in a bit more code
             # this will kick the status the rest of the way to a terminal state
             multiprocessing.Process(target=self._runJob, args=[jobDefn, useContext]).start()
-            logger.info("LocalSite: submitted job %s" % (useContext.getId()))
+            logger.info(f"LocalSite: submitted job {useContext.getId()}")
             return lwfManager.getStatus(useContext.getId())
         except Exception as ex:
-            logger.error("ERROR: Could not submit job %s" % (ex))
+            logger.error(f"ERROR: Could not submit job {ex}")
             return None
 
 

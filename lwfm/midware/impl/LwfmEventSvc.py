@@ -62,12 +62,12 @@ def emitStatus():
 @app.route("/status/<jobId>")
 def getStatus(jobId: str):
     try:
-        s = _statusStore.getJobStatus(jobId).serialize()
+        s = _statusStore.getJobStatus(jobId)
         if s is not None:
-            return s
-        else:
-            return ""
+            return ObjectSerializer.serialize(s)
+        return ""
     except Exception:
+        # TODO log something
         return ""
 
 
