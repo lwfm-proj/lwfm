@@ -9,6 +9,7 @@ from .JobStatus import JobStatus
 from .Metasheet import Metasheet
 from .Site import Site
 from .WfEvent import WfEvent
+from .Workflow import Workflow
 
 __all__ = [
     "LwfmBase",
@@ -17,5 +18,6 @@ __all__ = [
     "JobStatus",
     "Metasheet",
     "Site",
-    "WfEvent"
+    "WfEvent",
+    "Workflow"
 ]
