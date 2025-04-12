@@ -14,9 +14,10 @@ class Workflow():
     _id = None
     _name = None
 
-    def __init__(self, name: str = None):
+    def __init__(self, name: str = None, description: str = None):
         self._id = IdGenerator.generateId()
         self._name = name
+        self._description = description
 
     def setId(self, idValue: str) -> None:
         self._id = idValue
@@ -29,3 +30,9 @@ class Workflow():
 
     def getName(self) -> str:
         return self._name
+
+    def setDescription(self, description: str) -> None:
+        self._description = description
+
+    def getDescription(self) -> str:
+        return self._description

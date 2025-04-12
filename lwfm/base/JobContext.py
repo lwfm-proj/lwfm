@@ -22,9 +22,6 @@ class _JobContextFields(Enum):
     SITE_NAME = "siteName"          # name of the Site which emitted the message
     COMPUTE_TYPE = "computeType"    # a named resource on the Site, if any
 
-    USER = "user"       # TODO
-    GROUP = "group"     # TODO
-
 
 class JobContext(LwfmBase):
     """
@@ -105,19 +102,6 @@ class JobContext(LwfmBase):
 
     def getComputeType(self) -> str:
         return LwfmBase._getArg(self, _JobContextFields.COMPUTE_TYPE.value)
-
-    def setGroup(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobContextFields.GROUP.value, name)
-
-    def getGroup(self) -> str:
-        return LwfmBase._getArg(self, _JobContextFields.GROUP.value)
-
-    def setUser(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobContextFields.USER.value, name)
-
-    def getUser(self) -> str:
-        return LwfmBase._getArg(self, _JobContextFields.USER.value)
-
 
     def __str__(self):
         return f"[ctx id:{self.getId()} native:{self.getNativeId()} " + \
