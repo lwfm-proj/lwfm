@@ -106,7 +106,7 @@ class EventStore(Store):
     _loggingStore: LoggingStore = None
 
     def __init__(self):
-        super(EventStore, self).__init__()
+        super().__init__()
         self._loggingStore = LoggingStore()
 
     def putWfEvent(self, datum: WfEvent, typeT: str) -> bool:
@@ -146,7 +146,7 @@ class JobStatusStore(Store):
     _loggingStore: LoggingStore = None
 
     def __init__(self):
-        super(JobStatusStore, self).__init__()
+        super().__init__()
         self._loggingStore = LoggingStore()
 
     def putJobStatus(self, datum: JobStatus) -> None:
@@ -200,7 +200,7 @@ class MetaRepoStore(Store):
     _loggingStore: LoggingStore = None
 
     def __init__(self):
-        super(MetaRepoStore, self).__init__()
+        super().__init__()
         self._loggingStore = LoggingStore()
 
     def putMetaRepo(self, datum: Metasheet) -> None:

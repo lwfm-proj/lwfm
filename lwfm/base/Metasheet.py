@@ -14,10 +14,6 @@ class Metasheet():
     A collection of name=value pairs for a blob of data.
     """
 
-    _id = None
-    _props = {}
-
-
     def __init__(self, props: dict = None):
         self._id = IdGenerator.generateId()
         self._props = props

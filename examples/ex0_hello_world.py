@@ -12,13 +12,13 @@ if __name__ == "__main__":
     site = Site.getSite("local")
 
     # a "local" site login is a no-op; real sites will have a login mechanism
-    site.getAuth().login()
+    site.getAuthDriver().login()
 
     # define the job - use all defaults except the actual command to execute
     jobDefn = JobDefn("echo 'hello world'")
 
     # submit the job to the site asynchronously, get back an initial status
-    status = site.getRun().submit(jobDefn)
+    status = site.getRunDriver().submit(jobDefn)
 
     # How could we tell the async job has finished? One way is to synchronously
     # wait on its end status. (Another way is asynchronous triggering, which

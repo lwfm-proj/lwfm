@@ -11,9 +11,6 @@ class Workflow():
     A collection of jobs and their associated (meta)information.
     """
 
-    _id = None
-    _name = None
-
     def __init__(self, name: str = None, description: str = None):
         self._id = IdGenerator.generateId()
         self._name = name

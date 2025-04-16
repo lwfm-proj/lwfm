@@ -28,7 +28,6 @@ from typing import List, TYPE_CHECKING
 
 from ..midware.Logger import logger
 
-from .LwfmBase import LwfmBase
 from .JobContext import JobContext
 from .JobStatus import JobStatus
 from .Metasheet import Metasheet
@@ -262,27 +261,62 @@ class SiteSpin(SitePillar):
 # the user's sites.txt config trumps.
 
 
-# LwfmBase field list
-class _SiteFields(Enum):
-    SITE_NAME = "siteName"
+class Site:
+    def __init__(self, site_name: str = None, auth_driver: SiteAuth = None,
+        run_driver: SiteRun = None, repo_driver: SiteRepo = None,
+        spin_driver: SiteSpin = None):
+        self._site_name = site_name
+        self._auth_driver = auth_driver
+        self._run_driver = run_driver
+        self._repo_driver = repo_driver
+        self._spin_driver = spin_driver
+        # pre-defined Sites and their associated driver implementations
+        self._sites = {
+            "local": "lwfm.sites.LocalSite.LocalSite",
+            #"insitu": "lwfm.sites.InSituSite.InSituSite",
+            #"ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"
+        }
 
+    def getSiteName(self):
+        return self._site_name
 
-class Site(LwfmBase):
-    _authDriver: SiteAuth = None
-    _runDriver: SiteRun = None
-    _repoDriver: SiteRepo = None
-    _spinDriver: SiteSpin = None
+    def setSiteName(self, name):
+        self._site_name = name
 
-    # pre-defined Sites and their associated driver implementations, each which
-    # implements Auth, Run, Repo, [Spin]  these mappings can be extended in
-    # the ~/.lwfm/sites.txt configuration
-    _SITES = {"local": "lwfm.sites.LocalSite.LocalSite",
-              "insitu": "lwfm.sites.InSituSite.InSituSite",
-              "ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"}
+    def getAuthDriver(self):
+        return self._auth_driver
+
+    def setAuthDriver(self, driver):
+        self._auth_driver = driver
+
+    def getRunDriver(self):
+        return self._run_driver
+
+    def setRunDriver(self, driver):
+        self._run_driver = driver
+
+    def getRepoDriver(self):
+        return self._repo_driver
+
+    def setRepoDriver(self, driver):
+        self._repo_driver = driver
+
+    def getSpinDriver(self):
+        return self._spin_driver
+
+    def setSpinDriver(self, driver):
+        self._spin_driver = driver
 
     @staticmethod
     def _getSiteEntry(site: str):
-        siteSet = Site._SITES
+        import os
+        import logging
+        logger = logging.getLogger(__name__)
+        siteSet = {
+            "local": "lwfm.sites.LocalSite.LocalSite",
+            "insitu": "lwfm.sites.InSituSite.InSituSite",
+            "ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"
+        }
         # is there a local site config?
         path = os.path.expanduser("~") + "/.lwfm/sites.txt"
         # Check whether the specified path exists or not
@@ -297,76 +331,18 @@ class Site(LwfmBase):
                         "Registering driver " + var + " for site " + name
                     )
                     siteSet[name] = var
-        else:
-            logger.info(
-                "No custom ~/.lwfm/sites.txt - using built-in site configs"
-            )
-        fullPath = siteSet[site]
-        logger.info("Obtaining site driver " + fullPath + " for " + site)
-        if fullPath is not None:
-            # parse the path into package and class parts for convenience
-            xPackage = fullPath.rsplit(".", 1)[0]
-            xClass = fullPath.rsplit(".", 1)[1]
-            return [xPackage, xClass]
-        else:
-            return None
+        return siteSet.get(site)
 
     @staticmethod
     def getSite(site: str = "local"):
         try:
             entry = Site._getSiteEntry(site)
-            module = importlib.import_module(entry[0])
-            class_ = getattr(module, str(entry[1]))
+            module = importlib.import_module(entry.rsplit(".", 1)[0])
+            class_ = getattr(module, str(entry.rsplit(".", 1)[1]))
             inst = class_()
-            inst.setName(site)
+            inst.setSiteName(site)
             return inst
         except Exception as ex:
             logger.error(
                 "Cannot instantiate Site for " + str(site) + " {}".format(ex)
             )
-
-    def __init__(
-        self,
-        name: str,
-        authDriver: SiteAuth,
-        runDriver: SiteRun,
-        repoDriver: SiteRepo,
-        spinDriver: SiteSpin,
-        args: dict = None,
-    ):
-        super(Site, self).__init__(args)
-        self.setName(name)
-        self.setAuth(authDriver)
-        self.setRun(runDriver)
-        self.setRepo(repoDriver)
-        self.setSpin(spinDriver)
-
-    def setName(self, name: str) -> None:
-        LwfmBase._setArg(self, _SiteFields.SITE_NAME.value, name)
-
-    def getName(self) -> str:
-        return LwfmBase._getArg(self, _SiteFields.SITE_NAME.value)
-
-    def setAuth(self, authDriver: SiteAuth) -> None:
-        self._authDriver = authDriver
-
-    def getAuth(self) -> SiteAuth:
-        return self._authDriver
-
-    def setRun(self, runDriver: SiteRun) -> None:
-        self._runDriver = runDriver
-
-    def getRun(self) -> SiteRun:
-        return self._runDriver
-
-    def setRepo(self, repoDriver: SiteRepo) -> None:
-        self._repoDriver = repoDriver
-
-    def getRepo(self) -> SiteRepo:
-        return self._repoDriver
-
-    def setSpin(self, spinDriver: SiteSpin) -> None:
-        self._spinDriver = spinDriver
-
-    def getSpin(self) -> SiteSpin:
-        return self._spinDriver

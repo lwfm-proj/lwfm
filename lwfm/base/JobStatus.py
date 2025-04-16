@@ -9,21 +9,10 @@ It is emitted within the job's context.
 from enum import Enum
 from datetime import datetime
 
-from .LwfmBase import LwfmBase
+from ..util.IdGenerator import IdGenerator
+
 from .JobContext import JobContext
 
-class _JobStatusFields(Enum):
-    STATUS = "status"   # canonical status
-    NATIVE_STATUS = (
-        "nativeStatus"  # the status code for the specific Run implementation
-    )
-    EMIT_TIME = "emitTime"
-    RECEIVED_TIME = "receivedTime"
-    NATIVE_INFO = "nativeInfo"      # the site-specific status body
-
-
-# The canonical set of lwfm status codes.  Run implementations will have their
-# own sets, and they must provide a mapping into these.
 class JobStatusValues(Enum):
     UNKNOWN = "UNKNOWN"
     READY = "READY"
@@ -39,7 +28,7 @@ class JobStatusValues(Enum):
 # ***********************************************************************
 
 
-class JobStatus(LwfmBase):
+class JobStatus:
     """
     A record of a state of the job's execution.  The job may go through many
     states in its lifetime - on the actual runtime Site the job status will be 
@@ -57,113 +46,93 @@ class JobStatus(LwfmBase):
     status strings.  Native lwfm local jobs will use a pass-thru mapping.
     """
 
-    statusMap: dict = None  # maps native status to canonical status
-    jobContext: JobContext = None  # job id tracking info
-
     def __init__(self, jobContext: JobContext = None):
-        super(JobStatus, self).__init__(None)
-        if jobContext is None:
-            self.jobContext = JobContext()
-        else:
-            self.jobContext = jobContext
-        # default map
-        self.setStatusMap(
-            {
-                "UNKNOWN": JobStatusValues.UNKNOWN,
-                "READY": JobStatusValues.READY,
-                "PENDING": JobStatusValues.PENDING,
-                "RUNNING": JobStatusValues.RUNNING,
-                "INFO": JobStatusValues.INFO,
-                "FINISHING": JobStatusValues.FINISHING,
-                "COMPLETE": JobStatusValues.COMPLETE,
-                "FAILED": JobStatusValues.FAILED,
-                "CANCELLED": JobStatusValues.CANCELLED,
-            }
-        )
-        self.setReceivedTime(datetime.utcnow())
-        self.setStatus(JobStatusValues.UNKNOWN)
+        self._id = IdGenerator.generateId()
+        self._status = JobStatusValues.UNKNOWN
+        self._native_status = None
+        self._emit_time = datetime.utcnow()
+        self._received_time = None
+        self._native_info = None
+        self._context = jobContext
+        self._status_map = {
+            "UNKNOWN": JobStatusValues.UNKNOWN,
+            "READY": JobStatusValues.READY,
+            "PENDING": JobStatusValues.PENDING,
+            "RUNNING": JobStatusValues.RUNNING,
+            "INFO": JobStatusValues.INFO,
+            "FINISHING": JobStatusValues.FINISHING,
+            "COMPLETE": JobStatusValues.COMPLETE,
+            "FAILED": JobStatusValues.FAILED,
+            "CANCELLED": JobStatusValues.CANCELLED,
+        }
+
+    def getId(self) -> str:
+        return self._id
 
     def getJobContext(self) -> JobContext:
-        return self.jobContext
+        return self._context
 
     def setJobContext(self, jobContext: JobContext) -> None:
-        self.jobContext = jobContext
+        self._context = jobContext
 
     def getJobId(self) -> str:
-        return self.jobContext.getId()
+        return self._context.getId()
 
-    def setStatus(self, status: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.STATUS.value, status)
+    def setStatus(self, status: JobStatusValues) -> None:
+        self._status = status
 
-    def getStatus(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.STATUS.value)
-
-    def getStatusValue(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.STATUS.value).value
+    def getStatus(self) -> JobStatusValues:
+        return self._status
 
     def setNativeStatusStr(self, status: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.NATIVE_STATUS.value, status)
+        self._native_status = status
         # now map the native status to a canonical
         self.mapNativeStatus()
 
     def getNativeStatusStr(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.NATIVE_STATUS.value)
+        return self._native_status
 
     def setNativeStatus(self, nativeStatus: str) -> None:
         self.setNativeStatusStr(nativeStatus)
 
     def mapNativeStatus(self) -> None:
         try:
-            self.setStatus(self.statusMap[self.getNativeStatusStr()])
+            self._status = self._status_map[self._native_status]
         except Exception:
-            self.setStatus(JobStatusValues.UNKNOWN)
+            self._status = JobStatusValues.UNKNOWN
 
     def getStatusMap(self) -> dict:
-        return self.statusMap
+        return self._status_map
 
     def setStatusMap(self, statusMap: dict) -> None:
-        self.statusMap = statusMap
+        self._status_map = statusMap
 
     def setEmitTime(self, emitTime: datetime) -> None:
-        LwfmBase._setArg(
-            self, _JobStatusFields.EMIT_TIME.value, emitTime.timestamp() * 1000
-        )
+        self._emit_time = emitTime
 
     def getEmitTime(self) -> datetime:
-        try:
-            ms = int(LwfmBase._getArg(self, _JobStatusFields.EMIT_TIME.value))
-            return datetime.utcfromtimestamp(ms // 1000).replace(
-                microsecond=ms % 1000 * 1000
-            )
-        except Exception:
-            return datetime.now()
+        return self._emit_time
 
     def setReceivedTime(self, receivedTime: datetime) -> None:
-        LwfmBase._setArg(
-            self, _JobStatusFields.RECEIVED_TIME.value,
-            receivedTime.timestamp() * 1000
-        )
+        self._received_time = receivedTime
 
     def getReceivedTime(self) -> datetime:
-        ms = int(LwfmBase._getArg(self, _JobStatusFields.RECEIVED_TIME.value))
-        return datetime.utcfromtimestamp(ms // 1000).replace(
-            microsecond=ms % 1000 * 1000
-        )
+        return self._received_time
 
     def setNativeInfo(self, info: str) -> None:
-        LwfmBase._setArg(self, _JobStatusFields.NATIVE_INFO.value, info)
+        self._native_info = info
 
     def getNativeInfo(self) -> str:
-        return LwfmBase._getArg(self, _JobStatusFields.NATIVE_INFO.value)
+        return self._native_info
 
     def isTerminalSuccess(self) -> bool:
-        return self.getStatus() == JobStatusValues.COMPLETE
+        return self._status == JobStatusValues.COMPLETE
 
     def isTerminalFailure(self) -> bool:
-        return self.getStatus() == JobStatusValues.FAILED
+        return self._status == JobStatusValues.FAILED
 
     def isTerminalCancelled(self) -> bool:
-        return self.getStatus() == JobStatusValues.CANCELLED
+        return self._status == JobStatusValues.CANCELLED
 
     def isTerminal(self) -> bool:
         return (
@@ -172,6 +141,5 @@ class JobStatus(LwfmBase):
             or self.isTerminalCancelled()
         )
 
-
     def __str__(self):
-        return f"[stat ctx:{self.getJobContext()} value:{self.getStatusValue()} info:{self.getNativeInfo()}]"
+        return f"[stat ctx:{self._context} value:{self._status.value} info:{self._native_info}]"

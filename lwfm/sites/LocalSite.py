@@ -27,7 +27,7 @@ from ..midware.Logger import logger
 
 class LocalJobStatus(JobStatus):
     def __init__(self, context: JobContext = None):
-        super(LocalJobStatus, self).__init__(context)
+        super().__init__(context)
         # use default canonical status map
         self.getJobContext().setSiteName(LocalSite.SITE_NAME)
 
@@ -79,7 +79,7 @@ class LocalSiteRun(SiteRun):
             lwfManager.emitStatus(jobContext, LocalJobStatus, 
                                   JobStatusValues.COMPLETE.value)
         except Exception as ex:
-            logger.error("ERROR: Job failed %s" % (ex))
+            logger.error(f"ERROR: Job failed: {ex}")
             # Emit FAILED status
             lwfManager.emitStatus(jobContext, LocalJobStatus,
                                   JobStatusValues.FAILED.value)
@@ -128,25 +128,26 @@ class LocalSiteRun(SiteRun):
 
 
     def cancel(self, jobContext: JobContext) -> bool:
-        # Find the locally running thread and kill it
-        try:
-            thread = self._pendingJobs[jobContext.getId()]
-            if thread is None:
-                return False
-            logger.info(
-                "LocalSiteDriver.cancelJob(): calling terminate on job "
-                + jobContext.getId()
-            )
-            thread.terminate()
-            jStatus = LocalJobStatus(jobContext)
-            jStatus.emit(JobStatusValues.CANCELLED.value)
-            self._pendingJobs[jobContext.getId()] = None
-            return True
-        except Exception as ex:
-            logger.error(
-                "ERROR: Could not cancel job %d: %s" % (jobContext.getId(), ex)
-            )
-            return False
+        pass
+        # # Find the locally running thread and kill it
+        # try:
+        #     thread = self._pendingJobs[jobContext.getId()]
+        #     if thread is None:
+        #         return False
+        #     logger.info(
+        #         "LocalSiteDriver.cancelJob(): calling terminate on job "
+        #         + jobContext.getId()
+        #     )
+        #     thread.terminate()
+        #     jStatus = LocalJobStatus(jobContext)
+        #     jStatus.emit(JobStatusValues.CANCELLED.value)
+        #     self._pendingJobs[jobContext.getId()] = None
+        #     return True
+        # except Exception as ex:
+        #     logger.error(
+        #         "ERROR: Could not cancel job %d: %s" % (jobContext.getId(), ex)
+        #     )
+        #     return False
 
 # ************************************************************************
 
@@ -205,27 +206,11 @@ class LocalSite(Site):
 
     SITE_NAME = "local"
 
-    # There are no required args to instantiate a local site.
     def __init__(self):
-        super(LocalSite, self).__init__(
-            self.SITE_NAME, LocalSiteAuth(), LocalSiteRun(), LocalSiteRepo(), LocalSiteSpin()
-        )
-
-
-
-# a trivial extension of LocalSite where any calls to a remote service, exemplified
-# by the use of lwfManager, are made asynchronously as fire & forget, perhaps by
-# using an async-savvy extension of lwfManager.
-# it may elect to implement a different Run driver, perhaps one which uses MPI, but not
-# one which talks to a cluster scheduler - we would suggest modeling that as
-# its own Site.
-# We defer that more performant implementation for the moment and just reuse
-# LocalSite with its inherent use of HTTP.
-class InSituSite(LocalSite):
-
-    SITE_NAME = "insitu"
-
-    def __init__(self):
-        super(InSituSite, self).__init__(
-            self.SITE_NAME, LocalSiteAuth(), LocalSiteRun(), LocalSiteRepo(), LocalSiteSpin()
+        super().__init__(
+            self.SITE_NAME,
+            LocalSiteAuth(),
+            LocalSiteRun(),
+            LocalSiteRepo(),
+            LocalSiteSpin()
         )

@@ -9,3 +9,4 @@ dependencies = [
     "requests>=2.32.3",
     "tinydb>=4.8.2",
 ]
+

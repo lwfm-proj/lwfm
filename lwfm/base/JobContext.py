@@ -5,25 +5,10 @@ tracking info.
 
 #pylint: disable = invalid-name, missing-function-docstring
 
-from enum import Enum
-
-from .LwfmBase import LwfmBase
-
-class _JobContextFields(Enum):
-    ID = "id"                       # canonical job id
-    NATIVE_ID = "nativeId"          # Run implementation native job id
-    NAME = "name"                   # optional human-readable job name
-    PARENT_JOB_ID = "parentJobId"   # immediate predecessor of this job, if any -
-                                    # seminal job has no parent
-    ORIGIN_JOB_ID = (
-        "originJobId"               # oldest ancestor - a seminal job is its own origin
-    )
-    SET_ID = "setId"                # optional id of a set if the job is part of a set
-    SITE_NAME = "siteName"          # name of the Site which emitted the message
-    COMPUTE_TYPE = "computeType"    # a named resource on the Site, if any
+from ..util.IdGenerator import IdGenerator
 
 
-class JobContext(LwfmBase):
+class JobContext:
     """
     The runtime execution context of the job.  It contains the id of the job and 
     references to its parent jobs, if any.  A JobStatus can reference a JobContext,
@@ -31,77 +16,80 @@ class JobContext(LwfmBase):
     """
 
     def __init__(self, parentContext: "JobContext" = None):
-        super(JobContext, self).__init__(None)
-        self.setNativeId(self.getId())
-        self.setParentJobId(None)
-        # a seminal job would have no parent - it may be set later at runtime
-        self.setOriginJobId(
-            self.getId()
-        )  # a seminal job would be its own originator - it may be set later
-        self.setName(self.getId())
-        self.setComputeType("default")
-        self.setSiteName("local")  # default to local site
+        self._id = None
+        self._native_id = None
+        self._job_id = None
+        self._parent_job_id = None
+        self._origin_job_id = None
+        self._name = None
+        self._compute_type = "default"
+        self._site_name = "local"
+        self._set_id = None
+
         if parentContext is not None:
-            self.setParentJobId(parentContext.getJobId())
-            self.setOriginJobId(parentContext.getOriginJobId())
-            self.setSiteName(parentContext.getSiteName())
-            self.setName(
-                parentContext.getName() + "_" + self.getName()
-            )  # name is parent name + '_' + child name
+            self._parent_job_id = parentContext.getJobId()
+            self._origin_job_id = parentContext.getOriginJobId()
+            self._site_name = parentContext.getSiteName()
+            self._name = (parentContext.getName() or "") + "_" + (self._name or "")
+        else:
+            self._id = IdGenerator.generateId()
+            self._native_id = self._id
+            self._origin_job_id = self._id
+            self._name = self._id
 
     def setId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobContextFields.ID.value, idValue)
+        self._id = idValue
 
     def getId(self) -> str:
-        return LwfmBase._getArg(self, _JobContextFields.ID.value)
+        return self._id
 
     def setJobId(self, idValue: str) -> None:
-        self.setId(idValue) # alias
+        self._job_id = idValue
 
     def getJobId(self) -> str:
-        return self.getId()    # alias
+        return self._job_id
 
-    def setNativeId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobContextFields.NATIVE_ID.value, idValue)
+    def setNativeId(self, nativeId: str) -> None:
+        self._native_id = nativeId
 
     def getNativeId(self) -> str:
-        return LwfmBase._getArg(self, _JobContextFields.NATIVE_ID.value)
+        return self._native_id
 
-    def setParentJobId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobContextFields.PARENT_JOB_ID.value, idValue)
+    def setParentJobId(self, parentId: str) -> None:
+        self._parent_job_id = parentId
 
     def getParentJobId(self) -> str:
-        return LwfmBase._getArg(self, _JobContextFields.PARENT_JOB_ID.value)
+        return self._parent_job_id
 
-    def setOriginJobId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobContextFields.ORIGIN_JOB_ID.value, idValue)
+    def setOriginJobId(self, originId: str) -> None:
+        self._origin_job_id = originId
 
     def getOriginJobId(self) -> str:
-        return LwfmBase._getArg(self, _JobContextFields.ORIGIN_JOB_ID.value)
-
-    def setJobSetId(self, idValue: str) -> None:
-        LwfmBase._setArg(self, _JobContextFields.SET_ID.value, idValue)
-
-    def getJobSetId(self) -> str:
-        return LwfmBase._getArg(self, _JobContextFields.SET_ID.value)
+        return self._origin_job_id
 
     def setName(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobContextFields.NAME.value, name)
+        self._name = name
 
     def getName(self) -> str:
-        return LwfmBase._getArg(self, _JobContextFields.NAME.value)
+        return self._name
 
-    def setSiteName(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobContextFields.SITE_NAME.value, name)
-
-    def getSiteName(self) -> str:
-        return LwfmBase._getArg(self, _JobContextFields.SITE_NAME.value)
-
-    def setComputeType(self, name: str) -> None:
-        LwfmBase._setArg(self, _JobContextFields.COMPUTE_TYPE.value, name)
+    def setComputeType(self, computeType: str) -> None:
+        self._compute_type = computeType
 
     def getComputeType(self) -> str:
-        return LwfmBase._getArg(self, _JobContextFields.COMPUTE_TYPE.value)
+        return self._compute_type
+
+    def setSiteName(self, siteName: str) -> None:
+        self._site_name = siteName
+
+    def getSiteName(self) -> str:
+        return self._site_name
+
+    def setJobSetId(self, idValue: str) -> None:
+        self._set_id = idValue
+
+    def getJobSetId(self) -> str:
+        return self._set_id
 
     def __str__(self):
         return f"[ctx id:{self.getId()} native:{self.getNativeId()} " + \
