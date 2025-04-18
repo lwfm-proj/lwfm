@@ -25,7 +25,7 @@ class Logger:
 
     def _getTimestamp(self) -> str:
         current_time = datetime.datetime.now(datetime.timezone.utc)
-        formatted_time = current_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+        formatted_time = current_time.strftime("%Y%m%dT%H:%M:%SZ")
         return formatted_time
 
     def _buildMsg(self, msg: str, status: str) -> str:

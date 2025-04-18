@@ -12,15 +12,15 @@ class Workflow():
     """
 
     def __init__(self, name: str = None, description: str = None):
-        self._id = IdGenerator.generateId()
+        self._workflow_id = IdGenerator.generateId()
         self._name = name
         self._description = description
 
-    def setId(self, idValue: str) -> None:
-        self._id = idValue
+    def setWorkflowId(self, idValue: str) -> None:
+        self._workflow_id = idValue
 
-    def getId(self) -> str:
-        return self._id
+    def getWorkflowId(self) -> str:
+        return self._workflow_id
 
     def setName(self, name: str) -> None:
         self._name = name

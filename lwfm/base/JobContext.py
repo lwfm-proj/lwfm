@@ -77,7 +77,7 @@ class JobContext:
 
 
     def __str__(self):
-        return f"[ctx id:{self.getJobId()} native:{self.getNativeId()} " + \
-            f"parent:{self.getParentJobId()} workflow:{self.getWorkflowId()} " + \
+        return f"[ctx job:{self.getJobId()} native:{self.getNativeId()} " + \
+            f"parent:{self.getParentJobId()} wf:{self.getWorkflowId()} " + \
             f"site:{self.getSiteName()} " + \
             f"compute:{self.getComputeType()}]"

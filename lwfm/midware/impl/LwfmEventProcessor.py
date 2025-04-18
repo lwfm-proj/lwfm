@@ -134,10 +134,7 @@ class LwfmEventProcessor:
                         # get a complete updated status
                         status = self._jobStatusStore.getJobStatus(status.getJobId())
                         # now launch it async
-                        print(f"*** context before {status.getJobContext()}")
-                        print(f"e = {e}")
                         jobContext = self._makeJobContext(e, status.getJobContext())
-                        print(f"*** context after {jobContext}")
                         self._runAsyncOnSite(e, jobContext)
                         gotOne = True
                 except Exception as ex1:

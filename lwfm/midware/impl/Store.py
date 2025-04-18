@@ -48,7 +48,6 @@ class Store():
             else:
                 record = baseRecord
                 record["_doc"] = mydoc    # the data, serialized object, etc
-            print(f"* insert {record}")
             self._db.insert(Document(record, doc_id=db_id))
             return
         except Exception as ex:
@@ -205,7 +204,7 @@ class MetaRepoStore(Store):
         self._loggingStore = LoggingStore()
 
     def putMetaRepo(self, datum: Metasheet) -> None:
-        self._put("None", "repo.meta", datum.getId(), datum.getArgs(), True)
+        self._put("None", "repo.meta", datum.getSheetId(), datum.getArgs(), True)
 
     def getAllMetasheets(self) -> List[Metasheet]:
         Q = Query()

@@ -12,7 +12,7 @@ import sys
 class IdGenerator:
     @staticmethod
     def generateId() -> str:
-        return str(uuid.uuid4())
+        return str(uuid.uuid4())[:8]
 
     @staticmethod
     def generateInteger() -> int:

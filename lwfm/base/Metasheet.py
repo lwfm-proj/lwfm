@@ -15,14 +15,14 @@ class Metasheet():
     """
 
     def __init__(self, props: dict = None):
-        self._id = IdGenerator.generateId()
+        self._sheet_id = IdGenerator.generateId()
         self._props = props
 
     def __str__(self):
         return f"{self._props}"
 
-    def getId(self) -> str:
-        return self._id
+    def getSheetId(self) -> str:
+        return self._sheet_id
 
     def getProps(self) -> dict:
         return self._props

@@ -119,7 +119,7 @@ class LwfManager():
         args['siteObjPath'] = siteObjPath
         metasheet.setArgs(args)
         # persist
-        sheet = LwfmEventClient().notate(metasheet.getId(), metasheet)
+        sheet = LwfmEventClient().notate(metasheet.getSheetId(), metasheet)
         # now emit an INFO job status
         self.emitRepoInfo(jobContext, metasheet)
         return sheet

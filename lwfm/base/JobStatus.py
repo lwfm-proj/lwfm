@@ -142,4 +142,4 @@ class JobStatus:
         )
 
     def __str__(self):
-        return f"[stat ctx:{self._context} value:{self._status.value} info:{self._native_info}]"
+        return f"[status ctx:{self._context} value:{self._status.value} info:{self._native_info}]"

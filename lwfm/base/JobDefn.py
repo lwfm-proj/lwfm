@@ -36,13 +36,13 @@ class JobDefn():
     """
 
     def __init__(self, entryPoint: str = None):
-        self._id = IdGenerator.generateId()
+        self._defn_id = IdGenerator.generateId()
         self.setEntryPoint(entryPoint)
         self.setName("")
         self.setJobArgs([])
 
-    def getId(self) -> str:
-        return self._id
+    def getDefnId(self) -> str:
+        return self._defn_id
 
     def setName(self, name: str) -> None:
         self._name = name
