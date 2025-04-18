@@ -15,33 +15,23 @@ class JobContext:
     and then augment it with updated job status information.
     """
 
-    def __init__(self, parentContext: "JobContext" = None):
-        self._id = None
-        self._native_id = None
-        self._job_id = None
-        self._parent_job_id = None
-        self._origin_job_id = None
-        self._name = None
+    def __init__(self):
+        self._job_id = IdGenerator.generateId()
+        self._native_id = self._job_id    # not true for all Sites, can get clobbered later
+        self._parent_job_id = self._job_id
+        # TODO the workflow with this id won't exist in db
+        self._workflow_id = self._job_id
+        self._name = self._job_id   # can be clobbered later
         self._compute_type = "default"
         self._site_name = "local"
-        self._set_id = None
 
+
+    def addParentContext(self, parentContext: "JobContext") -> None:
         if parentContext is not None:
             self._parent_job_id = parentContext.getJobId()
-            self._origin_job_id = parentContext.getOriginJobId()
+            self._workflow_id = parentContext.getWorkflowId()
             self._site_name = parentContext.getSiteName()
             self._name = (parentContext.getName() or "") + "_" + (self._name or "")
-        else:
-            self._id = IdGenerator.generateId()
-            self._native_id = self._id
-            self._origin_job_id = self._id
-            self._name = self._id
-
-    def setId(self, idValue: str) -> None:
-        self._id = idValue
-
-    def getId(self) -> str:
-        return self._id
 
     def setJobId(self, idValue: str) -> None:
         self._job_id = idValue
@@ -61,11 +51,11 @@ class JobContext:
     def getParentJobId(self) -> str:
         return self._parent_job_id
 
-    def setOriginJobId(self, originId: str) -> None:
-        self._origin_job_id = originId
+    def setWorkflowId(self, workflowId: str) -> None:
+        self._workflow_id = workflowId
 
-    def getOriginJobId(self) -> str:
-        return self._origin_job_id
+    def getWorkflowId(self) -> str:
+        return self._workflow_id
 
     def setName(self, name: str) -> None:
         self._name = name
@@ -85,14 +75,9 @@ class JobContext:
     def getSiteName(self) -> str:
         return self._site_name
 
-    def setJobSetId(self, idValue: str) -> None:
-        self._set_id = idValue
-
-    def getJobSetId(self) -> str:
-        return self._set_id
 
     def __str__(self):
-        return f"[ctx id:{self.getId()} native:{self.getNativeId()} " + \
-            f"parent:{self.getParentJobId()} origin:{self.getOriginJobId()} " + \
-            f"set:{self.getJobSetId()} site:{self.getSiteName()} " + \
+        return f"[ctx id:{self.getJobId()} native:{self.getNativeId()} " + \
+            f"parent:{self.getParentJobId()} workflow:{self.getWorkflowId()} " + \
+            f"site:{self.getSiteName()} " + \
             f"compute:{self.getComputeType()}]"

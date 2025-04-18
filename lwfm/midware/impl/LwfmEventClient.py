@@ -5,12 +5,13 @@ where its not running on the same machine as the workflow
 """
 
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
-#pylint: disable = broad-exception-caught
+#pylint: disable = broad-exception-caught, logging-not-lazy
 
 from typing import List
 import os
 import datetime
-import logging    # don't use the lwfm Logger here else circular import
+
+import logging # don't use the lwfm Logger here else circular import
 
 import json
 import requests
@@ -50,6 +51,22 @@ class LwfmEventClient():
             return None
 
 
+    def getAllStatus(self, jobId: str) -> [JobStatus]:
+        response = requests.get(f"{self.getUrl()}/statusAll/{jobId}",
+            timeout=self._REST_TIMEOUT)
+        try:
+            if response.ok:
+                if (response.text is not None) and (len(response.text) > 0):
+                    statusList = ObjectSerializer.deserialize(response.text)
+                    return statusList
+                return None
+            self.emitLogging("ERROR", f"response not ok: {response.text}")
+            return None
+        except Exception as ex:
+            self.emitLogging("ERROR", "getAllStatus error: " + str(ex))
+            return None
+
+
     # emit a status message, perhaps triggering event handlers
     def emitStatus(self, context: JobContext, statusClass: type,
                    nativeStatus: str, nativeInfo: str = None) -> None:
@@ -65,9 +82,8 @@ class LwfmEventClient():
                 timeout=self._REST_TIMEOUT)
             if response.ok:
                 return
-            else:
-                self.emitLogging("ERROR", f"emitStatus error: {response}")
-                return
+            self.emitLogging("ERROR", f"emitStatus error: {response}")
+            return
         except Exception as ex:
             self.emitLogging("ERROR", "Error emitting job status: " + str(ex))
             return
@@ -75,14 +91,14 @@ class LwfmEventClient():
     #***********************************************************************
     # event methods
 
-    def setEvent(self, wfe: WfEvent) -> str:
+    def setEvent(self, wfe: WfEvent) -> JobStatus:
         payload = {}
         payload["eventObj"] = ObjectSerializer.serialize(wfe)
         response = requests.post(f"{self.getUrl()}/setEvent", payload,
             timeout=self._REST_TIMEOUT)
         if response.ok:
-            # return the job id of the registered job
-            return response.text
+            # return the initial status of the registered job
+            return self.getStatus(response.text)
         else:
             self.emitLogging("ERROR", "setEvent error: " + response.text)
             return None
@@ -93,7 +109,7 @@ class LwfmEventClient():
         response = requests.post(f"{self.getUrl()}/unsetEvent", payload,
             timeout=self._REST_TIMEOUT)
         if response.ok:
-            # return the job id of the registered job
+            # TODO should return a terminal status  
             return
         else:
             self.emitLogging("ERROR", "unsetEvent error: " + response.text)
@@ -120,10 +136,9 @@ class LwfmEventClient():
                 timeout=self._REST_TIMEOUT)
             if response.ok:
                 return
-            else:
-                # use the plain logger when logging logging errors
-                logging.error(f"emitLogging error: {response.text}")
-                return
+            # use the plain logger when logging logging errors
+            logging.error(f"emitLogging error: {response.text}")
+            return
         except Exception as ex:
             # use the plain logger when logging logging errors
             logging.error("error emitting logging: " + str(ex))
@@ -142,10 +157,9 @@ class LwfmEventClient():
                 timeout=self._REST_TIMEOUT)
             if response.ok:
                 return
-            else:
-                # use the plain logger when logging logging errors
-                logging.error(f"notate error: {response.text}")
-                return
+            # use the plain logger when logging logging errors
+            logging.error(f"notate error: {response.text}")
+            return
         except Exception as ex:
             # use the plain logger when logging logging errors
             logging.error("error notating: " + str(ex))
@@ -160,12 +174,11 @@ class LwfmEventClient():
             if response.ok:
                 l = json.loads(response.text)
                 return [ObjectSerializer.deserialize(blob) for blob in l]
-            else:
-                # use the plain logger when logging logging errors
-                logging.error(f"find error: {response.text}")
+            # use the plain logger when logging logging errors
+            logging.error(f"find error: {response.text}")
         except Exception as ex:
             # use the plain logger when logging logging errors
-            logging.error("error notating: " + str(ex))
+            logging.error("error finding: " + str(ex))
         return None
 
 

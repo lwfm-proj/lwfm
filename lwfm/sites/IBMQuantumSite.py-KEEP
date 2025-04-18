@@ -42,7 +42,7 @@ class IBMQuantumJobStatusValues(Enum):
 
 class IBMQuantumJobStatus(JobStatus):
     def __init__(self, jobContext: JobContext = None):
-        super().__init__()
+        super(IBMQuantumJobStatus, self).__init__(jobContext)
         # override the default status mapping for the specifics of this site
         self.setStatusMap({
             IBMQuantumJobStatusValues.INITIALIZING.value  : JobStatusValues.READY    ,
@@ -221,7 +221,7 @@ class IBMQuantumSiteSpin(SiteSpin):
 
 class IBMQuantumSite(Site):
     def __init__(self):
-        super().__init__(
+        super(IBMQuantumSite, self).__init__(
             SITE_NAME, IBMQuantumSiteAuth(), IBMQuantumSiteRun(), 
             IBMQuantumSiteRepo(), IBMQuantumSiteSpin()
         )
@@ -231,4 +231,6 @@ class IBMQuantumSite(Site):
         cFile = io.BytesIO()
         qpy.dump(circuit, cFile)
         return JobDefn(cFile.getvalue())
+    
+
     

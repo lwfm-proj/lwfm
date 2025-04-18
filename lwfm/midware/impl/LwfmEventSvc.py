@@ -11,7 +11,7 @@ import logging
 from flask import Flask, request
 from .LwfmEventProcessor import LwfmEventProcessor
 from .Store import JobStatusStore, LoggingStore, MetaRepoStore
-from ...base.JobStatus import JobStatus
+from ...base.JobStatus import JobStatus, JobStatusValues
 from ...util.ObjectSerializer import ObjectSerializer
 
 #************************************************************************
@@ -27,7 +27,7 @@ _statusStore = JobStatusStore()
 _loggingStore = LoggingStore()
 _metaStore = MetaRepoStore()
 
-print("*** service starting")
+_loggingStore.putLogging("INFO", "*** lwfm service starting")
 
 
 #************************************************************************
@@ -51,7 +51,7 @@ def emitStatus():
         statusBlob = request.form["statusBlob"]
         statusObj : JobStatus = ObjectSerializer.deserialize(statusBlob)
         _statusStore.putJobStatus(statusObj)
-        if statusObj.getStatusValue() == "INFO":
+        if statusObj.getStatus() == JobStatusValues.INFO:
             _testDataTriggers(statusObj)
         return "", 200
     except Exception as ex:
@@ -67,7 +67,18 @@ def getStatus(jobId: str):
             return ObjectSerializer.serialize(s)
         return ""
     except Exception:
-        # TODO log something
+        _loggingStore.putLogging("ERROR", "Unable to /getStatus() for jobId: " + jobId)
+        return ""
+
+@app.route("/statusAll/<jobId>")
+def getStatusAll(jobId: str):
+    try:
+        s = _statusStore.getAllJobStatuses(jobId)
+        if s is not None:
+            return ObjectSerializer.serialize(s)
+        return ""
+    except Exception:
+        _loggingStore.putLogging("ERROR", "Unable to /getStatusAll() for jobId: " + jobId)
         return ""
 
 

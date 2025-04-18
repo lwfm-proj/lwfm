@@ -48,6 +48,7 @@ class Store():
             else:
                 record = baseRecord
                 record["_doc"] = mydoc    # the data, serialized object, etc
+            print(f"* insert {record}")
             self._db.insert(Document(record, doc_id=db_id))
             return
         except Exception as ex:
@@ -112,7 +113,7 @@ class EventStore(Store):
     def putWfEvent(self, datum: WfEvent, typeT: str) -> bool:
         try:
             self._put(datum.getFireSite(), "run.event." + typeT,
-                      datum.getId(), ObjectSerializer.serialize(datum))
+                      datum.getEventId(), ObjectSerializer.serialize(datum))
             return True
         except Exception as e:
             self._loggingStore.putLogging("ERROR", "Error in putWfEvent: " + str(e))

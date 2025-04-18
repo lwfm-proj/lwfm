@@ -28,7 +28,7 @@ from ..midware.Logger import logger
 class LocalJobStatus(JobStatus):
     def __init__(self, context: JobContext = None):
         super().__init__(context)
-        # use default canonical status map
+        # use default canonical status map inherited from the base class 
         self.getJobContext().setSiteName(LocalSite.SITE_NAME)
 
 
@@ -71,7 +71,7 @@ class LocalSiteRun(SiteRun):
             # copy the current shell environment into the subprocess
             # and inject the job id
             env = os.environ.copy()
-            env['_LWFM_JOB_ID'] = jobContext.getId()
+            env['_LWFM_JOB_ID'] = jobContext.getJobId()
             subprocess.run(cmd, shell=True, env=env)
             # Emit success statuses
             lwfManager.emitStatus(jobContext, LocalJobStatus,
@@ -95,9 +95,6 @@ class LocalSiteRun(SiteRun):
             # this is the local Run driver - there is not (as yet) any concept of
             # "computeType" or "runArgs" as there might be on another more complex
             # site (e.g. HPC scheduler, cloud, etc.)
-
-            print(f"local submit job:{jobDefn} parent:{parentContext}")
-
             if parentContext is None:
                 # we don't know our job id - it wasn't passed in
                 # check the environment
@@ -120,8 +117,8 @@ class LocalSiteRun(SiteRun):
             # Run the job in a new thread so we can wrap it in a bit more code
             # this will kick the status the rest of the way to a terminal state
             multiprocessing.Process(target=self._runJob, args=[jobDefn, useContext]).start()
-            logger.info(f"LocalSite: submitted job {useContext.getId()}")
-            return lwfManager.getStatus(useContext.getId())
+            logger.info(f"LocalSite: submitted job {useContext.getJobId()}")
+            return lwfManager.getStatus(useContext.getJobId())
         except Exception as ex:
             logger.error(f"ERROR: Could not submit job {ex}")
             return None

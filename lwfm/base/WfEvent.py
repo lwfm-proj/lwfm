@@ -18,13 +18,13 @@ from .JobDefn import JobDefn
 # ************************************************************************
 class WfEvent:
     def __init__(self, fireDefn=None, fireSite=None, fireJobId=None):
-        self._id = IdGenerator.generateId()
+        self._event_id = IdGenerator.generateId()
         self._fire_defn = fireDefn
         self._fire_site = fireSite
         self._fire_job_id = fireJobId
 
-    def getId(self):
-        return self._id
+    def getEventId(self):
+        return self._event_id
 
     def setFireDefn(self, fireDefn):
         self._fire_defn = fireDefn
@@ -48,13 +48,13 @@ class WfEvent:
         return f"[event defn:{str(self.getFireDefn())} site:{str(self.getFireSite())} jobId:{str(self.getFireJobId())}]"
 
     def getKey(self):
-        return self.getId()
+        return self.getEventId()
 
 # ***************************************************************************
 
 class RemoteJobEvent(WfEvent):
     def __init__(self, context):
-        super().__init__(JobDefn(), context.getSiteName(), context.getId())
+        super().__init__(JobDefn(), context.getSiteName(), context.getJobId())
         self._native_job_id = context.getNativeId()
 
     def getNativeJobId(self):

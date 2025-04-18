@@ -7,7 +7,7 @@ It is emitted within the job's context.
 #pylint: disable = invalid-name, broad-exception-caught, line-too-long
 
 from enum import Enum
-from datetime import datetime
+import datetime
 
 from ..util.IdGenerator import IdGenerator
 
@@ -47,10 +47,10 @@ class JobStatus:
     """
 
     def __init__(self, jobContext: JobContext = None):
-        self._id = IdGenerator.generateId()
+        self._status_id = IdGenerator.generateId()
         self._status = JobStatusValues.UNKNOWN
         self._native_status = None
-        self._emit_time = datetime.utcnow()
+        self._emit_time = datetime.datetime.now(datetime.timezone.utc)
         self._received_time = None
         self._native_info = None
         self._context = jobContext
@@ -66,8 +66,8 @@ class JobStatus:
             "CANCELLED": JobStatusValues.CANCELLED,
         }
 
-    def getId(self) -> str:
-        return self._id
+    def getStatusId(self) -> str:
+        return self._status_id
 
     def getJobContext(self) -> JobContext:
         return self._context
@@ -76,7 +76,7 @@ class JobStatus:
         self._context = jobContext
 
     def getJobId(self) -> str:
-        return self._context.getId()
+        return self._context.getJobId()
 
     def setStatus(self, status: JobStatusValues) -> None:
         self._status = status

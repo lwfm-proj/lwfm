@@ -19,15 +19,13 @@ list of sites provided here with a user's own custom Site implementations.
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
 #pylint: disable = broad-exception-caught
 
-from enum import Enum
 from abc import ABC, abstractmethod
-import os
 import importlib
+import os
 
 from typing import List, TYPE_CHECKING
 
 from ..midware.Logger import logger
-
 from .JobContext import JobContext
 from .JobStatus import JobStatus
 from .Metasheet import Metasheet
@@ -121,7 +119,7 @@ class SiteRun(SitePillar):
         and then call its submitJob() method.
         """
         runDriver = cls()
-        runDriver.submit(jobDefn, parentContext)
+        runDriver.submit(jobDefn, parentContext, computeType, runArgs)
 
     @abstractmethod
     def submit(self, jobDefn: 'JobDefn', parentContext: JobContext = None,
@@ -255,8 +253,8 @@ class SiteSpin(SitePillar):
 # Repo subsystems.
 #
 # The getSite() factory utility method returns the Python class which implements the
-# interfaces for the named Site. ~/.lwfm/sites.txt can be used to augment the list
-# of sites provided here with a user's own custom Site implementations. In the
+# interfaces for the named Site. ~/.lwfm/sites.txt can be used to augment the
+# list of sites provided here with a user's own custom Site implementations. In the
 # event of a name collision between the user's sites.txt and those hardcoded here,
 # the user's sites.txt config trumps.
 
@@ -309,9 +307,6 @@ class Site:
 
     @staticmethod
     def _getSiteEntry(site: str):
-        import os
-        import logging
-        logger = logging.getLogger(__name__)
         siteSet = {
             "local": "lwfm.sites.LocalSite.LocalSite",
             "insitu": "lwfm.sites.InSituSite.InSituSite",
@@ -344,5 +339,6 @@ class Site:
             return inst
         except Exception as ex:
             logger.error(
-                "Cannot instantiate Site for " + str(site) + " {}".format(ex)
+                f"Cannot instantiate Site for {site} {ex}"
             )
+            raise ex

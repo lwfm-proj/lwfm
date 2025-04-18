@@ -29,15 +29,11 @@ class Logger:
         return formatted_time
 
     def _buildMsg(self, msg: str, status: str) -> str:
-        if (status is None):
+        if status is None:
             status = ""
-        if (msg is None):
+        if msg is None:
             msg = ""
-        out = " {} [{}] {}".format(
-            self._getTimestamp(),
-            status,
-            msg,
-        )
+        out = f"{self._getTimestamp()} [{status}] {msg}"
         return out
 
     def setLevel(self, level) -> None:

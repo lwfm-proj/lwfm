@@ -33,6 +33,10 @@ class LwfManager():
     def getStatus(self, jobId: str) -> JobStatus:
         return self._client.getStatus(jobId)
 
+    def getAllStatus(self, jobId: str) -> [JobStatus]:
+        return self._client.getAllStatus(jobId)
+
+
     def getJobContextFromEnv(self) -> JobContext:
         # see if we got passed in a job id in the os environment
         if '_LWFM_JOB_ID' in os.environ:
@@ -41,7 +45,7 @@ class LwfManager():
                 return status.getJobContext()
             else:
                 context = JobContext()
-                context.setId(os.environ['_LWFM_JOB_ID'])
+                context.setJobId(os.environ['_LWFM_JOB_ID'])
                 return context
         return None
 
@@ -87,8 +91,8 @@ class LwfManager():
     #***********************************************************************
     # event methods - workflow metadata
 
-    # register an event handler, get back the id of the future job
-    def setEvent(self, wfe: WfEvent) -> str:
+    # register an event handler, get back the initial queued status of the future job
+    def setEvent(self, wfe: WfEvent) -> JobStatus:
         return self._client.setEvent(wfe)
 
     def unsetEvent(self, wfe: WfEvent) -> None:
@@ -107,7 +111,7 @@ class LwfManager():
         # do we know the job context?
         jobContext = self.getJobContextFromEnv()
         if jobContext is not None:
-            metasheet.setId(jobContext.getId())
+            metasheet.setId(jobContext.getJobId())
         # now do the metadata notate
         args = metasheet.getArgs()
         args['_direction'] = 'put' if isPut else 'get'
