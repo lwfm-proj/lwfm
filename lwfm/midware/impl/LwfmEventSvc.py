@@ -10,7 +10,8 @@ import logging
 
 from flask import Flask, request
 from .LwfmEventProcessor import LwfmEventProcessor
-from .Store import JobStatusStore, LoggingStore, MetaRepoStore
+from .Store import JobStatusStore, LoggingStore, MetaRepoStore, WorkflowStore
+from ...base.Workflow import Workflow
 from ...base.JobStatus import JobStatus, JobStatusValues
 from ...util.ObjectSerializer import ObjectSerializer
 
@@ -26,6 +27,7 @@ wfProcessor = LwfmEventProcessor()
 _statusStore = JobStatusStore()
 _loggingStore = LoggingStore()
 _metaStore = MetaRepoStore()
+_workflowStore = WorkflowStore()
 
 _loggingStore.putLogging("INFO", "*** lwfm service starting")
 
@@ -37,6 +39,31 @@ _loggingStore.putLogging("INFO", "*** lwfm service starting")
 def index():
     return str(True)
 
+
+#************************************************************************
+# workflow endpoints
+
+
+@app.route("/workflow/<workflow_id>")
+def getWorkflow(workflow_id: str):
+    try:
+        w = _workflowStore.getWorkflow(workflow_id)
+        if w is not None:
+            return w.serialize()
+        return "", 404
+    except Exception as ex:
+        _loggingStore.putLogging("ERROR", "getWorkflow: " + str(ex))
+        return "", 500
+
+@app.route("/workflow", methods=["POST"])
+def putWorkflow():
+    try:
+        workflow : Workflow = ObjectSerializer.deserialize(request.form["workflowObj"])
+        _workflowStore.putWorkflow(workflow)
+        return "", 200
+    except Exception as ex:
+        _loggingStore.putLogging("ERROR", "putWorkflow: " + str(ex))
+        return "", 500
 
 #************************************************************************
 # status endpoints
@@ -51,7 +78,15 @@ def emitStatus():
         statusBlob = request.form["statusBlob"]
         statusObj : JobStatus = ObjectSerializer.deserialize(statusBlob)
         _statusStore.putJobStatus(statusObj)
-        if statusObj.getStatus() == JobStatusValues.INFO:
+        if statusObj.getStatus() == JobStatusValues.READY or \
+            statusObj.getStatus() == JobStatusValues.PENDING:
+            wfId = statusObj.getJobContext().getWorkflowId()
+            wf = _workflowStore.getWorkflow(wfId)
+            if wf is None:
+                wf = Workflow()
+                wf._setWorkflowId(wfId)
+                _workflowStore.putWorkflow(wf)
+        elif statusObj.getStatus() == JobStatusValues.INFO:
             _testDataTriggers(statusObj)
         return "", 200
     except Exception as ex:

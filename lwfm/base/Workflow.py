@@ -15,8 +15,9 @@ class Workflow():
         self._workflow_id = IdGenerator.generateId()
         self._name = name
         self._description = description
+        self._props = {}
 
-    def setWorkflowId(self, idValue: str) -> None:
+    def _setWorkflowId(self, idValue: str) -> None:
         self._workflow_id = idValue
 
     def getWorkflowId(self) -> str:
@@ -33,3 +34,9 @@ class Workflow():
 
     def getDescription(self) -> str:
         return self._description
+
+    def getProps(self) -> dict:
+        return self._props
+
+    def setProps(self, props: dict) -> None:
+        self._props = props

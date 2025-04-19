@@ -7,6 +7,7 @@ from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatusValues
 from lwfm.base.WfEvent import JobEvent
+from lwfm.base.Workflow import Workflow
 from lwfm.midware.LwfManager import lwfManager
 from lwfm.midware.Logger import logger
 
@@ -22,8 +23,14 @@ if __name__ == "__main__":
     # a stand-in for some data file
     dataFile = "ex1_date.out"
 
+    # define workflow - if one was not defined, a trivial one would be created below
+    wf = Workflow()
+    wf.setName("A->B->C test")
+    wf.setDescription("A test of chaining three jobs together asynchronously")
+    lwfManager.putWorkflow(wf)
+
     # submit job A
-    statusA = site.getRunDriver().submit(jobDefnA)    # a new job context is created
+    statusA = site.getRunDriver().submit(jobDefnA, wf)    # a new job context is created
     logger.info("job A submitted")
 
     # when job A asynchronously reaches the COMPLETE state, fire job B

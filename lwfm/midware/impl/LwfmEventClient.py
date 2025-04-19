@@ -20,6 +20,7 @@ from ...base.JobStatus import JobStatus
 from ...base.JobContext import JobContext
 from ...base.Metasheet import Metasheet
 from ...base.WfEvent import WfEvent
+from ...base.Workflow import Workflow
 from ...util.ObjectSerializer import ObjectSerializer
 
 class LwfmEventClient():
@@ -31,6 +32,35 @@ class LwfmEventClient():
 
     def getUrl(self):
         return self._SERVICE_URL
+
+    #***********************************************************************
+    # workflow methods
+
+    def getWorkflow(self, workflow_id: str) -> Workflow:
+        response = requests.get(f"{self.getUrl()}/workflow/{workflow_id}",
+            timeout=self._REST_TIMEOUT)
+        try:
+            if response.ok:
+                if (response.text is not None) and (len(response.text) > 0):
+                    workflow = ObjectSerializer.deserialize(response.text)
+                    return workflow
+                return None
+            self.emitLogging("ERROR", f"response not ok: {response.text}")
+            return None
+        except Exception as ex:
+            self.emitLogging("ERROR", "getWorkflow error: " + str(ex))
+            return None
+
+    def putWorkflow(self, workflow: Workflow) -> str:
+        payload = {}
+        payload["workflowObj"] = ObjectSerializer.serialize(workflow)
+        response = requests.post(f"{self.getUrl()}/workflow", payload,
+            timeout=self._REST_TIMEOUT)
+        if not response.ok:
+            self.emitLogging("ERROR", f"putWorkflow error: {response.text}")
+            return
+        return workflow.getWorkflowId()
+
 
     #***********************************************************************
     # status methods

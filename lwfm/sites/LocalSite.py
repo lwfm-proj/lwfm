@@ -8,7 +8,7 @@ Unsecure, as this is local and we assume the user is themselves already.
 #pylint: disable = broad-exception-caught
 
 import shutil
-from typing import List
+from typing import List, Union
 import os
 import subprocess
 import multiprocessing
@@ -18,6 +18,7 @@ from ..base.JobDefn import JobDefn
 from ..base.JobStatus import JobStatus, JobStatusValues
 from ..base.JobContext import JobContext
 from ..base.Metasheet import Metasheet
+from ..base.Workflow import Workflow
 from ..midware.LwfManager import lwfManager
 from ..midware.Logger import logger
 
@@ -89,7 +90,7 @@ class LocalSiteRun(SiteRun):
     # we know our job id yet, though we may - it can be passed in directly (e.g. the lwfManager
     # might run the job from an event trigger and thus know the job id a priori), or it can
     # be passed in sub rosa via the os environment
-    def submit(self, jobDefn: JobDefn, parentContext: JobContext = None,
+    def submit(self, jobDefn: JobDefn, parentContext: Union[JobContext, Workflow] = None,
         computeType: str = None, runArgs: dict = None) -> JobStatus:
         try:
             # this is the local Run driver - there is not (as yet) any concept of
@@ -105,8 +106,12 @@ class LocalSiteRun(SiteRun):
                     # assert readiness
                     lwfManager.emitStatus(useContext, LocalJobStatus,
                         JobStatusValues.READY.value)
-            else:
+            elif isinstance(parentContext, JobContext):
                 useContext = parentContext
+            elif isinstance(parentContext, Workflow):
+                useContext = JobContext()
+                useContext.setWorkflowId(parentContext.getWorkflowId())
+                useContext.setName(parentContext.getName())
 
             # if we want to, we can test validity of the job defn here, reject it
             # let's say its good and carry on

@@ -17,6 +17,7 @@ from ...util.IdGenerator import IdGenerator
 from ...base.JobStatus import JobStatus
 from ...base.Metasheet import Metasheet
 from ...base.WfEvent import WfEvent
+from ...base.Workflow import Workflow
 from ...util.ObjectSerializer import ObjectSerializer
 
 
@@ -85,8 +86,37 @@ class AuthStore(Store):
 
 # ****************************************************************************
 
+
+class WorkflowStore(Store):
+
+    def getAllWorkflows(self) -> List[Workflow]:
+        Q = Query()
+        results = self._db.search((Q._pillar == "run.wf"))
+        if results is not None:
+            blobs = self._sortMostRecent(results)
+            return [ObjectSerializer.deserialize(blob["_doc"]) for blob in blobs]
+        return None
+
+    # return the site-specific auth blob for this site
+    def getWorkflow(self, workflow_id: str) -> Workflow:
+        Q = Query()
+        result = self._db.search((Q._site == "local") & (Q._pillar == "run.wf") & \
+            (Q._key == workflow_id))
+        if result is not None:
+            return ObjectSerializer.deserialize(result[0]["_doc"])
+        return None
+
+    # set the site-specific auth blob for this site
+    def putWorkflow(self, workflow: Workflow) -> None:
+        self._put("local", "run.wf", workflow.getWorkflowId(),
+            ObjectSerializer.serialize(workflow))
+
+
+# ****************************************************************************
+
 class LoggingStore(Store):
 
+    # TODO add the job id to this query, or other filter - could get large 
     def getAllLogging(self, level: str) -> List[str]:
         Q = Query()
         results = self._db.search((Q._pillar == level))
@@ -227,38 +257,3 @@ class MetaRepoStore(Store):
         except Exception as e:
             self._loggingStore.putLogging("ERROR", "Error in find: " + str(e))
             return None
-
-
-# ****************************************************************************
-# testing
-
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) != 2:
-        print("Usage: python Store.py <type>")
-        sys.exit(1)
-    if sys.argv[1] == "auth":
-        authStore = AuthStore()
-        print(authStore.getAllAuth())
-    elif (sys.argv[1] == "run.log.ERROR") or (sys.argv[1] == "run.log.INFO"):
-        logStore = LoggingStore()
-        for log in logStore.getAllLogging(sys.argv[1]):
-            print(log)
-    elif sys.argv[1] == "run.status":
-        statusStore = JobStatusStore()
-        for status in statusStore.getAllJobStatuses(None):
-            print(status)
-    elif sys.argv[1] == "repo.meta":
-        metaStore = MetaRepoStore()
-        for meta in metaStore.getAllMetasheets():
-            print(meta)
-    elif sys.argv[1].startswith("run.event"):
-        eventStore = EventStore()
-        for event in eventStore.getAllWfEvents(sys.argv[1]):
-            print(event)
-    elif sys.argv[1] == "all":
-        store = Store()
-        for doc in store._db.all():
-            print(f"*** {doc}")
-    else:
-        print("Unknown type: " + sys.argv[1])

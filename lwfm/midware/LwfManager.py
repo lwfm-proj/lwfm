@@ -16,6 +16,7 @@ from ..base.JobContext import JobContext
 from ..base.JobStatus import JobStatus
 from ..util.IdGenerator import IdGenerator
 from ..base.Metasheet import Metasheet
+from ..base.Workflow import Workflow
 from .impl.LwfmEventClient import LwfmEventClient
 
 # ***************************************************************************
@@ -26,8 +27,19 @@ class LwfManager():
     def generateId(self):
         return IdGenerator.generateId()
 
+
     #***********************************************************************
-    # status methods - job metadata
+    # workflow methods 
+
+    def putWorkflow(self, workflow: Workflow) -> str:
+        return self._client.putWorkflow(workflow)
+
+    def getWorkflow(self, workflow_id: str) -> Workflow:
+        return self._client.getWorkflow(workflow_id)
+
+
+    #***********************************************************************
+    # status methods 
 
     # given a job id, get back the current status
     def getStatus(self, jobId: str) -> JobStatus:
@@ -49,7 +61,7 @@ class LwfManager():
                 return context
         return None
 
-    # emit a status message 
+    # emit a status message
     def emitStatus(self, context: JobContext, statusClass: type,
                    nativeStatus: str, nativeInfo: str = None) -> None:
         return self._client.emitStatus(context, statusClass, nativeStatus, nativeInfo)
@@ -89,7 +101,7 @@ class LwfManager():
 
 
     #***********************************************************************
-    # event methods - workflow metadata
+    # event methods 
 
     # register an event handler, get back the initial queued status of the future job
     def setEvent(self, wfe: WfEvent) -> JobStatus:
@@ -104,7 +116,7 @@ class LwfManager():
 
 
     #***********************************************************************
-    # repo methods - data metadata
+    # repo methods 
 
     def notate(self, localPath: str, siteObjPath: str, metasheet: Metasheet = None,
                isPut: bool = False) -> Metasheet:

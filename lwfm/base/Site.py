@@ -23,12 +23,13 @@ from abc import ABC, abstractmethod
 import importlib
 import os
 
-from typing import List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Union
 
 from ..midware.Logger import logger
 from .JobContext import JobContext
 from .JobStatus import JobStatus
 from .Metasheet import Metasheet
+from .Workflow import Workflow
 
 # Only import for type checking, not at runtime
 if TYPE_CHECKING:
@@ -122,7 +123,8 @@ class SiteRun(SitePillar):
         runDriver.submit(jobDefn, parentContext, computeType, runArgs)
 
     @abstractmethod
-    def submit(self, jobDefn: 'JobDefn', parentContext: JobContext = None,
+    def submit(self, jobDefn: 'JobDefn', 
+        parentContext: Union[JobContext, Workflow] = None,
         computeType: str = None, runArgs: dict = None) -> JobStatus:
         """
         Submit the job for execution on this Site. It is an implementation
