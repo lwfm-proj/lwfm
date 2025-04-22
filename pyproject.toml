@@ -10,3 +10,8 @@ dependencies = [
     "tinydb>=4.8.2",
 ]
 
+[tool.black]
+line-length = 88
+[tool.ruff]
+line-length = 88
+
