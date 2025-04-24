@@ -129,9 +129,8 @@ class LwfmEventClient:
         if response.ok:
             # return the initial status of the registered job
             return self.getStatus(response.text)
-        else:
-            self.emitLogging("ERROR", "setEvent error: " + response.text)
-            return None
+        self.emitLogging("ERROR", "setEvent error: " + response.text)
+        return None
 
     def unsetEvent(self, wfe: WfEvent) -> None:
         payload = {}
@@ -139,11 +138,10 @@ class LwfmEventClient:
         response = requests.post(f"{self.getUrl()}/unsetEvent", payload,
             timeout=self._REST_TIMEOUT)
         if response.ok:
-            # TODO should return a terminal status  
+            # TODO should return a terminal status
             return
-        else:
-            self.emitLogging("ERROR", "unsetEvent error: " + response.text)
-            return
+        self.emitLogging("ERROR", "unsetEvent error: " + response.text)
+        return
 
     def getActiveWfEvents(self) -> List[WfEvent]:
         response = requests.get(f"{self.getUrl()}/listEvents",

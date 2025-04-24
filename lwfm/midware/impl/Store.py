@@ -182,6 +182,7 @@ class LoggingStore(Store):
 class EventStore(Store):
 
     def putWfEvent(self, datum: WfEvent, typeT: str) -> None:
+        print(f"Putting event {typeT} {datum}")
         self._put("EventStore", datum.getFireSite(), "run.event." + typeT,
             datum.getEventId(), ObjectSerializer.serialize(datum))
 
@@ -192,11 +193,11 @@ class EventStore(Store):
             if typeT is not None:
                 res = cur.execute(
                     "SELECT data FROM EventStore WHERE pillar=? ORDER BY ts DESC",
-                    ("run.event." + typeT,)
+                    (typeT,)
                 )
             else:
                 res = cur.execute(
-                    "SELECT data FROM EventStore WHERE pillar LIKE 'run.event.%' ORDER BY ts DESC"
+                    "SELECT data FROM EventStore WHERE pillar LIKE '%' ORDER BY ts DESC"
                 )
             rows = res.fetchall()
             if rows:

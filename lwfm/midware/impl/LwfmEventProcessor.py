@@ -80,7 +80,8 @@ class LwfmEventProcessor:
     def checkRemoteJobEvents(self) -> bool:
         gotOne = False
         try:
-            events: List[RemoteJobEvent] = self.findAllEvents("run.event.REMOTE")
+            events: List[RemoteJobEvent] = \
+                self._eventStore.getAllWfEvents("run.event.REMOTE")
             for e in events:
                 try:
                     self._loggingStore.putLogging("INFO",
@@ -117,7 +118,7 @@ class LwfmEventProcessor:
     def checkJobEvents(self) -> bool:
         gotOne = False
         try:
-            events = self.findAllEvents("run.event.JOB")
+            events = self._eventStore.getAllWfEvents("run.event.JOB")
             if events is None:
                 l = 0
             else:
@@ -172,7 +173,7 @@ class LwfmEventProcessor:
     def checkDataEvents(self, status: JobStatus) -> bool:
         gotOne = False
         try:
-            events = self.findAllEvents("run.event.DATA")
+            events = self._eventStore.getAllWfEvents("run.event.DATA")
             print("Data events: " + str(len(events)))
             for e in events:
                 try:
@@ -252,12 +253,12 @@ class LwfmEventProcessor:
         return newJobContext
 
 
-    def findAllEvents(self, typeT: str = None) -> List[WfEvent]:
-        try:
-            return self._eventStore.getAllWfEvents(typeT)
-        except Exception as ex:
-            self._loggingStore.putLogging("ERROR", "findAllEvents: " + str(ex))
-            return None
+    # def findAllEvents(self, typeT: str = None) -> List[WfEvent]:
+    #     try:
+    #         return self._eventStore.getAllWfEvents(typeT)
+    #     except Exception as ex:
+    #         self._loggingStore.putLogging("ERROR", "findAllEvents: " + str(ex))
+    #         return None
 
 
     # Register an event handler.  When a jobId running on a job Site
