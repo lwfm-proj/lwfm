@@ -24,8 +24,8 @@ if __name__ == "__main__":
     # a stand-in for some data file
     dataFile = "ex1_date.out"
 
-    # define workflow - if one was not defined, a trivial one would be created under
-    # the hood on call to submit()
+    # define workflow - [if one was not defined, a trivial one would be created under
+    # the hood on call to submit()]
     wf = Workflow()
     wf.setName("A->B->C test")
     wf.setDescription("A test of chaining three jobs together asynchronously")

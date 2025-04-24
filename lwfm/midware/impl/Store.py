@@ -8,6 +8,8 @@ Data stores for job status, metadata, logging, and workflow events.
 import os
 import time
 import datetime
+import json
+import re
 
 from typing import List
 import sqlite3
@@ -15,7 +17,15 @@ import sqlite3
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.WfEvent import WfEvent
 from lwfm.base.Workflow import Workflow
+from lwfm.base.Metasheet import Metasheet
 from lwfm.util.ObjectSerializer import ObjectSerializer
+
+
+
+def regexp(expr, item):
+    if item is None:
+        return False
+    return re.search(expr, item) is not None
 
 
 # ****************************************************************************
@@ -70,6 +80,13 @@ class Store:
             "pillar TEXT, " \
             "key TEXT, " \
             "data TEXT)")
+        cur.execute("CREATE TABLE IF NOT EXISTS MetasheetStore ( " \
+            "id INTEGER PRIMARY KEY, "\
+            "ts INTEGER, "\
+            "site TEXT, " \
+            "pillar TEXT, " \
+            "key TEXT, " \
+            "data TEXT)")
         db.commit()
         db.close()
 
@@ -84,7 +101,8 @@ class Store:
             try:
                 db = sqlite3.connect(_DB_FILE)
                 db.cursor().execute(
-                    "INSERT INTO " + table + " (ts, site, pillar, key, data) VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO " + table + \
+                    " (ts, site, pillar, key, data) VALUES (?, ?, ?, ?, ?)",
                     (ts, siteName, pillar, key, data)
                 )
                 db.commit()
@@ -304,35 +322,55 @@ class JobStatusStore(Store):
 
 
 # ****************************************************************************
-# MetaRepo Store
+# Metasheet Store
 
-class MetaRepoStore(Store):
-    pass
-    # def putMetaRepo(self, datum: Metasheet) -> None:
-    #     self._put("None", "repo.meta", datum.getSheetId(), datum.getProps())
+class MetasheetStore(Store):
 
-    # def getAllMetasheets(self) -> List[Metasheet]:
-    #     Q = Query()
-    #     results = self._db.search((Q._pillar == "repo.meta"))
-    #     if results is not None:
-    #         return [Metasheet(blob) for blob in results]
+    def putMetasheet(self, datum: Metasheet) -> None:
+        keys = datum.getProps()
+        if keys is None:
+            keys = {}
+        keys["jobId"] = datum.getJobId()
+        keys["site"] = datum.getSiteName()
+        keys["url"] = datum.getSiteUrl()
+        keys["sheetId"] = datum.getSheetId()
+        self._put("MetasheetStore", datum.getSiteName(), "repo.meta",
+            json.dumps(keys), ObjectSerializer.serialize(datum))
 
-    # def find(self, queryRegExs: dict) -> List[Metasheet]:
-    #     try:
-    #         qStr = None
-    #         for (k, v) in queryRegExs.items():
-    #             if qStr is None:
-    #                 qStr = "where('" + k + "') == '" + v + "'"
-    #             else:
-    #                 qStr = qStr + " and where('" + k + "') == '" + v + "'"
-    #         blobs = self._db.search(eval(qStr))
-    #         if blobs is not None:
-    #             return [Metasheet(blob) for blob in blobs]
-    #         return None
-    #     except Exception as e:
-    #         self._loggingStore.putLogging("ERROR", "Error in find: " + str(e))
-    #         return None
+    def findMetasheet(self, queryRegExs: dict) -> List[Metasheet]:
+        try:
+            db = sqlite3.connect(_DB_FILE)
+            db.create_function("REGEXP", 2, lambda expr,
+                val: re.search(expr, val or "") is not None)
+            cur = db.cursor()
 
+            # Build SQL WHERE clause
+            where_clauses = []
+            params = []
+            for k, regex in queryRegExs.items():
+                # This pattern matches the JSON key and value as a substring
+                # e.g. "jobId": "abc123"
+                pattern = f'"{k}"\\s*:\\s*"[^"]*{regex}[^"]*"'
+                where_clauses.append(f'key REGEXP ?')
+                params.append(pattern)
+
+            sql = "SELECT key, data FROM MetasheetStore"
+            if where_clauses:
+                sql += " WHERE " + " AND ".join(where_clauses)
+
+            cur.execute(sql, params)
+            results = []
+            for key, data in cur.fetchall():
+                # Deserialize as needed for your Metasheet constructor
+                ms = ObjectSerializer.deserialize(data)
+                results.append(ms)
+            return results if results else None
+        except Exception as e:
+            print(f"Error in findMetasheet: {e}")
+            return None
+        finally:
+            if db:
+                db.close()
 
 # ****************************************************************************
 # test code
@@ -344,5 +382,35 @@ if __name__ == "__main__":
     # Test LoggingStore
     log_store = LoggingStore()
     log_store.putLogging("INFO", "This is a test log entry.")
+
+    # Test MetasheetStore
+    ms_store = MetasheetStore()
+
+    # Create and put metasheets
+    ms1 = Metasheet(jobId="job1", siteName="siteA", siteUrl="http://siteA", props={"foo": "bar", "alpha": "beta"})
+    ms2 = Metasheet(jobId="job2", siteName="siteB", siteUrl="http://siteB", props={"foo": "baz", "alpha": "gamma"})
+    ms_store.putMetasheet(ms1)
+    ms_store.putMetasheet(ms2)
+    print("Inserted metasheets.")
+
+    # Query by jobId (exact match)
+    result = ms_store.findMetasheet({"jobId": "job1"})
+    print("Query jobId=job1:", result)
+
+    # Query by siteName (partial match)
+    result = ms_store.findMetasheet({"site": "site"})
+    print("Query site contains 'site':", result)
+
+    # Query by custom property
+    result = ms_store.findMetasheet({"foo": "ba."})
+    print("Query foo matches 'ba.':", result)
+
+    # Query with no matches
+    result = ms_store.findMetasheet({"jobId": "^notfound$"})
+    print("Query jobId=notfound:", result)
+
+    # Query using multiple fields (AND logic)
+    result = ms_store.findMetasheet({"jobId": "job1", "site": "siteA"})
+    print("Query jobId=job1 AND site=siteA:", result)
 
     print("Test complete.")
