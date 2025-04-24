@@ -6,7 +6,6 @@ Regularize handling of object (de)serialization.
 
 import pickle
 import base64
-import json
 
 class ObjectSerializer:
 

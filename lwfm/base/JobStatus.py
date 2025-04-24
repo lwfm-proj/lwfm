@@ -9,9 +9,9 @@ It is emitted within the job's context.
 from enum import Enum
 import datetime
 
-from ..util.IdGenerator import IdGenerator
+from lwfm.util.IdGenerator import IdGenerator
 
-from .JobContext import JobContext
+from lwfm.base.JobContext import JobContext
 
 class JobStatusValues(Enum):
     UNKNOWN = "UNKNOWN"

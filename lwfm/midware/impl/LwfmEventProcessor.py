@@ -11,12 +11,12 @@ import re
 import threading
 from typing import List
 
-from ...base.JobStatus import JobStatus, JobStatusValues
-from ...base.JobContext import JobContext
-from ...base.WfEvent import RemoteJobEvent, WfEvent, JobEvent, MetadataEvent
-from ...base.Site import Site
-from ...midware.LwfManager import lwfManager
-from .Store import EventStore, JobStatusStore, LoggingStore
+from lwfm.base.JobStatus import JobStatus, JobStatusValues
+from lwfm.base.JobContext import JobContext
+from lwfm.base.WfEvent import RemoteJobEvent, WfEvent, JobEvent, MetadataEvent
+from lwfm.base.Site import Site
+from lwfm.midware.LwfManager import lwfManager
+from lwfm.midware.impl.Store import EventStore, JobStatusStore, LoggingStore
 
 # ***************************************************************************
 
@@ -25,9 +25,6 @@ class LwfmEventProcessor:
     _eventHandlerMap = dict()
 
     _infoQueue: List[JobStatus] = []
-    _eventStore: EventStore = None
-    _jobStatusStore: JobStatusStore = None
-    _loggingStore: LoggingStore = None
 
     STATUS_CHECK_INTERVAL_SECONDS_MIN = 5
     STATUS_CHECK_INTERVAL_SECONDS_MAX = 5*60
@@ -38,6 +35,7 @@ class LwfmEventProcessor:
         self._eventStore = EventStore()
         self._jobStatusStore = JobStatusStore()
         self._loggingStore = LoggingStore()
+        self._loggingStore.putLogging("INFO", "LwfmEventProcessor initialized")
         self._timer = threading.Timer(
             self._statusCheckIntervalSeconds,
             LwfmEventProcessor.checkEventHandlers,
@@ -120,9 +118,12 @@ class LwfmEventProcessor:
         gotOne = False
         try:
             events = self.findAllEvents("run.event.JOB")
-            if len(events) > 0:
-                print("Job events: " + str(len(events)))
+            if events is None:
+                l = 0
             else:
+                l = len(events)
+            self._loggingStore.putLogging("INFO", "Job events: " + str(l))
+            if l == 0:
                 return False
             for e in events:
                 try:

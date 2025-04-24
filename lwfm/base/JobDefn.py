@@ -8,10 +8,10 @@ args to instantiate a job from the definition.
 
 from typing import List
 
-from ..util.IdGenerator import IdGenerator
+from lwfm.util.IdGenerator import IdGenerator
 
 
-class JobDefn():
+class JobDefn:
     """
     The static definition of a job, to be instantiated at runtime by the Site.Run 
     subsystem. The JobDefn is not presumed to be portable, though it is possible 

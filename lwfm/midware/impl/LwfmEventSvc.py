@@ -5,15 +5,14 @@ Flask app service for the lwfm middleware
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
 #pylint: disable = broad-exception-caught
 
-import json
 import logging
 
 from flask import Flask, request
-from .LwfmEventProcessor import LwfmEventProcessor
-from .Store import JobStatusStore, LoggingStore, MetaRepoStore, WorkflowStore
-from ...base.Workflow import Workflow
-from ...base.JobStatus import JobStatus, JobStatusValues
-from ...util.ObjectSerializer import ObjectSerializer
+from lwfm.midware.impl.LwfmEventProcessor import LwfmEventProcessor
+from lwfm.midware.impl.Store import JobStatusStore, LoggingStore, WorkflowStore
+from lwfm.base.Workflow import Workflow
+from lwfm.base.JobStatus import JobStatus, JobStatusValues
+from lwfm.util.ObjectSerializer import ObjectSerializer
 
 #************************************************************************
 # startup
@@ -23,13 +22,6 @@ app.logger.disabled = True
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
 wfProcessor = LwfmEventProcessor()
-
-_statusStore = JobStatusStore()
-_loggingStore = LoggingStore()
-_metaStore = MetaRepoStore()
-_workflowStore = WorkflowStore()
-
-_loggingStore.putLogging("INFO", "*** lwfm service starting")
 
 
 #************************************************************************
@@ -47,22 +39,22 @@ def index():
 @app.route("/workflow/<workflow_id>")
 def getWorkflow(workflow_id: str):
     try:
-        w = _workflowStore.getWorkflow(workflow_id)
+        w = WorkflowStore().getWorkflow(workflow_id)
         if w is not None:
             return w.serialize()
         return "", 404
     except Exception as ex:
-        _loggingStore.putLogging("ERROR", "getWorkflow: " + str(ex))
+        LoggingStore().putLogging("ERROR", "getWorkflow: " + str(ex))
         return "", 500
 
 @app.route("/workflow", methods=["POST"])
 def putWorkflow():
     try:
         workflow : Workflow = ObjectSerializer.deserialize(request.form["workflowObj"])
-        _workflowStore.putWorkflow(workflow)
+        WorkflowStore().putWorkflow(workflow)
         return "", 200
     except Exception as ex:
-        _loggingStore.putLogging("ERROR", "putWorkflow: " + str(ex))
+        LoggingStore().putLogging("ERROR", "putWorkflow: " + str(ex))
         return "", 500
 
 #************************************************************************
@@ -77,43 +69,43 @@ def emitStatus():
     try:
         statusBlob = request.form["statusBlob"]
         statusObj : JobStatus = ObjectSerializer.deserialize(statusBlob)
-        _statusStore.putJobStatus(statusObj)
+        JobStatusStore().putJobStatus(statusObj)
         if statusObj.getStatus() == JobStatusValues.READY or \
             statusObj.getStatus() == JobStatusValues.PENDING:
             wfId = statusObj.getJobContext().getWorkflowId()
-            wf = _workflowStore.getWorkflow(wfId)
+            wf = WorkflowStore().getWorkflow(wfId)
             if wf is None:
                 wf = Workflow()
                 wf._setWorkflowId(wfId)
-                _workflowStore.putWorkflow(wf)
+                WorkflowStore().putWorkflow(wf)
         elif statusObj.getStatus() == JobStatusValues.INFO:
             _testDataTriggers(statusObj)
         return "", 200
     except Exception as ex:
-        _loggingStore.putLogging("ERROR", "emitStatus: " + str(ex))
+        LoggingStore().putLogging("ERROR", "emitStatus: " + str(ex))
         return "", 400
 
 
 @app.route("/status/<jobId>")
 def getStatus(jobId: str):
     try:
-        s = _statusStore.getJobStatus(jobId)
+        s = JobStatusStore().getJobStatus(jobId)
         if s is not None:
             return ObjectSerializer.serialize(s)
         return ""
     except Exception:
-        _loggingStore.putLogging("ERROR", "Unable to /getStatus() for jobId: " + jobId)
+        LoggingStore().putLogging("ERROR", "Unable to /getStatus() for jobId: " + jobId)
         return ""
 
 @app.route("/statusAll/<jobId>")
 def getStatusAll(jobId: str):
     try:
-        s = _statusStore.getAllJobStatuses(jobId)
+        s = JobStatusStore().getAllJobStatuses(jobId)
         if s is not None:
             return ObjectSerializer.serialize(s)
         return ""
     except Exception:
-        _loggingStore.putLogging("ERROR", "Unable to /getStatusAll() for jobId: " + jobId)
+        LoggingStore().putLogging("ERROR", "Unable to /getStatusAll() for jobId: " + jobId)
         return ""
 
 
@@ -125,10 +117,10 @@ def emitLogging():
     try:
         level = request.form["level"]
         errorMsg = request.form["errorMsg"]
-        _loggingStore.putLogging(level, errorMsg)
+        LoggingStore().putLogging(level, errorMsg)
         return "", 200
     except Exception as ex:
-        _loggingStore.putLogging("ERROR", "emitLogging: " + str(ex))
+        LoggingStore().putLogging("ERROR", "emitLogging: " + str(ex))
         return "", 400
 
 
@@ -141,7 +133,7 @@ def setHandler():
         obj = ObjectSerializer.deserialize(request.form["eventObj"])
         return wfProcessor.setEventHandler(obj), 200
     except Exception as ex:
-        _loggingStore.putLogging("ERROR", "setEvent: " + str(ex))
+        LoggingStore().putLogging("ERROR", "setEvent: " + str(ex))
         return "", 400
 
 
@@ -164,21 +156,22 @@ def listHandlers():
 @app.route("/notate", methods=["POST"])
 def notate():
     try:
-        blob = request.form["data"]
-        sheet = ObjectSerializer.deserialize(blob)
-        _metaStore.putMetaRepo(sheet)
+        # blob = request.form["data"]
+        # sheet = ObjectSerializer.deserialize(blob)
+        # _metaStore.putMetaRepo(sheet)
         return "", 200
     except Exception as ex:
-        _loggingStore.putLogging("ERROR", "emitStatus: " + str(ex))
+        LoggingStore().putLogging("ERROR", "emitStatus: " + str(ex))
         return "", 400
 
 
 @app.route("/find", methods=["POST"])
 def find():
     try:
-        searchDict = json.loads(request.form["searchDict"])
-        l = _metaStore.find(searchDict)
-        return [e.serialize() for e in l], 200
+        # searchDict = json.loads(request.form["searchDict"])
+        # l = _metaStore.find(searchDict)
+        # return [e.serialize() for e in l], 200
+        return "", 200
     except Exception as ex:
-        _loggingStore.putLogging("ERROR", "find: " + str(ex))
+        LoggingStore().putLogging("ERROR", "find: " + str(ex))
         return "", 400

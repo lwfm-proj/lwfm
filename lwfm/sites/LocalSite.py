@@ -13,14 +13,14 @@ import os
 import subprocess
 import multiprocessing
 
-from ..base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
-from ..base.JobDefn import JobDefn
-from ..base.JobStatus import JobStatus, JobStatusValues
-from ..base.JobContext import JobContext
-from ..base.Metasheet import Metasheet
-from ..base.Workflow import Workflow
-from ..midware.LwfManager import lwfManager
-from ..midware.Logger import logger
+from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
+from lwfm.base.JobDefn import JobDefn
+from lwfm.base.JobStatus import JobStatus, JobStatusValues
+from lwfm.base.JobContext import JobContext
+from lwfm.base.Metasheet import Metasheet
+from lwfm.base.Workflow import Workflow
+from lwfm.midware.LwfManager import lwfManager
+from lwfm.midware.Logger import logger
 
 
 # *********************************************************************
@@ -113,6 +113,7 @@ class LocalSiteRun(SiteRun):
                 useContext.setWorkflowId(parentContext.getWorkflowId())
                 useContext.setName(parentContext.getName())
 
+            # TODO 
             # if we want to, we can test validity of the job defn here, reject it
             # let's say its good and carry on
 

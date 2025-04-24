@@ -16,14 +16,14 @@ import logging # don't use the lwfm Logger here else circular import
 import json
 import requests
 
-from ...base.JobStatus import JobStatus
-from ...base.JobContext import JobContext
-from ...base.Metasheet import Metasheet
-from ...base.WfEvent import WfEvent
-from ...base.Workflow import Workflow
-from ...util.ObjectSerializer import ObjectSerializer
+from lwfm.base.JobStatus import JobStatus
+from lwfm.base.JobContext import JobContext
+from lwfm.base.Metasheet import Metasheet
+from lwfm.base.WfEvent import WfEvent
+from lwfm.base.Workflow import Workflow
+from lwfm.util.ObjectSerializer import ObjectSerializer
 
-class LwfmEventClient():
+class LwfmEventClient:
     _SERVICE_URL = "http://127.0.0.1:3000"
     _REST_TIMEOUT = 100
 

@@ -10,8 +10,8 @@ in these cases, a user-provided handler is fired
 
 from enum import Enum
 
-from ..util.IdGenerator import IdGenerator
-from .JobDefn import JobDefn
+from lwfm.util.IdGenerator import IdGenerator
+from lwfm.base.JobDefn import JobDefn
 
 
 

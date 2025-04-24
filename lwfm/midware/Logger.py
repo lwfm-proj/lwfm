@@ -9,7 +9,7 @@ It persists to the lwfm store.
 import logging
 import datetime
 
-from .impl.LwfmEventClient import LwfmEventClient
+from lwfm.midware.impl.LwfmEventClient import LwfmEventClient
 
 
 class Logger:

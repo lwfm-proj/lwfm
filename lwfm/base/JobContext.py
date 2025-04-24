@@ -5,7 +5,7 @@ tracking info.
 
 #pylint: disable = invalid-name, missing-function-docstring
 
-from ..util.IdGenerator import IdGenerator
+from lwfm.util.IdGenerator import IdGenerator
 
 
 class JobContext:

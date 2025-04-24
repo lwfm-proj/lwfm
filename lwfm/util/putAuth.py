@@ -1,7 +1,7 @@
 
 # convenience tool to stick the auth token for a site into the lwfm store 
 
-from ..midware.impl.Store import AuthStore
+from lwfm.midware.impl.Store import AuthStore
 
 if __name__ == "__main__":
     import sys

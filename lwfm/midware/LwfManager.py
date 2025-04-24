@@ -11,13 +11,13 @@ import time
 import os
 from typing import List
 
-from ..base.WfEvent import WfEvent
-from ..base.JobContext import JobContext
-from ..base.JobStatus import JobStatus
-from ..util.IdGenerator import IdGenerator
-from ..base.Metasheet import Metasheet
-from ..base.Workflow import Workflow
-from .impl.LwfmEventClient import LwfmEventClient
+from lwfm.base.WfEvent import WfEvent
+from lwfm.base.JobContext import JobContext
+from lwfm.base.JobStatus import JobStatus
+from lwfm.util.IdGenerator import IdGenerator
+from lwfm.base.Metasheet import Metasheet
+from lwfm.base.Workflow import Workflow
+from lwfm.midware.impl.LwfmEventClient import LwfmEventClient
 
 # ***************************************************************************
 class LwfManager():
