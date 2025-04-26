@@ -29,7 +29,7 @@ class LwfManager():
 
 
     #***********************************************************************
-    # workflow methods 
+    # workflow methods
 
     def putWorkflow(self, workflow: Workflow) -> str:
         return self._client.putWorkflow(workflow)
@@ -39,7 +39,7 @@ class LwfManager():
 
 
     #***********************************************************************
-    # status methods 
+    # status methods
 
     # given a job id, get back the current status
     def getStatus(self, jobId: str) -> JobStatus:
@@ -67,41 +67,37 @@ class LwfManager():
         return self._client.emitStatus(context, statusClass, nativeStatus, nativeInfo)
 
 
-    def emitRepoInfo(self, context: JobContext, metasheet: Metasheet) -> None:
-        return self.emitStatus(context, JobStatus, "INFO", metasheet)
-
-
     # Wait synchronously until the job reaches a terminal state, then return
     # that state.  Uses a progressive sleep time to avoid polling too frequently.
     def wait(self, jobId: str) -> JobStatus:  # return JobStatus when the job is done
         try:
             increment = 3
-            sum = 1
-            max = 60
+            w_sum = 1
+            w_max = 60
             maxMax = 6000
             status = self.getStatus(jobId)
-            fakeStatus = JobStatus(JobContext())
-            fakeStatus.setStatus("UNKNOWN")
-            if status is None:
-                status = fakeStatus
-            while not status.isTerminal():
-                time.sleep(sum)
+            if status is not None and status.isTerminal():
+                # we're done waiting
+                return status
+            doneWaiting = False
+            while not doneWaiting:
+                time.sleep(w_sum)
                 # progressive: keep increasing the sleep time until we hit max,
                 # then keep sleeping max
-                if sum < max:
-                    sum += increment
-                elif sum < maxMax:
-                    sum += max
+                if w_sum < w_max:
+                    w_sum += increment
+                elif w_sum < maxMax:
+                    w_sum += w_max
                 status = self.getStatus(jobId)
-                if status is None:
-                    status = fakeStatus
-            return status
-        except Exception:
+                if status is not None and status.isTerminal():
+                    return status
+        except Exception as ex:
+            print("Error waiting for job: " + str(ex))
             return None
 
 
     #***********************************************************************
-    # event methods 
+    # event methods
 
     # register an event handler, get back the initial queued status of the future job
     def setEvent(self, wfe: WfEvent) -> JobStatus:
@@ -116,26 +112,38 @@ class LwfManager():
 
 
     #***********************************************************************
-    # repo methods 
+    # repo methods
 
-    def notate(self, localPath: str, siteObjPath: str, metasheet: Metasheet = None,
-               isPut: bool = False) -> Metasheet:
-        # do we know the job context?
-        jobContext = self.getJobContextFromEnv()
+    def _emitRepoInfo(self, context: JobContext, metasheet: Metasheet) -> None:
+        return self.emitStatus(context, JobStatus, "INFO", metasheet)
+
+    def _notate(self, localPath: str, siteObjPath: str,
+                jobContext: JobContext,
+                metasheet: Metasheet = None,
+                isPut: bool = False) -> Metasheet:
         if jobContext is not None:
-            metasheet.setId(jobContext.getJobId())
+            metasheet.setJobId(jobContext.getJobId())
         # now do the metadata notate
-        args = metasheet.getArgs()
-        args['_direction'] = 'put' if isPut else 'get'
-        args['localPath'] = localPath
-        args['siteObjPath'] = siteObjPath
-        metasheet.setArgs(args)
+        props = metasheet.getProps()
+        props['_direction'] = 'put' if isPut else 'get'
+        props['localPath'] = localPath
+        props['siteObjPath'] = siteObjPath
+        metasheet.setProps(props)
         # persist
         sheet = LwfmEventClient().notate(metasheet.getSheetId(), metasheet)
         # now emit an INFO job status
-        self.emitRepoInfo(jobContext, metasheet)
+        self._emitRepoInfo(jobContext, metasheet)
         return sheet
 
+    def notatePut(self, localPath: str, siteObjPath: str,
+        jobContext: JobContext,
+        metasheet: Metasheet = None) -> Metasheet:
+        return self._notate(localPath, siteObjPath, jobContext, metasheet, True)
+
+    def notateGet(self, localPath: str, siteObjPath: str,
+        jobContext: JobContext,
+        metasheet: Metasheet = None) -> Metasheet:
+        return self._notate(localPath, siteObjPath, jobContext, metasheet, False)
 
     def find(self, queryRegExs: dict) -> List[Metasheet]:
         return self._client.find(queryRegExs)

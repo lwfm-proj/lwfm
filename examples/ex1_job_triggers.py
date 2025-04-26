@@ -14,13 +14,12 @@ from lwfm.midware.Logger import logger
 #pylint: disable = invalid-name
 
 if __name__ == "__main__":
+    # get the local site and "login"
     site = Site.getSite("local")
     site.getAuthDriver().login()
 
-    print("Got auth driver")
     # define job A - sit-in for some kind of "real" pre-processing
     jobDefnA = JobDefn("echo hello world, job A output pwd = `pwd`")
-
     # a stand-in for some data file
     dataFile = "ex1_date.out"
 
@@ -30,11 +29,9 @@ if __name__ == "__main__":
     wf.setName("A->B->C test")
     wf.setDescription("A test of chaining three jobs together asynchronously")
     lwfManager.putWorkflow(wf)
-    print("Put the new workflow")
 
     # submit job A
-    statusA = site.getRunDriver().submit(jobDefnA, wf)    # a new job context is created
-    print("job A submitted, now log it")
+    statusA = site.getRunDriver().submit(jobDefnA, wf)
     logger.info("job A submitted")
 
     # when job A asynchronously reaches the COMPLETE state, fire job B
@@ -42,34 +39,26 @@ if __name__ == "__main__":
         JobEvent(statusA.getJobId(), JobStatusValues.COMPLETE.value,
                  JobDefn("echo date = `date` > " + dataFile), "local")
     )
-    print("job B trigger set, now log it")
     logger.info(f"job B {statusB.getJobId()} set as a job event on A")
-    logger.info("job B", statusB)
 
     # when job B asynchronously gets to the COMPLETE state, fire job C
     statusC = lwfManager.setEvent(
         JobEvent(statusB.getJobId(), JobStatusValues.COMPLETE.value,
                  JobDefn("echo " + dataFile), "local")
     )
-    print("job C trigger set, now log it")
     logger.info(f"job C {statusC.getJobId()} set as a job event on B")
-    logger.info("job C", statusC)
 
-    print("Going to wait synchronously for the chain to end")
 
     # for the purposes of this example, let's wait synchronously on the
     # conclusion of job C, which implies B and A also finished
+    print(f"Let's wait synchronously for the chain to end on job C {statusC.getJobId()}...")
     statusC = lwfManager.wait(statusC.getJobId())
-    logger.info("job C finished, implying B and A also finished")
+    logger.info(f"job C {statusC.getJobId()} finished, implying B and A also finished")
 
+    # poll the final status for A, B, & C
     statusA = lwfManager.getStatus(statusA.getJobId())
-    logger.info("job A", statusA)
+    logger.info(f"job A {statusA.getJobId()}", statusA)
     statusB = lwfManager.getStatus(statusB.getJobId())
-    logger.info("job B", statusB)
+    logger.info(f"job B {statusB.getJobId()}", statusB)
     statusC = lwfManager.getStatus(statusC.getJobId())
-    logger.info("job C", statusC)
-
-
-    sList = lwfManager.getAllStatus(statusC.getJobId())
-    for s in sList:
-        print(s)
+    logger.info(f"job C {statusC.getJobId()}", statusC)

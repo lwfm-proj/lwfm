@@ -101,11 +101,14 @@ class LwfmEventClient:
     def emitStatus(self, context: JobContext, statusClass: type,
                    nativeStatus: str, nativeInfo: str = None) -> None:
         try:
-            status = statusClass(context)
+            print("*** in emitStatus client")
+            print("context site = " + context.getSiteName() + " " + nativeStatus)
+            status: JobStatus = statusClass(context)
             # forces call on setStatus() producing a mapped native status -> status
             status.setNativeStatus(nativeStatus)
             status.setNativeInfo(nativeInfo)
             status.setEmitTime(datetime.datetime.now(datetime.UTC))
+            print("*** in emitStatus client, want to emit " + status.getStatus().value)
             statusBlob = ObjectSerializer.serialize(status)
             data = {"statusBlob": statusBlob}
             response = requests.post(f"{self.getUrl()}/emitStatus", data=data,
@@ -115,6 +118,8 @@ class LwfmEventClient:
             self.emitLogging("ERROR", f"emitStatus error: {response}")
             return
         except Exception as ex:
+            print("*** in exception " + nativeStatus)
+            print(ex)
             self.emitLogging("ERROR", "Error emitting job status: " + str(ex))
             return
 

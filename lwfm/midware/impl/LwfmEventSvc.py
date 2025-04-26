@@ -3,7 +3,7 @@ Flask app service for the lwfm middleware
 """
 
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
-#pylint: disable = broad-exception-caught
+#pylint: disable = broad-exception-caught, protected-access
 
 import logging
 
@@ -67,9 +67,13 @@ def _testDataTriggers(statusObj: JobStatus):
 @app.route("/emitStatus", methods=["POST"])
 def emitStatus():
     try:
+        print("*** in emitStatus svc")
         statusBlob = request.form["statusBlob"]
         statusObj : JobStatus = ObjectSerializer.deserialize(statusBlob)
+        print("*** in emitStatus svc " + statusObj.getStatus().value)
+        print("*** svc context site = " + statusObj.getJobContext().getSiteName())
         JobStatusStore().putJobStatus(statusObj)
+        print("*** svc back from put()")
         if statusObj.getStatus() == JobStatusValues.READY or \
             statusObj.getStatus() == JobStatusValues.PENDING:
             wfId = statusObj.getJobContext().getWorkflowId()
@@ -79,10 +83,11 @@ def emitStatus():
                 wf._setWorkflowId(wfId)
                 WorkflowStore().putWorkflow(wf)
         elif statusObj.getStatus() == JobStatusValues.INFO:
-            _testDataTriggers(statusObj)
+            print("test for data triggers goes here")
+            # TODO _testDataTriggers(statusObj)
         return "", 200
     except Exception as ex:
-        LoggingStore().putLogging("ERROR", "emitStatus: " + str(ex))
+        LoggingStore().putLogging("ERROR", "emitStatus svc: " + str(ex))
         return "", 400
 
 
@@ -147,8 +152,9 @@ def unsetHandler(handlerId: str):
 # list the ids of all active handlers
 @app.route("/listEvents")
 def listHandlers():
-    l = wfProcessor.findAllEvents()
-    return [e.serialize() for e in l], 200
+    return
+    #l = wfProcessor.getActiveWfEvents()  # TODO
+    #return [e.serialize() for e in wfProcessor.getActiveWfEvents()], 200
 
 #************************************************************************
 # data endpoints
@@ -161,7 +167,7 @@ def notate():
         # _metaStore.putMetaRepo(sheet)
         return "", 200
     except Exception as ex:
-        LoggingStore().putLogging("ERROR", "emitStatus: " + str(ex))
+        LoggingStore().putLogging("ERROR", "notate: " + str(ex))
         return "", 400
 
 

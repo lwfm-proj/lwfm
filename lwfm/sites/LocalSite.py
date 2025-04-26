@@ -29,7 +29,7 @@ from lwfm.midware.Logger import logger
 class LocalJobStatus(JobStatus):
     def __init__(self, context: JobContext = None):
         super().__init__(context)
-        # use default canonical status map inherited from the base class 
+        # use default canonical status map inherited from the base class
         self.getJobContext().setSiteName(LocalSite.SITE_NAME)
 
 
@@ -77,7 +77,7 @@ class LocalSiteRun(SiteRun):
             # Emit success statuses
             lwfManager.emitStatus(jobContext, LocalJobStatus,
                                   JobStatusValues.FINISHING.value)
-            lwfManager.emitStatus(jobContext, LocalJobStatus, 
+            lwfManager.emitStatus(jobContext, LocalJobStatus,
                                   JobStatusValues.COMPLETE.value)
         except Exception as ex:
             logger.error(f"ERROR: Job failed: {ex}")
@@ -168,27 +168,58 @@ class LocalSiteRepo(SiteRepo):
         return True
 
     def put(self, localPath: str, siteObjPath: str,
-            metasheet: Metasheet = None) -> Metasheet:
+            jobContext: JobContext = None, metasheet: Metasheet = None) -> Metasheet:
+        context = jobContext
+        if context is None:
+            context = JobContext()
+            print("put - site in context is " + context.getSiteName())
+        if jobContext is None:
+            # we drive job state, else we are already part of some other job
+            print("*** going to emit")
+            lwfManager.emitStatus(context, LocalJobStatus, JobStatusValues.RUNNING.value)
+            print("*** bck from emit")
         success = True
         if (localPath is not None) and (siteObjPath is not None):
             # copy the file from localPath to siteObjPath
             success = self._copyFile(localPath, siteObjPath)
         # now do the metadata notate
         if success:
-            return lwfManager.notate(localPath, siteObjPath, metasheet, True)
-        else:
-            return None
+            if jobContext is None:
+                lwfManager.emitStatus(context, LocalJobStatus,
+                    JobStatusValues.FINISHING.value)
+            sheet = lwfManager.notatePut(localPath, siteObjPath, context, metasheet)
+            if jobContext is None:
+                lwfManager.emitStatus(context, LocalJobStatus,
+                    JobStatusValues.COMPLETE.value)
+            return sheet
+        if jobContext is None:
+            lwfManager.emitStatus(context, LocalJobStatus,
+                JobStatusValues.FAILED.value)
+        return None
 
-    def get(self, siteObjPath: str, localPath: str) -> str:
+    def get(self, siteObjPath: str, localPath: str, jobContext: JobContext = None) -> str:
+        context = jobContext
+        if context is None:
+            context = JobContext()
+            lwfManager.emitStatus(context, LocalJobStatus, JobStatusValues.RUNNING.value)
         success = True
         if (siteObjPath is not None) and (localPath is not None):
             # copy the file from siteObjPath to localPath
             success = self._copyFile(siteObjPath, localPath)
+        # now do the metadata notate
         if success:
-            lwfManager.notate(localPath, siteObjPath)
+            if jobContext is None:
+                lwfManager.emitStatus(context, LocalJobStatus,
+                    JobStatusValues.FINISHING.value)
+            lwfManager.notateGet(localPath, siteObjPath, context)
+            if jobContext is None:
+                lwfManager.emitStatus(context, LocalJobStatus,
+                JobStatusValues.COMPLETE.value)
             return localPath
-        else:
-            return None
+        if jobContext is None:
+            lwfManager.emitStatus(context, LocalJobStatus,
+                JobStatusValues.FAILED.value)
+        return None
 
     def find(self, queryRegExs: dict) -> List[Metasheet]:
         return lwfManager.find(queryRegExs)

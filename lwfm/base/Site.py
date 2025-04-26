@@ -33,7 +33,7 @@ from lwfm.base.Workflow import Workflow
 
 # Only import for type checking, not at runtime
 if TYPE_CHECKING:
-    from .JobDefn import JobDefn
+    from lwfm.base.JobDefn import JobDefn
 
 
 
@@ -209,6 +209,7 @@ class SiteRepo(SitePillar):
         self,
         localPath: str,
         siteObjPath: str,
+        jobContext: JobContext = None,
         metasheet: Metasheet = None
     ) -> Metasheet:
         pass
@@ -220,7 +221,8 @@ class SiteRepo(SitePillar):
     def get(
         self,
         siteObjPath: str,
-        localPath: str
+        localPath: str,
+        jobContext: JobContext = None
     ) -> str:
         pass
 

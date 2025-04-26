@@ -387,14 +387,16 @@ if __name__ == "__main__":
     ms_store = MetasheetStore()
 
     # Create and put metasheets
-    ms1 = Metasheet(jobId="job1", siteName="siteA", siteUrl="http://siteA", props={"foo": "bar", "alpha": "beta"})
-    ms2 = Metasheet(jobId="job2", siteName="siteB", siteUrl="http://siteB", props={"foo": "baz", "alpha": "gamma"})
+    ms1 = Metasheet(siteName="siteA", siteUrl="http://siteA", 
+        props={"foo": "bar", "alpha": "beta"})
+    ms2 = Metasheet(siteName="siteB", siteUrl="http://siteB", 
+        props={"foo": "baz", "alpha": "gamma"})
     ms_store.putMetasheet(ms1)
     ms_store.putMetasheet(ms2)
     print("Inserted metasheets.")
 
     # Query by jobId (exact match)
-    result = ms_store.findMetasheet({"jobId": "job1"})
+    result = ms_store.findMetasheet({"site": "siteA"})
     print("Query jobId=job1:", result)
 
     # Query by siteName (partial match)
@@ -406,11 +408,11 @@ if __name__ == "__main__":
     print("Query foo matches 'ba.':", result)
 
     # Query with no matches
-    result = ms_store.findMetasheet({"jobId": "^notfound$"})
+    result = ms_store.findMetasheet({"site": "^notfound$"})
     print("Query jobId=notfound:", result)
 
     # Query using multiple fields (AND logic)
-    result = ms_store.findMetasheet({"jobId": "job1", "site": "siteA"})
+    result = ms_store.findMetasheet({"foo": "ba.", "site": "siteA"})
     print("Query jobId=job1 AND site=siteA:", result)
 
     print("Test complete.")

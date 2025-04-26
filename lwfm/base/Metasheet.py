@@ -11,9 +11,9 @@ class Metasheet:
     A collection of name=value pairs for a blob of data on some site at some url.
     """
 
-    def __init__(self, jobId: str, siteName: str, siteUrl: str, props: dict = None):
+    def __init__(self, siteName: str, siteUrl: str, props: dict = None):
         self._sheet_id = IdGenerator.generateId()
-        self._job_id = jobId
+        self._job_id = self._sheet_id
         self._siteName = siteName
         self._siteUrl = siteUrl
         self._props = props
