@@ -5,12 +5,15 @@ Flask app service for the lwfm middleware
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
 #pylint: disable = broad-exception-caught, protected-access
 
+import json
 import logging
+from typing import List
 
 from flask import Flask, request
 from lwfm.midware.impl.LwfmEventProcessor import LwfmEventProcessor
-from lwfm.midware.impl.Store import JobStatusStore, LoggingStore, WorkflowStore
+from lwfm.midware.impl.Store import JobStatusStore, LoggingStore, WorkflowStore, MetasheetStore
 from lwfm.base.Workflow import Workflow
+from lwfm.base.Metasheet import Metasheet
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.util.ObjectSerializer import ObjectSerializer
 
@@ -67,13 +70,9 @@ def _testDataTriggers(statusObj: JobStatus):
 @app.route("/emitStatus", methods=["POST"])
 def emitStatus():
     try:
-        print("*** in emitStatus svc")
         statusBlob = request.form["statusBlob"]
         statusObj : JobStatus = ObjectSerializer.deserialize(statusBlob)
-        print("*** in emitStatus svc " + statusObj.getStatus().value)
-        print("*** svc context site = " + statusObj.getJobContext().getSiteName())
         JobStatusStore().putJobStatus(statusObj)
-        print("*** svc back from put()")
         if statusObj.getStatus() == JobStatusValues.READY or \
             statusObj.getStatus() == JobStatusValues.PENDING:
             wfId = statusObj.getJobContext().getWorkflowId()
@@ -162,9 +161,9 @@ def listHandlers():
 @app.route("/notate", methods=["POST"])
 def notate():
     try:
-        # blob = request.form["data"]
-        # sheet = ObjectSerializer.deserialize(blob)
-        # _metaStore.putMetaRepo(sheet)
+        blob = request.form["data"]
+        sheet = ObjectSerializer.deserialize(blob)
+        MetasheetStore().putMetasheet(sheet)
         return "", 200
     except Exception as ex:
         LoggingStore().putLogging("ERROR", "notate: " + str(ex))
@@ -174,10 +173,9 @@ def notate():
 @app.route("/find", methods=["POST"])
 def find():
     try:
-        # searchDict = json.loads(request.form["searchDict"])
-        # l = _metaStore.find(searchDict)
-        # return [e.serialize() for e in l], 200
-        return "", 200
+        searchDict = json.loads(request.form["searchDict"])
+        sheets: List[Metasheet] = MetasheetStore().findMetasheet(searchDict)
+        return ObjectSerializer.serialize(sheets), 200
     except Exception as ex:
         LoggingStore().putLogging("ERROR", "find: " + str(ex))
         return "", 400

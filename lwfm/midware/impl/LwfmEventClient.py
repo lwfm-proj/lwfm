@@ -5,7 +5,7 @@ where its not running on the same machine as the workflow
 """
 
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
-#pylint: disable = broad-exception-caught, logging-not-lazy
+#pylint: disable = broad-exception-caught, logging-not-lazy, logging-fstring-interpolation
 
 from typing import List
 import os
@@ -101,14 +101,11 @@ class LwfmEventClient:
     def emitStatus(self, context: JobContext, statusClass: type,
                    nativeStatus: str, nativeInfo: str = None) -> None:
         try:
-            print("*** in emitStatus client")
-            print("context site = " + context.getSiteName() + " " + nativeStatus)
             status: JobStatus = statusClass(context)
             # forces call on setStatus() producing a mapped native status -> status
             status.setNativeStatus(nativeStatus)
             status.setNativeInfo(nativeInfo)
             status.setEmitTime(datetime.datetime.now(datetime.UTC))
-            print("*** in emitStatus client, want to emit " + status.getStatus().value)
             statusBlob = ObjectSerializer.serialize(status)
             data = {"statusBlob": statusBlob}
             response = requests.post(f"{self.getUrl()}/emitStatus", data=data,
@@ -118,8 +115,6 @@ class LwfmEventClient:
             self.emitLogging("ERROR", f"emitStatus error: {response}")
             return
         except Exception as ex:
-            print("*** in exception " + nativeStatus)
-            print(ex)
             self.emitLogging("ERROR", "Error emitting job status: " + str(ex))
             return
 
@@ -205,8 +200,8 @@ class LwfmEventClient:
             response = requests.post(f"{self.getUrl()}/find", data,
                 timeout=self._REST_TIMEOUT)
             if response.ok:
-                l = json.loads(response.text)
-                return [ObjectSerializer.deserialize(blob) for blob in l]
+                sheets: List[Metasheet] = ObjectSerializer.deserialize(response.text)
+                return sheets
             # use the plain logger when logging logging errors
             logging.error(f"find error: {response.text}")
         except Exception as ex:

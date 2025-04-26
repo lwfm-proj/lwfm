@@ -172,12 +172,9 @@ class LocalSiteRepo(SiteRepo):
         context = jobContext
         if context is None:
             context = JobContext()
-            print("put - site in context is " + context.getSiteName())
         if jobContext is None:
             # we drive job state, else we are already part of some other job
-            print("*** going to emit")
             lwfManager.emitStatus(context, LocalJobStatus, JobStatusValues.RUNNING.value)
-            print("*** bck from emit")
         success = True
         if (localPath is not None) and (siteObjPath is not None):
             # copy the file from localPath to siteObjPath
