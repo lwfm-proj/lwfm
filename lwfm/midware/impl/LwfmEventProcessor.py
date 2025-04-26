@@ -154,12 +154,12 @@ class LwfmEventProcessor:
             return False
         if jobStatus.getNativeInfo() is None:
             return False
-        if jobStatus.getNativeInfo().getArgs() is None:
+        if jobStatus.getNativeInfo().getProps() is None:
             return False
         for key in dataEvent.getQueryRegExs().keys():
-            if key in jobStatus.getNativeInfo().getArgs().keys():
+            if key in jobStatus.getNativeInfo().getProps().keys():
                 keyVal = dataEvent.getQueryRegExs()[key]
-                statVal = jobStatus.getNativeInfo().getArgs()[key]
+                statVal = jobStatus.getNativeInfo().getProps()[key]
                 # the key val might have wildcards in it
                 if not re.search(keyVal, statVal):
                     return False
@@ -184,7 +184,8 @@ class LwfmEventProcessor:
                         # but first, remove the handler
                         self.unsetEventHandler(e.getEventId())
                         # now launch it async
-                        self._runAsyncOnSite(e, self._makeDataContext(e, status.getJobContext()))
+                        self._runAsyncOnSite(e, 
+                            self._makeDataContext(e, status.getJobContext()))
                         gotOne = True
                 except Exception as ex1:
                     self._loggingStore.putLogging("ERROR",
@@ -251,15 +252,6 @@ class LwfmEventProcessor:
         # fire a status showing the new job ready on the shelf
         lwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY.value)
         return newJobContext
-
-
-    # def findAllEvents(self, typeT: str = None) -> List[WfEvent]:
-    #     try:
-    #         return self._eventStore.getAllWfEvents(typeT)
-    #     except Exception as ex:
-    #         self._loggingStore.putLogging("ERROR", "findAllEvents: " + str(ex))
-    #         return None
-
 
     # Register an event handler.  When a jobId running on a job Site
     # emits a particular Job Status, fire the given JobDefn (serialized)

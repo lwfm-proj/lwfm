@@ -83,7 +83,7 @@ def emitStatus():
                 WorkflowStore().putWorkflow(wf)
         elif statusObj.getStatus() == JobStatusValues.INFO:
             print("test for data triggers goes here")
-            # TODO _testDataTriggers(statusObj)
+            _testDataTriggers(statusObj)
         return "", 200
     except Exception as ex:
         LoggingStore().putLogging("ERROR", "emitStatus svc: " + str(ex))
