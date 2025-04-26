@@ -7,7 +7,7 @@ from .JobDefn import JobDefn
 from .JobStatus import JobStatus
 from .Metasheet import Metasheet
 from .Site import Site
-from .WfEvent import WfEvent
+from .WorkflowEvent import WorkflowEvent
 from .Workflow import Workflow
 
 __all__ = [
@@ -16,6 +16,6 @@ __all__ = [
     "JobStatus",
     "Metasheet",
     "Site",
-    "WfEvent",
+    "WorkflowEvent",
     "Workflow"
 ]

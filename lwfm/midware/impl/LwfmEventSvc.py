@@ -15,7 +15,7 @@ from lwfm.midware.impl.Store import JobStatusStore, LoggingStore, WorkflowStore,
 from lwfm.base.Workflow import Workflow
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
-from lwfm.util.ObjectSerializer import ObjectSerializer
+from lwfm.midware.impl.ObjectSerializer import ObjectSerializer
 
 #************************************************************************
 # startup
@@ -151,9 +151,9 @@ def unsetHandler(handlerId: str):
 # list the ids of all active handlers
 @app.route("/listEvents")
 def listHandlers():
+    # TODO 
     return
-    #l = wfProcessor.getActiveWfEvents()  # TODO
-    #return [e.serialize() for e in wfProcessor.getActiveWfEvents()], 200
+
 
 #************************************************************************
 # data endpoints

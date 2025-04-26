@@ -11,7 +11,7 @@ import time
 import os
 from typing import List
 
-from lwfm.base.WfEvent import WfEvent
+from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
 from lwfm.util.IdGenerator import IdGenerator
@@ -100,14 +100,14 @@ class LwfManager():
     # event methods
 
     # register an event handler, get back the initial queued status of the future job
-    def setEvent(self, wfe: WfEvent) -> JobStatus:
+    def setEvent(self, wfe: WorkflowEvent) -> JobStatus:
         return self._client.setEvent(wfe)
 
-    def unsetEvent(self, wfe: WfEvent) -> None:
+    def unsetEvent(self, wfe: WorkflowEvent) -> None:
         return self._client.unsetEvent(wfe)
 
     # get all active event handlers
-    def getActiveWfEvents(self) -> List[WfEvent]:
+    def getActiveWfEvents(self) -> List[WorkflowEvent]:
         return self._client.getActiveWfEvents()
 
 

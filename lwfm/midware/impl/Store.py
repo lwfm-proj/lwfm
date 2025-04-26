@@ -15,10 +15,10 @@ from typing import List
 import sqlite3
 
 from lwfm.base.JobStatus import JobStatus
-from lwfm.base.WfEvent import WfEvent
+from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.Workflow import Workflow
 from lwfm.base.Metasheet import Metasheet
-from lwfm.util.ObjectSerializer import ObjectSerializer
+from lwfm.midware.impl.ObjectSerializer import ObjectSerializer
 
 
 
@@ -199,12 +199,12 @@ class LoggingStore(Store):
 
 class EventStore(Store):
 
-    def putWfEvent(self, datum: WfEvent, typeT: str) -> None:
+    def putWfEvent(self, datum: WorkflowEvent, typeT: str) -> None:
         print(f"Putting event {typeT} {datum}")
         self._put("EventStore", datum.getFireSite(), "run.event." + typeT,
             datum.getEventId(), ObjectSerializer.serialize(datum))
 
-    def getAllWfEvents(self, typeT: str = None) -> List[WfEvent]:
+    def getAllWfEvents(self, typeT: str = None) -> List[WorkflowEvent]:
         try:
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()

@@ -19,9 +19,9 @@ import requests
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobContext import JobContext
 from lwfm.base.Metasheet import Metasheet
-from lwfm.base.WfEvent import WfEvent
+from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.Workflow import Workflow
-from lwfm.util.ObjectSerializer import ObjectSerializer
+from lwfm.midware.impl.ObjectSerializer import ObjectSerializer
 
 class LwfmEventClient:
     _SERVICE_URL = "http://127.0.0.1:3000"
@@ -121,7 +121,7 @@ class LwfmEventClient:
     #***********************************************************************
     # event methods
 
-    def setEvent(self, wfe: WfEvent) -> JobStatus:
+    def setEvent(self, wfe: WorkflowEvent) -> JobStatus:
         payload = {}
         payload["eventObj"] = ObjectSerializer.serialize(wfe)
         response = requests.post(f"{self.getUrl()}/setEvent", payload,
@@ -132,7 +132,7 @@ class LwfmEventClient:
         self.emitLogging("ERROR", "setEvent error: " + response.text)
         return None
 
-    def unsetEvent(self, wfe: WfEvent) -> None:
+    def unsetEvent(self, wfe: WorkflowEvent) -> None:
         payload = {}
         payload["eventObj"] = wfe.serialize()
         response = requests.post(f"{self.getUrl()}/unsetEvent", payload,
@@ -143,7 +143,7 @@ class LwfmEventClient:
         self.emitLogging("ERROR", "unsetEvent error: " + response.text)
         return
 
-    def getActiveWfEvents(self) -> List[WfEvent]:
+    def getActiveWfEvents(self) -> List[WorkflowEvent]:
         response = requests.get(f"{self.getUrl()}/listEvents",
             timeout=self._REST_TIMEOUT)
         if response.ok:

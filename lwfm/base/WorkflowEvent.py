@@ -14,9 +14,8 @@ from lwfm.util.IdGenerator import IdGenerator
 from lwfm.base.JobDefn import JobDefn
 
 
-
 # ************************************************************************
-class WfEvent:
+class WorkflowEvent:
     def __init__(self, fireDefn=None, fireSite=None, fireJobId=None):
         self._event_id = IdGenerator.generateId()
         self._fire_defn = fireDefn
@@ -52,7 +51,7 @@ class WfEvent:
 
 # ***************************************************************************
 
-class RemoteJobEvent(WfEvent):
+class RemoteJobEvent(WorkflowEvent):
     def __init__(self, context):
         super().__init__(JobDefn(), context.getSiteName(), context.getJobId())
         self._native_job_id = context.getNativeId()
@@ -65,7 +64,7 @@ class RemoteJobEvent(WfEvent):
 
 # ***************************************************************************
 
-class JobEvent(WfEvent):
+class JobEvent(WorkflowEvent):
     """
     Jobs emit status, including informational status.  Some status events are terminal -
     "finished", "cancelled" - and some are interim states. Status strings in lwfm are
@@ -103,7 +102,7 @@ class JobEvent(WfEvent):
 
 
 # ***************************************************************************
-class MetadataEvent(WfEvent):
+class MetadataEvent(WorkflowEvent):
     def __init__(self, queryRegExs: dict, fireDefn: 'JobDefn', fireSite: str):
         super().__init__(fireDefn, fireSite)
         self._query_regexs = queryRegExs

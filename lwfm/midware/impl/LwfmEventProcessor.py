@@ -13,7 +13,7 @@ from typing import List
 
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.JobContext import JobContext
-from lwfm.base.WfEvent import RemoteJobEvent, WfEvent, JobEvent, MetadataEvent
+from lwfm.base.WorkflowEvent import RemoteJobEvent, WorkflowEvent, JobEvent, MetadataEvent
 from lwfm.base.Site import Site
 from lwfm.midware.LwfManager import lwfManager
 from lwfm.midware.impl.Store import EventStore, JobStatusStore, LoggingStore
@@ -44,7 +44,7 @@ class LwfmEventProcessor:
         self._timer.start()
 
 
-    def _runAsyncOnSite(self, trigger: WfEvent, context: JobContext) -> None:
+    def _runAsyncOnSite(self, trigger: WorkflowEvent, context: JobContext) -> None:
         site = Site.getSite(trigger.getFireSite())
         runDriver = site.getRunDriver().__class__
         # Note: Comma is needed at end to make this a tuple. DO NOT REMOVE
@@ -256,7 +256,7 @@ class LwfmEventProcessor:
     # Register an event handler.  When a jobId running on a job Site
     # emits a particular Job Status, fire the given JobDefn (serialized)
     # at the target Site.  Return the new job id.
-    def setEventHandler(self, wfe: WfEvent) -> str:
+    def setEventHandler(self, wfe: WorkflowEvent) -> str:
         typeT = ""
         try:
             if isinstance(wfe, JobEvent):
