@@ -6,5 +6,5 @@
 .DS_Store
 lwfm.egg-info
 ex1_date.out
-
+.venv/
 
