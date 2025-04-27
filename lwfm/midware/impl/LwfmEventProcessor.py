@@ -71,7 +71,7 @@ class LwfmEventProcessor:
         newJobContext.setSiteName(trigger.getFireSite())
         newJobContext.setJobId(trigger.getFireJobId())
         newJobContext.setNativeId(trigger.getFireJobId())
-        newJobContext.setParentJobId(infoContext.getJobId())  # TODO remove?
+        newJobContext.setParentJobId(infoContext.getJobId())
         newJobContext.setWorkflowId(infoContext.getWorkflowId())
         return newJobContext
 

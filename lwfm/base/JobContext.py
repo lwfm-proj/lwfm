@@ -17,14 +17,12 @@ class JobContext:
 
     def __init__(self):
         self._job_id = IdGenerator.generateId()
-        self._native_id = self._job_id    # not true for all Sites, can get clobbered later
+        self._native_id = self._job_id      # important: can be set later
         self._parent_job_id = self._job_id
-        # TODO the workflow with this id won't exist in db
-        self._workflow_id = self._job_id
-        self._name = self._job_id   # can be clobbered later
+        self._workflow_id = self._job_id    # important: can be set later
+        self._name = self._job_id           # important: can be set later
         self._compute_type = "default"
         self._site_name = "local"
-
 
     def addParentContext(self, parentContext: "JobContext") -> None:
         if parentContext is not None:

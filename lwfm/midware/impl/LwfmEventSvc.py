@@ -151,7 +151,6 @@ def unsetHandler(handlerId: str):
 # list the ids of all active handlers
 @app.route("/listEvents")
 def listHandlers():
-    # TODO 
     return
 
 

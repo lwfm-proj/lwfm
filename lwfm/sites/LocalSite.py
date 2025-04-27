@@ -1,7 +1,7 @@
 """
 LocalSiteDriver: an implementation of Site and its constituent Auth, Run, Repo 
 and (trivial) Spin interfaces for a local to the user runtime environment.  
-Unsecure, as this is local and we assume the user is themselves already.
+Purposefully unsecure, as this is local and we assume the user is themselves already.
 """
 
 #pylint: disable = missing-function-docstring, invalid-name, missing-class-docstring
@@ -73,12 +73,12 @@ class LocalSiteRun(SiteRun):
             # and inject the job id
             env = os.environ.copy()
             env['_LWFM_JOB_ID'] = jobContext.getJobId()
-            subprocess.run(cmd, shell=True, env=env)
+            subprocess.run(cmd, shell=True, env=env, check=True)
             # Emit success statuses
             lwfManager.emitStatus(jobContext, LocalJobStatus,
-                                  JobStatusValues.FINISHING.value)
+                                JobStatusValues.FINISHING.value)
             lwfManager.emitStatus(jobContext, LocalJobStatus,
-                                  JobStatusValues.COMPLETE.value)
+                                JobStatusValues.COMPLETE.value)
         except Exception as ex:
             logger.error(f"ERROR: Job failed: {ex}")
             # Emit FAILED status
@@ -112,10 +112,6 @@ class LocalSiteRun(SiteRun):
                 useContext = JobContext()
                 useContext.setWorkflowId(parentContext.getWorkflowId())
                 useContext.setName(parentContext.getName())
-
-            # TODO 
-            # if we want to, we can test validity of the job defn here, reject it
-            # let's say its good and carry on
 
             # horse at the gate...
             lwfManager.emitStatus(useContext, LocalJobStatus,
