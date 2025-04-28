@@ -4,6 +4,8 @@ offering simplified logging methods with optional JobContext integration.
 It persists to the lwfm store.
 """
 
+#pylint: disable = missing-class-docstring, invalid-name, missing-function-docstring
+
 import logging
 import datetime
 
@@ -23,19 +25,15 @@ class Logger:
 
     def _getTimestamp(self) -> str:
         current_time = datetime.datetime.now(datetime.timezone.utc)
-        formatted_time = current_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+        formatted_time = current_time.strftime("%Y%m%dT%H:%M:%SZ")
         return formatted_time
 
     def _buildMsg(self, msg: str, status: str) -> str:
-        if (status is None):
+        if status is None:
             status = ""
-        if (msg is None):
+        if msg is None:
             msg = ""
-        out = " {} [{}] {}".format(
-            self._getTimestamp(),
-            status,
-            msg,
-        )
+        out = f"{self._getTimestamp()} [{status}] {msg}"
         return out
 
     def setLevel(self, level) -> None:
@@ -54,4 +52,4 @@ class Logger:
 
 
 # create a singleton logger
-Logger = Logger()
+logger = Logger()

@@ -12,6 +12,3 @@ if __name__ == "__main__":
     doc = sys.argv[2]
     authStore = AuthStore()
     authStore.putAuthForSite(siteName, doc)
-
-
-

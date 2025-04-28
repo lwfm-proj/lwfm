@@ -1,0 +1,16 @@
+[project]
+name = "lwfm"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.1.0",
+    "requests>=2.32.3"
+]
+
+[tool.black]
+line-length = 88
+[tool.ruff]
+line-length = 88
+
