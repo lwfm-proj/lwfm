@@ -25,7 +25,7 @@ import os
 
 from typing import List, TYPE_CHECKING, Union
 
-from lwfm.midware.Logger import logger
+from lwfm.midware.LwfManager import logger
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.Metasheet import Metasheet
@@ -123,7 +123,7 @@ class SiteRun(SitePillar):
         runDriver.submit(jobDefn, parentContext, computeType, runArgs)
 
     @abstractmethod
-    def submit(self, jobDefn: 'JobDefn', 
+    def submit(self, jobDefn: 'JobDefn',
         parentContext: Union[JobContext, Workflow] = None,
         computeType: str = None, runArgs: dict = None) -> JobStatus:
         """
@@ -310,11 +310,11 @@ class Site:
         self._spin_driver = driver
 
     @staticmethod
-    def _getSiteEntry(site: str):
+    def _getSiteEntry(site: str):     # TODO: move to SiteFactory?
         siteSet = {
             "local": "lwfm.sites.LocalSite.LocalSite",
-            "insitu": "lwfm.sites.InSituSite.InSituSite",
-            "ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"
+            #"insitu": "lwfm.sites.InSituSite.InSituSite",
+            #"ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"
         }
         # is there a local site config?
         path = os.path.expanduser("~") + "/.lwfm/sites.txt"

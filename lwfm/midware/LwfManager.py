@@ -17,7 +17,12 @@ from lwfm.base.JobStatus import JobStatus
 from lwfm.util.IdGenerator import IdGenerator
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Workflow import Workflow
-from lwfm.midware.impl.LwfmEventClient import LwfmEventClient
+from lwfm.midware._impl.Logger import Logger
+from lwfm.midware._impl.LwfmEventClient import LwfmEventClient
+
+
+# create a singleton logger
+logger = Logger()
 
 # ***************************************************************************
 class LwfManager():
@@ -26,6 +31,15 @@ class LwfManager():
 
     def generateId(self):
         return IdGenerator.generateId()
+
+    #***********************************************************************
+    # logging methods
+
+    def info(self, msg: str, status: str = None):
+        logger.info(msg, status)
+
+    def error(self, msg: str, status: str = None):
+        logger.error(msg, status)
 
 
     #***********************************************************************
@@ -92,7 +106,7 @@ class LwfManager():
                 if status is not None and status.isTerminal():
                     return status
         except Exception as ex:
-            print("Error waiting for job: " + str(ex))
+            logger.error("Error waiting for job", ex)
             return None
 
 

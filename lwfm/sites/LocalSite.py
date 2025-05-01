@@ -19,8 +19,7 @@ from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.JobContext import JobContext
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Workflow import Workflow
-from lwfm.midware.LwfManager import lwfManager
-from lwfm.midware.Logger import logger
+from lwfm.midware.LwfManager import lwfManager, logger
 
 
 # *********************************************************************

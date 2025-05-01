@@ -10,12 +10,12 @@ import logging
 from typing import List
 
 from flask import Flask, request
-from lwfm.midware.impl.LwfmEventProcessor import LwfmEventProcessor
-from lwfm.midware.impl.Store import JobStatusStore, LoggingStore, WorkflowStore, MetasheetStore
+from lwfm.midware._impl.LwfmEventProcessor import LwfmEventProcessor
+from lwfm.midware._impl.Store import JobStatusStore, LoggingStore, WorkflowStore, MetasheetStore
 from lwfm.base.Workflow import Workflow
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
-from lwfm.midware.impl.ObjectSerializer import ObjectSerializer
+from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 
 #************************************************************************
 # startup

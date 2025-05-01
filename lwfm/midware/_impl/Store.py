@@ -18,7 +18,7 @@ from lwfm.base.JobStatus import JobStatus
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.Workflow import Workflow
 from lwfm.base.Metasheet import Metasheet
-from lwfm.midware.impl.ObjectSerializer import ObjectSerializer
+from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 
 
 

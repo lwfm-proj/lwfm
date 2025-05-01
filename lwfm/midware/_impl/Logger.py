@@ -9,7 +9,7 @@ It persists to the lwfm store.
 import logging
 import datetime
 
-from lwfm.midware.impl.LwfmEventClient import LwfmEventClient
+from lwfm.midware._impl.LwfmEventClient import LwfmEventClient
 
 
 class Logger:
@@ -51,5 +51,3 @@ class Logger:
 
 
 
-# create a singleton logger
-logger = Logger()

@@ -16,7 +16,7 @@ from lwfm.base.JobContext import JobContext
 from lwfm.base.WorkflowEvent import RemoteJobEvent, WorkflowEvent, JobEvent, MetadataEvent
 from lwfm.base.Site import Site
 from lwfm.midware.LwfManager import lwfManager
-from lwfm.midware.impl.Store import EventStore, JobStatusStore, LoggingStore
+from lwfm.midware._impl.Store import EventStore, JobStatusStore, LoggingStore
 
 # ***************************************************************************
 

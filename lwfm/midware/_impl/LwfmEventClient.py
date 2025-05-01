@@ -21,7 +21,7 @@ from lwfm.base.JobContext import JobContext
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.Workflow import Workflow
-from lwfm.midware.impl.ObjectSerializer import ObjectSerializer
+from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 
 class LwfmEventClient:
     _SERVICE_URL = "http://127.0.0.1:3000"
