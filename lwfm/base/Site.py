@@ -312,7 +312,8 @@ class Site:
     @staticmethod
     def _getSiteEntry(site: str):     # TODO: move to SiteFactory?
         siteSet = {
-            "local": "lwfm.sites.LocalSite.LocalSite",
+            "local"      : "lwfm.sites.LocalSite.LocalSite",
+            "local-venv" : "lwfm.sites.LocalVenvSite.LocalVenvSite",
             #"insitu": "lwfm.sites.InSituSite.InSituSite",
             #"ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"
         }

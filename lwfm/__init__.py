@@ -13,6 +13,8 @@ from lwfm.base.Workflow import Workflow
 
 # local Site implementation
 from lwfm.sites.LocalSite import LocalSite
+from lwfm.sites.VenvSite import VenvSite
+from lwfm.sites.LocalVenvSite import LocalVenvSite
 
 # middleware
 from lwfm.midware.LwfManager import lwfManager, logger
@@ -28,6 +30,8 @@ __all__ = [
     "Workflow",
 
     "LocalSite",
+    "VenvSite",
+    "LocalVenvSite",
 
     "lwfManager",
     "logger"
