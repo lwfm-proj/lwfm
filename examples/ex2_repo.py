@@ -5,7 +5,7 @@ example of data management
 from lwfm.base.Site import Site
 from lwfm.base.Metasheet import Metasheet
 from lwfm.util.IdGenerator import IdGenerator
-from lwfm.midware.Logger import logger
+from lwfm.midware.LwfManager import logger
 
 if __name__ == "__main__":
     site: Site = Site.getSite("local")

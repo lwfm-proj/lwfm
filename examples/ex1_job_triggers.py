@@ -8,8 +8,7 @@ from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatusValues
 from lwfm.base.WorkflowEvent import JobEvent
 from lwfm.base.Workflow import Workflow
-from lwfm.midware.LwfManager import lwfManager
-from lwfm.midware.Logger import logger
+from lwfm.midware.LwfManager import lwfManager, logger
 
 #pylint: disable = invalid-name
 

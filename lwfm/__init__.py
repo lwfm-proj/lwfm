@@ -15,8 +15,7 @@ from lwfm.base.Workflow import Workflow
 from lwfm.sites.LocalSite import LocalSite
 
 # middleware
-from lwfm.midware.LwfManager import lwfManager
-from lwfm.midware.Logger import logger
+from lwfm.midware.LwfManager import lwfManager, logger
 
 # utility
 from lwfm.util.IdGenerator import IdGenerator

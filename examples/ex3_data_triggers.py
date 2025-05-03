@@ -4,8 +4,7 @@ test data triggers
 
 from lwfm.base.Site import Site
 from lwfm.base.Metasheet import Metasheet
-from lwfm.midware.Logger import logger
-from lwfm.midware.LwfManager import lwfManager
+from lwfm.midware.LwfManager import lwfManager, logger
 from lwfm.base.WorkflowEvent import MetadataEvent
 from lwfm.base.JobDefn import JobDefn
 from lwfm.util.IdGenerator import IdGenerator

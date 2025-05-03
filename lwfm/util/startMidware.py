@@ -2,7 +2,7 @@
 start the lwfm middleware
 """
 
-from lwfm.midware.impl.LwfmEventSvc import app
+from lwfm.midware._impl.LwfmEventSvc import app
 
 def startMidware():
     """
