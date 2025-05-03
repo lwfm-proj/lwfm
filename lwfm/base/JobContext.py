@@ -5,7 +5,7 @@ tracking info.
 
 #pylint: disable = invalid-name, missing-function-docstring
 
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.midware._impl.IdGenerator import IdGenerator
 
 
 class JobContext:
@@ -16,7 +16,7 @@ class JobContext:
     """
 
     def __init__(self):
-        self._job_id = IdGenerator.generateId()
+        self._job_id = IdGenerator().generateId()
         self._native_id = self._job_id      # important: can be set later
         self._parent_job_id = self._job_id
         self._workflow_id = self._job_id    # important: can be set later

@@ -10,14 +10,14 @@ in these cases, a user-provided handler is fired
 
 from enum import Enum
 
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.midware._impl.IdGenerator import IdGenerator
 from lwfm.base.JobDefn import JobDefn
 
 
 # ************************************************************************
 class WorkflowEvent:
     def __init__(self, fireDefn=None, fireSite=None, fireJobId=None):
-        self._event_id = IdGenerator.generateId()
+        self._event_id = IdGenerator().generateId()
         self._fire_defn = fireDefn
         self._fire_site = fireSite
         self._fire_job_id = fireJobId

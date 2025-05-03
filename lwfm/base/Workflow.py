@@ -4,7 +4,7 @@ A collection of jobs and their associated (meta)information.
 
 #pylint: disable = invalid-name, missing-function-docstring
 
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.midware._impl.IdGenerator import IdGenerator
 
 class Workflow:
     """
@@ -12,7 +12,7 @@ class Workflow:
     """
 
     def __init__(self, name: str = None, description: str = None):
-        self._workflow_id = IdGenerator.generateId()
+        self._workflow_id = IdGenerator().generateId()
         self._name = name
         self._description = description
         self._props = {}

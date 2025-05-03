@@ -17,9 +17,6 @@ from lwfm.sites.LocalSite import LocalSite
 # middleware
 from lwfm.midware.LwfManager import lwfManager, logger
 
-# utility
-from lwfm.util.IdGenerator import IdGenerator
-
 
 __all__ = [
     "JobContext",
@@ -33,7 +30,5 @@ __all__ = [
     "LocalSite",
 
     "lwfManager",
-    "logger",
-
-    "IdGenerator"
+    "logger"
 ]

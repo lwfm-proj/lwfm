@@ -1,5 +1,8 @@
+"""
+convenience tool to stick the auth token for a site into the lwfm store 
+"""
 
-# convenience tool to stick the auth token for a site into the lwfm store 
+#pylint: disable = invalid-name
 
 from lwfm.midware._impl.Store import AuthStore
 

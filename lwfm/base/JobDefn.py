@@ -8,7 +8,7 @@ args to instantiate a job from the definition.
 
 from typing import List
 
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.midware._impl.IdGenerator import IdGenerator
 
 
 class JobDefn:
@@ -36,7 +36,7 @@ class JobDefn:
     """
 
     def __init__(self, entryPoint: str = None):
-        self._defn_id = IdGenerator.generateId()
+        self._defn_id = IdGenerator().generateId()
         self.setEntryPoint(entryPoint)
         self.setName("")
         self.setJobArgs([])

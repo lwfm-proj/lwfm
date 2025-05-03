@@ -7,13 +7,12 @@ from lwfm.base.Metasheet import Metasheet
 from lwfm.midware.LwfManager import lwfManager, logger
 from lwfm.base.WorkflowEvent import MetadataEvent
 from lwfm.base.JobDefn import JobDefn
-from lwfm.util.IdGenerator import IdGenerator
 
 if __name__ == "__main__":
     site: Site = Site.getSite("local")
     site.getAuthDriver().login()
 
-    TS = IdGenerator.generateId()
+    TS = lwfManager.generateId()
     # when data is put into the repo with this sampleId in the metadata, fire the job
     # on the site
     futureJobStatus = lwfManager.setEvent(

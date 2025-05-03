@@ -9,7 +9,7 @@ It is emitted within the job's context.
 from enum import Enum
 import datetime
 
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.midware._impl.IdGenerator import IdGenerator
 
 from lwfm.base.JobContext import JobContext
 
@@ -47,7 +47,7 @@ class JobStatus:
     """
 
     def __init__(self, jobContext: JobContext = None):
-        self._status_id = IdGenerator.generateId()
+        self._status_id = IdGenerator().generateId()
         self._status = JobStatusValues.UNKNOWN
         self._native_status = None
         self._emit_time = datetime.datetime.now(datetime.timezone.utc)

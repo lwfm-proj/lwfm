@@ -2,16 +2,17 @@
 example of data management
 """
 
+#pylint: disable = invalid-name
+
 from lwfm.base.Site import Site
 from lwfm.base.Metasheet import Metasheet
-from lwfm.util.IdGenerator import IdGenerator
-from lwfm.midware.LwfManager import logger
+from lwfm.midware.LwfManager import logger, lwfManager
 
 if __name__ == "__main__":
     site: Site = Site.getSite("local")
     site.getAuthDriver().login()
 
-    ts = IdGenerator.generateId()
+    ts = lwfManager.generateId()
     metadata = {"foo": "bar", "hello": "world", "sampleId": ts}
     site.getRepoDriver().put("ex1_date.out", "/tmp/someFile.dat",
         None, # autogen a new job for this repo activity if no JobContext provided

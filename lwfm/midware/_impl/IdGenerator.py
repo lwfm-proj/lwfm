@@ -10,11 +10,10 @@ import random
 import sys
 
 class IdGenerator:
-    @staticmethod
-    def generateId() -> str:
-        return str(uuid.uuid4())[:8]
+    def generateId(self) -> str:
+        # return str(uuid.uuid4())[:8]  # short form
+        return str(uuid.uuid4())        # long form
 
-    @staticmethod
-    def generateInteger() -> int:
+    def generateInteger(self) -> int:
         max_int = sys.maxsize
         return random.randint(1, max_int)

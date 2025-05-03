@@ -14,7 +14,7 @@ from typing import List
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.midware._impl.IdGenerator import IdGenerator
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Workflow import Workflow
 from lwfm.midware._impl.Logger import Logger
@@ -30,7 +30,7 @@ class LwfManager():
     _client = LwfmEventClient()
 
     def generateId(self):
-        return IdGenerator.generateId()
+        return IdGenerator().generateId()
 
     #***********************************************************************
     # logging methods

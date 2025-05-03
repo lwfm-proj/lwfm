@@ -4,7 +4,7 @@ A basic dictionary to hold metadata about data objects under management by lwfm
 
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
 
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.midware._impl.IdGenerator import IdGenerator
 
 class Metasheet:
     """
@@ -12,7 +12,7 @@ class Metasheet:
     """
 
     def __init__(self, siteName: str, siteUrl: str, props: dict = None):
-        self._sheet_id = IdGenerator.generateId()
+        self._sheet_id = IdGenerator().generateId()
         self._job_id = self._sheet_id
         self._siteName = siteName
         self._siteUrl = siteUrl
