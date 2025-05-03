@@ -16,29 +16,26 @@ from lwfm.base.JobStatus import JobStatus
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Workflow import Workflow
 from lwfm.base.JobDefn import JobDefn
+from lwfm.midware.LwfManager import logger
 
 
-def _runInVenv(venv_path: str, script_path: str) -> None:
+def _runInVenv(venv_path: str, script_path_cmd: str) -> None:
     """
     venv_path = "/path/to/your/venv"
-    script_path = "/path/to/your/script.py"
+    script_path_cmd = "import example_class; obj = example_class.MyClass('example');
+#        obj.my_method('hello', 'world')"
     """
     try:
         if os.name == "nt":
             python_executable = os.path.join(venv_path, "Scripts", "python.exe")
         else:
             python_executable = os.path.join(venv_path, "bin", "python")
-        process = subprocess.Popen([python_executable, script_path])
+        process = subprocess.Popen([python_executable, "-c", script_path_cmd])
         process.wait()
-        if process.returncode == 0:
-            print("Subprocess completed successfully.")
-        else:
-            print(f"Subprocess failed with return code: {process.returncode}")
+        if process.returncode != 0:
+            logger.error(f"_runInVenv: subprocess failed with return code: {process.returncode}")
     except Exception as ex:
-        print(f"An error occurred: {ex}")
-
-# python -c "import example_class; obj = example_class.MyClass('example');
-#        obj.my_method('hello', 'world')"
+        logger.error(f"_runInVenv: an error occurred: {ex}")
 
 
 class VenvSiteAuth(SiteAuth):
@@ -47,6 +44,7 @@ class VenvSiteAuth(SiteAuth):
 
     def isAuthCurrent(self) -> bool:
         return True
+
 
 
 class VenvSiteRun(SiteRun):
