@@ -19,6 +19,7 @@ from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Workflow import Workflow
 from lwfm.midware._impl.Logger import Logger
 from lwfm.midware._impl.LwfmEventClient import LwfmEventClient
+from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 
 
 # create a singleton logger
@@ -41,6 +42,15 @@ class LwfManager():
     def error(self, msg: str, status: str = None):
         logger.error(msg, status)
 
+
+    #***********************************************************************
+    # serialization methods
+
+    def serialize(self, obj) -> str:
+        return ObjectSerializer.serialize(obj)
+
+    def deserialize(self, s: str):
+        return ObjectSerializer.deserialize(s)
 
     #***********************************************************************
     # workflow methods

@@ -123,9 +123,9 @@ class SiteRun(SitePillar):
         runDriver.submit(jobDefn, parentContext, computeType, runArgs)
 
     @abstractmethod
-    def submit(self, jobDefn: 'JobDefn',
-        parentContext: Union[JobContext, Workflow] = None,
-        computeType: str = None, runArgs: dict = None) -> JobStatus:
+    def submit(self, jobDefn: Union['JobDefn', str],
+        parentContext: Union[JobContext, Workflow, str] = None,
+        computeType: str = None, runArgs: Union[dict, str] = None) -> JobStatus:
         """
         Submit the job for execution on this Site. It is an implementation
         detail of the Site what that means - everything from pseudo-immediate
@@ -173,7 +173,7 @@ class SiteRun(SitePillar):
         """
 
     @abstractmethod
-    def cancel(self, jobContext: JobContext) -> bool:
+    def cancel(self, jobContext: Union[JobContext, str]) -> bool:
         """
         Cancel the job, which might be in a queued state, or might already be running.
         Its up to to the Site how to handle the cancel, including not doing it.  The
@@ -209,8 +209,8 @@ class SiteRepo(SitePillar):
         self,
         localPath: str,
         siteObjPath: str,
-        jobContext: JobContext = None,
-        metasheet: Metasheet = None
+        jobContext: Union[JobContext, str] = None,
+        metasheet: Union[Metasheet, str] = None
     ) -> Metasheet:
         pass
 
@@ -222,13 +222,13 @@ class SiteRepo(SitePillar):
         self,
         siteObjPath: str,
         localPath: str,
-        jobContext: JobContext = None
+        jobContext: Union[JobContext, str] = None
     ) -> str:
         pass
 
     # find metasheets by query
     @abstractmethod
-    def find(self, queryRegExs: dict) -> List[Metasheet]:
+    def find(self, queryRegExs: Union[dict, str]) -> List[Metasheet]:
         pass
 
 
@@ -264,16 +264,18 @@ class SiteSpin(SitePillar):
 
 
 class Site:
-    def __init__(self, site_name: str = None, auth_driver: SiteAuth = None,
-        run_driver: SiteRun = None, repo_driver: SiteRepo = None,
-        spin_driver: SiteSpin = None):
+    def __init__(self, site_name: str = None,
+                auth_driver: SiteAuth = None,
+                run_driver: SiteRun = None,
+                repo_driver: SiteRepo = None,
+                spin_driver: SiteSpin = None):
         self._site_name = site_name
         self._auth_driver = auth_driver
         self._run_driver = run_driver
         self._repo_driver = repo_driver
         self._spin_driver = spin_driver
         # pre-defined Sites and their associated driver implementations
-        self._sites = {
+        self._sites = {   # TODO 
             "local": "lwfm.sites.LocalSite.LocalSite",
             #"insitu": "lwfm.sites.InSituSite.InSituSite",
             #"ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"
@@ -339,7 +341,7 @@ class Site:
             entry = Site._getSiteEntry(site)
             module = importlib.import_module(entry.rsplit(".", 1)[0])
             class_ = getattr(module, str(entry.rsplit(".", 1)[1]))
-            inst = class_()
+            inst = class_()   # TODO ? 
             inst.setSiteName(site)
             return inst
         except Exception as ex:

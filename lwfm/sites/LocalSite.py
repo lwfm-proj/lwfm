@@ -89,8 +89,16 @@ class LocalSiteRun(SiteRun):
     # we know our job id yet, though we may - it can be passed in directly (e.g. the lwfManager
     # might run the job from an event trigger and thus know the job id a priori), or it can
     # be passed in sub rosa via the os environment
-    def submit(self, jobDefn: JobDefn, parentContext: Union[JobContext, Workflow] = None,
-        computeType: str = None, runArgs: dict = None) -> JobStatus:
+    def submit(self, jobDefn: Union[JobDefn, str],
+               parentContext: Union[JobContext, Workflow, str] = None,
+        computeType: str = None, runArgs: Union[dict, str] = None) -> JobStatus:
+        # if we are passed a string, assume it is a job definition
+        if isinstance(jobDefn, str):
+            jobDefn = lwfManager.deserialize(jobDefn)
+        if isinstance(parentContext, str):
+            parentContext = lwfManager.deserialize(parentContext)
+        if isinstance(runArgs, str):
+            runArgs = lwfManager.deserialize(runArgs)
         try:
             # this is the local Run driver - there is not (as yet) any concept of
             # "computeType" or "runArgs" as there might be on another more complex
@@ -125,7 +133,7 @@ class LocalSiteRun(SiteRun):
             return None
 
 
-    def cancel(self, jobContext: JobContext) -> bool:
+    def cancel(self, jobContext: Union[JobContext, str]) -> bool:
         pass
         # # Find the locally running thread and kill it
         # try:
@@ -163,13 +171,18 @@ class LocalSiteRepo(SiteRepo):
         return True
 
     def put(self, localPath: str, siteObjPath: str,
-            jobContext: JobContext = None, metasheet: Metasheet = None) -> Metasheet:
+            jobContext: Union[JobContext, str] = None,
+            metasheet: Union[Metasheet, str] = None) -> Metasheet:
+        if isinstance(jobContext, str):
+            jobContext = lwfManager.deserialize(jobContext)
         context = jobContext
         if context is None:
             context = JobContext()
         if jobContext is None:
             # we drive job state, else we are already part of some other job
             lwfManager.emitStatus(context, LocalJobStatus, JobStatusValues.RUNNING.value)
+        if isinstance(metasheet, str):
+            metasheet = lwfManager.deserialize(metasheet)
         success = True
         if (localPath is not None) and (siteObjPath is not None):
             # copy the file from localPath to siteObjPath
@@ -189,7 +202,10 @@ class LocalSiteRepo(SiteRepo):
                 JobStatusValues.FAILED.value)
         return None
 
-    def get(self, siteObjPath: str, localPath: str, jobContext: JobContext = None) -> str:
+    def get(self, siteObjPath: str, localPath: str, 
+            jobContext: Union[JobContext, str] = None) -> str:
+        if isinstance(jobContext, str):
+            jobContext = lwfManager.deserialize(jobContext)
         context = jobContext
         if context is None:
             context = JobContext()
@@ -213,7 +229,9 @@ class LocalSiteRepo(SiteRepo):
                 JobStatusValues.FAILED.value)
         return None
 
-    def find(self, queryRegExs: dict) -> List[Metasheet]:
+    def find(self, queryRegExs: Union[dict ,str]) -> List[Metasheet]:
+        if isinstance(queryRegExs, str):
+            queryRegExs = lwfManager.deserialize(queryRegExs)
         return lwfManager.find(queryRegExs)
 
 
@@ -232,11 +250,15 @@ class LocalSite(Site):
 
     SITE_NAME = "local"
 
-    def __init__(self):
+    def __init__(self, site_name: str = None,
+                 auth_driver: SiteAuth = None,
+                 run_driver: SiteRun = None,
+                 repo_driver: SiteRepo = None,
+                 spin_driver: SiteSpin = None):
         super().__init__(
-            self.SITE_NAME,
-            LocalSiteAuth(),
-            LocalSiteRun(),
-            LocalSiteRepo(),
-            LocalSiteSpin()
+            site_name or self.SITE_NAME,
+            auth_driver or LocalSiteAuth(),
+            run_driver or LocalSiteRun(),
+            repo_driver or LocalSiteRepo(),
+            spin_driver or LocalSiteSpin()
         )

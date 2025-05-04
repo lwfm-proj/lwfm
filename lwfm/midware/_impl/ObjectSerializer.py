@@ -17,5 +17,7 @@ class ObjectSerializer:
 
     @staticmethod
     def deserialize(s: str):
+        if s is None:
+            return None
         out_bytes = base64.b64decode(s.encode('ascii'))
         return pickle.loads(out_bytes)
