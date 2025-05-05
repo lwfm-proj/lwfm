@@ -17,11 +17,12 @@ list of sites provided here with a user's own custom Site implementations.
 """
 
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
-#pylint: disable = broad-exception-caught
+#pylint: disable = broad-exception-caught, broad-exception-raised
 
 from abc import ABC, abstractmethod
 import importlib
 import os
+import tomllib
 
 from typing import List, TYPE_CHECKING, Union
 
@@ -274,12 +275,6 @@ class Site:
         self._run_driver = run_driver
         self._repo_driver = repo_driver
         self._spin_driver = spin_driver
-        # pre-defined Sites and their associated driver implementations
-        self._sites = {   # TODO 
-            "local": "lwfm.sites.LocalSite.LocalSite",
-            #"insitu": "lwfm.sites.InSituSite.InSituSite",
-            #"ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"
-        }
 
     def getSiteName(self):
         return self._site_name
@@ -312,37 +307,42 @@ class Site:
         self._spin_driver = driver
 
     @staticmethod
-    def _getSiteEntry(site: str):     # TODO: move to SiteFactory?
-        siteSet = {
-            "local"      : "lwfm.sites.LocalSite.LocalSite",
-            "local-venv" : "lwfm.sites.LocalVenvSite.LocalVenvSite",
-            #"insitu": "lwfm.sites.InSituSite.InSituSite",
-            #"ibm_quantum": "lwfm.sites.IBMQuantumSite.IBMQuantumSite"
-        }
-        # is there a local site config?
-        path = os.path.expanduser("~") + "/.lwfm/sites.txt"
+    def _getSiteEntry(site: str):
+        # site drivers which ship with lwfm
+        siteToml = """
+
+        [local]
+        class = "lwfm.sites.LocalSite.LocalSite"
+
+        [local-venv]
+        class = "lwfm.sites.LocalVenvSite.LocalVenvSite"
+
+        """
+        USER_TOML = os.path.expanduser("~") + "/.lwfm/sites.toml"
+        siteSet = tomllib.loads(siteToml)
+        # is there a local site config? it can define any custom site, or override
+        # a site driver which ships with lwfm
         # Check whether the specified path exists or not
-        if os.path.exists(path):
-            logger.info("Loading custom site configs from ~/.lwfm/sites.txt")
-            with open(path) as f:
-                for line in f:
-                    name, var = line.split("=")
-                    name = name.strip()
-                    var = var.strip()
-                    logger.info(
-                        "Registering driver " + var + " for site " + name
-                    )
-                    siteSet[name] = var
+        if os.path.exists(USER_TOML):
+            logger.info(f"Loading custom site configs from {USER_TOML}")
+            siteSetUser = tomllib.load(USER_TOML)
+            siteSet.update(siteSetUser)
         return siteSet.get(site)
 
     @staticmethod
-    def getSite(site: str = "local"):
+    def getSite(site: str = "local",
+                auth_driver: SiteAuth = None,
+                run_driver: SiteRun = None,
+                repo_driver: SiteRepo = None,
+                spin_driver: SiteSpin = None) -> 'Site':
         try:
-            entry = Site._getSiteEntry(site)
-            module = importlib.import_module(entry.rsplit(".", 1)[0])
-            class_ = getattr(module, str(entry.rsplit(".", 1)[1]))
-            inst = class_()   # TODO ? 
-            inst.setSiteName(site)
+            siteObj = Site._getSiteEntry(site)
+            if siteObj is None:
+                raise Exception(f"Cannot find site {site}")
+            class_name = siteObj.get("class")
+            module = importlib.import_module(class_name.rsplit(".", 1)[0])
+            class_ = getattr(module, str(class_name.rsplit(".", 1)[1]))
+            inst = class_(site, auth_driver, run_driver, repo_driver, spin_driver)
             return inst
         except Exception as ex:
             logger.error(

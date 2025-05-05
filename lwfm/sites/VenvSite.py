@@ -1,5 +1,5 @@
 """
-Base class for a Site which runs its functions in a virtual environment. This allows the 
+Abstract class for a Site which runs its functions in a virtual environment. This allows the 
 Site to run with its own set of dependencies independent of the global environment.
 """
 

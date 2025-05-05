@@ -1,5 +1,6 @@
 """
-Local Site to run with its own set of dependencies independent of the global environment.
+Local Site to run in a virual environment with its own set of dependencies, 
+independent of the global environment.
 """
 
 #pylint: disable = invalid-name
@@ -21,9 +22,6 @@ class LocalVenvSite(VenvSite):
                     repoDriver: SiteRepo = None,
                     spinDriver: SiteSpin = None,
                  ) -> None:
-        """
-        Initialize the base class with the site name and the pillars
-        """
         # going to use a private local site for some pillars if none are not provided
         self.localSite = LocalSite()
         if site_name is not None:
