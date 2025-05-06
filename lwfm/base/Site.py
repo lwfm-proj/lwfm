@@ -306,9 +306,10 @@ class Site:
     def setSpinDriver(self, driver):
         self._spin_driver = driver
 
+    # ****************************************************************************
+
     @staticmethod
-    def _getSiteEntry(site: str):
-        # site drivers which ship with lwfm
+    def _getSiteToml() -> dict:
         siteToml = """
 
         [local]
@@ -325,9 +326,20 @@ class Site:
         # Check whether the specified path exists or not
         if os.path.exists(USER_TOML):
             logger.info(f"Loading custom site configs from {USER_TOML}")
-            siteSetUser = tomllib.load(USER_TOML)
+            with open(USER_TOML, "rb") as f:
+                siteSetUser = tomllib.load(f)
             siteSet.update(siteSetUser)
+        return siteSet
+
+    @staticmethod
+    def _getSiteEntry(site: str) -> dict:
+        # site drivers which ship with lwfm
+        siteSet = Site._getSiteToml()
         return siteSet.get(site)
+
+    @staticmethod
+    def getSiteProperties(site: str) -> dict:
+        return Site._getSiteEntry(site)
 
     @staticmethod
     def getSite(site: str = "local",
@@ -349,3 +361,13 @@ class Site:
                 f"Cannot instantiate Site for {site} {ex}"
             )
             raise ex
+
+
+#***************************************************************************
+# main() - test code
+
+def main():
+    print(Site.getSiteProperties("ibm-quantum"))
+    
+if __name__ == "__main__":
+    main()
