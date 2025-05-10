@@ -45,13 +45,6 @@ class Store:
     def createSchema(self) -> None:
         db = sqlite3.connect(_DB_FILE)
         cur = db.cursor()
-        cur.execute("CREATE TABLE IF NOT EXISTS AuthStore ( " \
-            "id INTEGER PRIMARY KEY, "\
-            "ts INTEGER, "\
-            "site TEXT, " \
-            "pillar TEXT, " \
-            "key TEXT, " \
-            "data TEXT)")
         cur.execute("CREATE TABLE IF NOT EXISTS WorkflowStore ( " \
             "id INTEGER PRIMARY KEY, "\
             "ts INTEGER, "\
@@ -125,35 +118,6 @@ class Store:
 
 
 # ****************************************************************************
-
-class AuthStore(Store):
-
-    # return the site-specific auth blob for this site
-    def getAuthForSite(self, siteName: str) -> str:
-        try:
-            db = sqlite3.connect(_DB_FILE)
-            cur = db.cursor()
-            res = cur.execute(f"SELECT data FROM AuthStore WHERE pillar='auth' and " \
-                f"site='{siteName}' and key='auth' order by ts desc")
-            result = res.fetchone()
-            if result is not None:
-                result = result[0]
-            db.close()
-            return result
-        except Exception as ex:
-            print(f"Error in getAuthForSite: {ex}")
-            return None
-        finally:
-            if db:
-                db.close()
-
-    # set the site-specific auth blob for this site
-    def putAuthForSite(self, siteName: str, doc: str) -> None:
-        self._put("AuthStore", siteName, "auth", "auth", doc)
-
-
-# ****************************************************************************
-
 
 class WorkflowStore(Store):
 
