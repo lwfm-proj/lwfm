@@ -1,0 +1,99 @@
+
+Todo & misc notes
+
+******************************************************************************
++ lwfm
+    - do we need auth store? not for IBM it seems... 
+    - venv project dir - review design, finish impl 
+    - IBM driver w nested libs
+    - remote polling
+    - midware launcher 
+    - TODOs
+    - inline docs esp. for .base & .midware 
+
++ ibm site  
+    - ibm site w qiskit run - allow 1 session for many circuits
+    - sample vs estimation, etc. - what are the ways to run()
+    - runArgs for backend args - shots, etc.
+    - jobDefn gets circuit file from somewhere...
+    - test circuit(s)
+    - set job listener to mine the remote job results 
+    - w. venv wrapper 
+
++ ornl site
+    - PNLL simulator, tensor sim (see also https://github.com/tencent-quantum-lab/tensorcircuit)
+
++ lwfm agent - general wf agent
+    - .base & .midware signatures for mcp wrapper - copiously document
+    - mcp async abilities - how to use relative to lwfm triggers - w. example
+
++ qwf-agent - quantum wf agent built on lwfm agent
+    - IBM 4-part quantum framework vs. more granular steps (see below)
+    - e.g. swap out transpilation pipelines for target QCs
+    - a2a scenario - Assistant & QA test agents? ("ai4sci", agent surfing arxiv, etc.)
+
++ quantum_linear_solvers
+    - upgrade to qiskit 2.0 
+    - remove qiskit-algorithms: AlgorithmResult 
+    - stamp before & after as releases & update ornl code w/ pr 
+    - other fork: https://github.com/richard7990/quantum_linear_solvers
+
++ wciscc2025: IBM, IQM, Quantinuum, IonQ machines w lwfm venv 
+    - requirements.txt collisions (use uv?)
+    - ibm_sherbrooke going end of life  
+
+
+******************************************************************************
+Design: (map to IBM 4-step process)
+
++ Author
+    - describe circuit in language of choice (e.g. QASM, OpenQASM, etc.)
+    - writes to descriptor format?
+
++ Pre 
+
++ Build (circuit_HHL.py)
+    - construct circuit from description (likely Python Qiskit or matrix)
+    - write to interchange format (Qpy)
+
++ Optimize
+
++ Transpile 
+
++ Run (solver.py)
+    - reads in circuit in interchange format (Qpy)
+    - transpiles / optimizes circuit (to ISA)  - is this two steps? what are ins/outs?
+    - runs circuit 
+    - returns results 
+    + backend plugins
+        - credentials (Auth)
+        - libraries (Run)
+        - execution (Run)
+        - monitor execution (Run)
+        - return results (Run)
+
++ Post 
+
+
+******************************************************************************
+installation notes for lwfm-agent
+
+python
+uv
+node, npm, npx 
+<my project> 
+fast-agent, API key in fastagent.secrets.yaml, servers in fastagent.config.yaml 
+
+
+******************************************************************************
+other notes
+
+- AFRL needs to juggle qc backends for their algorithm benchmarking w DARPA 
+- lwfm roadmap - ORNL DD?
++ algorithms
+    - zoo impls?
+    - AFRL impls?
+    - tutorials?
+
+
+******************************************************************************
