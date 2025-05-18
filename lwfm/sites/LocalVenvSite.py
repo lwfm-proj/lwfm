@@ -22,8 +22,11 @@ class LocalVenvSite(VenvSite):
                     repoDriver: SiteRepo = None,
                     spinDriver: SiteSpin = None,
                  ) -> None:
-        # going to use a private local site for some pillars if none are not provided
+        # going to use a private local site for some pillars if none are not provided;
+        # (truthfully the invoker can pass in any Site pillar implementation, not just
+        # one from the local site - this might be convenient, or allow for a chimera...)
         self.localSite = LocalSite()
+        # TODO think thru this... how does an arbitrary name work? must be in toml
         if site_name is not None:
             self.localSite.setSiteName(site_name)
         else:

@@ -21,7 +21,24 @@ from lwfm.base.JobDefn import JobDefn
 from lwfm.midware.LwfManager import logger, lwfManager
 from lwfm.sites.LocalSite import LocalSite
 
-def _executeInProjectVenv(proj_path: str, script_path_cmd: str) -> str:
+
+# *********************************************************************************
+# internals
+
+def _makeVenvPath() -> str:   # TODO
+    """
+    A private helper method to construct the path to the virtual environment.
+    This is used to run commands in the virtual environment.
+    """
+    # construct the path to the virtual environment
+    # if os.name == "nt":    # windows
+    #     return os.path.join(os.getcwd(), ".venv", "Scripts")
+    # else:   # a real OS
+    #     return os.path.join(os.getcwd(), ".venv", "bin")
+    return "./.venv"
+
+
+def _executeInProjectVenv(script_path_cmd: str = None) -> str:
     """
     A private helper method to run a command in a virtual environment. This is used
     to run canonical Site methods.
@@ -30,6 +47,10 @@ def _executeInProjectVenv(proj_path: str, script_path_cmd: str) -> str:
     script_path_cmd = "import example_class; obj = example_class.MyClass('example');
 #        obj.my_method('hello', 'world')"
     """
+    if script_path_cmd is None:
+        raise ValueError("script_path_cmd is required")
+
+    proj_path = _makeVenvPath()
 
     print(f"_executeInProjectVenv: executing in {proj_path}")
     print(f"_executeInProjectVenv: executing command: {script_path_cmd}")
@@ -97,21 +118,14 @@ def _makeObjDriverCommandString(sitePillar: SitePillar) -> str:
     return f"from {pkgName} import {className}; " + \
            f"driver = {className}(); "
 
-def _makeVenvPath() -> str:   # TODO
-    """
-    A private helper method to construct the path to the virtual environment.
-    This is used to run commands in the virtual environment.
-    """
-    # construct the path to the virtual environment
-    # if os.name == "nt":    # windows
-    #     return os.path.join(os.getcwd(), ".venv", "Scripts")
-    # else:   # a real OS
-    #     return os.path.join(os.getcwd(), ".venv", "bin")
-    return "./.venv"
+
 
 def _makeObjWrapper(obj: object) -> str:
     return f"'{lwfManager.serialize(obj)}'"
 
+
+# *********************************************************************************
+# site pillar wrappers
 
 class VenvSiteAuthWrapper(SiteAuth):
     """
@@ -125,7 +139,6 @@ class VenvSiteAuthWrapper(SiteAuth):
 
     def login(self, force: bool = False) -> bool:
         retVal = _executeInProjectVenv(
-            _makeVenvPath(),
             _makeObjDriverCommandString(self._realAuthDriver) + \
             f"obj = driver.login({force}); " + \
             f"{_makeSerializeCommandString()}"
@@ -134,7 +147,6 @@ class VenvSiteAuthWrapper(SiteAuth):
 
     def isAuthCurrent(self) -> bool:
         retVal = _executeInProjectVenv(
-            _makeVenvPath(),
             _makeObjDriverCommandString(self._realAuthDriver) + \
             "obj = driver.isAuthCurrent(); " + \
             f"{_makeSerializeCommandString()}"
@@ -156,7 +168,6 @@ class VenvSiteRunWrapper(SiteRun):
         parentContext: Union[JobContext, Workflow, str] = None,
         computeType: str = None, runArgs: Union[dict, str] = None) -> JobStatus:
         retVal = _executeInProjectVenv(
-            _makeVenvPath(),
             _makeObjDriverCommandString(self._realRunDriver) + \
             f"obj = driver.submit({_makeObjWrapper(jobDefn)}, " +\
             f"{_makeObjWrapper(parentContext)}, '{computeType}', " + \
@@ -167,7 +178,6 @@ class VenvSiteRunWrapper(SiteRun):
 
     def getStatus(self, jobId: str) -> JobStatus:
         retVal = _executeInProjectVenv(
-            _makeVenvPath(),
             _makeObjDriverCommandString(self._realRunDriver) + \
             f"obj = driver.getStatus('{jobId}'); " + \
             f"{_makeSerializeCommandString()}"
@@ -176,7 +186,6 @@ class VenvSiteRunWrapper(SiteRun):
 
     def cancel(self, jobContext: Union[JobContext, str]) -> bool:
         retVal = _executeInProjectVenv(
-            _makeVenvPath(),
             _makeObjDriverCommandString(self._realRunDriver) + \
             f"obj = driver.cancel({_makeObjWrapper(jobContext)}); " + \
             f"{_makeSerializeCommandString()}"
@@ -202,7 +211,6 @@ class VenvSiteRepoWrapper(SiteRepo):
         metasheet: Union[Metasheet, str] = None
     ) -> Metasheet:
         retVal = _executeInProjectVenv(
-            _makeVenvPath(),
             _makeObjDriverCommandString(self._realRepoDriver) + \
             f"obj = driver.put('{localPath}', '{siteObjPath}', " + \
             f"{_makeObjWrapper(jobContext)}, {_makeObjWrapper(metasheet)}); " + \
@@ -217,7 +225,6 @@ class VenvSiteRepoWrapper(SiteRepo):
         jobContext: Union[JobContext, str] = None
     ) -> str:
         retVal = _executeInProjectVenv(
-            _makeVenvPath(),
             _makeObjDriverCommandString(self._realRepoDriver) + \
             f"obj = driver.get('{siteObjPath}', '{localPath}', {_makeObjWrapper(jobContext)}); " + \
             f"{_makeSerializeCommandString()}"
@@ -226,7 +233,6 @@ class VenvSiteRepoWrapper(SiteRepo):
     
     def find(self, queryRegExs: dict) -> List[Metasheet]:
         retVal = _executeInProjectVenv(
-            _makeVenvPath(),
             _makeObjDriverCommandString(self._realRepoDriver) + \
             f"obj = driver.find({_makeObjWrapper(queryRegExs)}); " + \
             f"{_makeSerializeCommandString()}"
@@ -240,7 +246,6 @@ class VenvSiteSpinWrapper(SiteSpin):
 
     def listComputeTypes(self) -> List[str]:
         retVal = _executeInProjectVenv(
-            _makeVenvPath(),
             _makeObjDriverCommandString(self._realSpinDriver) + \
             "obj = driver.listComputeTypes(); " + \
             f"{_makeSerializeCommandString()}"
@@ -258,11 +263,12 @@ class VenvSite(Site, ABC):
                     run_driver: SiteRun = None,
                     repo_driver: SiteRepo = None,
                     spin_driver: SiteSpin = None):
-        self.localSite = LocalSite()   # use a LocalSite when the driver is not available
+        # TODO use a LocalSite when the driver is not available - see also LocalVenvSite
+        self.localSite = LocalSite()
         if site_name is not None:
             self.localSite.setSiteName(site_name)
         else:
-            self.localSite.setSiteName("local-venv")
+            self.localSite.setSiteName("local-venv")   # TODO make a constant
         self._realAuthDriver = auth_driver or self.localSite.getAuthDriver()
         self._realRunDriver = run_driver or self.localSite.getRunDriver()
         self._realRepoDriver = repo_driver or self.localSite.getRepoDriver()

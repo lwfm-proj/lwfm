@@ -3,13 +3,14 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    - do we need auth store? not for IBM it seems... 
     - venv project dir - review design, finish impl 
     - IBM driver w nested libs
     - remote polling
     - midware launcher 
     - TODOs
     - inline docs esp. for .base & .midware 
+    - "write the docs first
+
 
 + ibm site  
     - ibm site w qiskit run - allow 1 session for many circuits
@@ -33,13 +34,13 @@ Todo & misc notes
     - a2a scenario - Assistant & QA test agents? ("ai4sci", agent surfing arxiv, etc.)
 
 + quantum_linear_solvers
-    - upgrade to qiskit 2.0 
+    - upgrade to qiskit 2.0, and wciscc
     - remove qiskit-algorithms: AlgorithmResult 
     - stamp before & after as releases & update ornl code w/ pr 
-    - other fork: https://github.com/richard7990/quantum_linear_solvers
+    - other fork: https://github.com/richard7990/quantum_linear_solvers, ORNL forked me
 
-+ wciscc2025: IBM, IQM, Quantinuum, IonQ machines w lwfm venv 
-    - requirements.txt collisions (use uv?)
++ wciscc2025
+    - IBM, IQM, Quantinuum, IonQ machines w lwfm venv 
     - ibm_sherbrooke going end of life  
 
 
