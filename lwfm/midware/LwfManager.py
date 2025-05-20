@@ -43,6 +43,12 @@ class LwfManager():
         logger.error(msg, status)
 
 
+    def getLogFilename(self, context: JobContext) -> str:
+        logDir = os.path.expanduser("~/.lwfm/logs")
+        os.makedirs(logDir, exist_ok=True)
+        return os.path.join(logDir, f"{context.getJobId()}.log")
+
+
     #***********************************************************************
     # serialization methods
 

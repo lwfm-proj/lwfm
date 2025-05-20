@@ -3,14 +3,22 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    - venv project dir - review design, finish impl 
-    - IBM driver w nested libs
-    - remote polling
-    - midware launcher 
-    - TODOs
+    + ibm driver 
+    + venv project dir
+        - finish impl 
+        - docs
+        - make sure .venv exists else create 
+        - any way to deal with the user's print() statements vs. use of print for subproc return?
+        - IBM driver w nested libs
+        - see TODO in LocalVenvSite - how does the name-to-class lookup work?
+    + remote polling
+    + midware launcher 
+    + TODOs
     - inline docs esp. for .base & .midware 
-    - "write the docs first
 
+    - "write the docs first"
+    - how does the LLM track workflows, how can we mine the logging artifacts - do we trust them?
+    - Google Codex use of Agents.md to understand the codebase / guardrails 
 
 + ibm site  
     - ibm site w qiskit run - allow 1 session for many circuits

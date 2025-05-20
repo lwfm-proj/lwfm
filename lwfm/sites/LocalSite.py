@@ -72,6 +72,12 @@ class LocalSiteRun(SiteRun):
             # and inject the job id
             env = os.environ.copy()
             env['_LWFM_JOB_ID'] = jobContext.getJobId()
+
+            # Modify to redirect all output to the file or /dev/null if no file is specified
+            if hasattr(self, '_output_file') and self._output_file:
+                # Redirect all output to the file
+                cmd = f"{cmd} > {self._output_file} 2>&1"
+
             subprocess.run(cmd, shell=True, env=env, check=True)
             # Emit success statuses
             lwfManager.emitStatus(jobContext, LocalJobStatus,
@@ -83,6 +89,16 @@ class LocalSiteRun(SiteRun):
             # Emit FAILED status
             lwfManager.emitStatus(jobContext, LocalJobStatus,
                                   JobStatusValues.FAILED.value)
+
+
+    def _run_with_redirect(self, jobDefn, useContext, log_file_path) -> None:
+        # Store the output file path for _runJob to use
+        self._output_file = log_file_path
+        try:
+            self._runJob(jobDefn, useContext)
+        finally:
+            self._output_file = None
+
 
 
     # this is the top of the order for running a local job - there's no expectation
@@ -123,10 +139,15 @@ class LocalSiteRun(SiteRun):
             # horse at the gate...
             lwfManager.emitStatus(useContext, LocalJobStatus,
                                 JobStatusValues.PENDING.value)
+
+            # create a log file for this job
+            logFilename = lwfManager.getLogFilename(useContext)
+
             # Run the job in a new thread so we can wrap it in a bit more code
             # this will kick the status the rest of the way to a terminal state
-            multiprocessing.Process(target=self._runJob, args=[jobDefn, useContext]).start()
-            logger.info(f"LocalSite: submitted job {useContext.getJobId()}")
+            logger.info(f"LocalSite: submitting job {useContext.getJobId()}")
+            multiprocessing.Process(target=self._run_with_redirect, 
+                args=[jobDefn, useContext, logFilename]).start()
             return lwfManager.getStatus(useContext.getJobId())
         except Exception as ex:
             logger.error(f"ERROR: Could not submit job {ex}")

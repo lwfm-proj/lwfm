@@ -12,7 +12,8 @@ if __name__ == "__main__":
     site.getAuthDriver().login()
 
     # define the job - use all defaults except the actual command to execute
-    jobDefn = JobDefn(">&2 echo 'hello world'")
+    jobDefn = JobDefn("echo 'hello world'")
+
 
     # submit the job to the site asynchronously, get back an initial status
     status = site.getRunDriver().submit(jobDefn)
