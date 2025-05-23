@@ -1,0 +1,108 @@
+*** DEBUG: Script being executed: /home/agallojr/proj/src/lwfm/./lwfm/midware/_impl/startMidware.py
+*** DEBUG: __name__ value: __main__
+*** DEBUG: Script being executed: /home/agallojr/proj/src/lwfm/lwfm/midware/_impl/startMidware.py
+*** DEBUG: __name__ value: lwfm.midware._impl.startMidware
+*** startMidware()
+*** client will use http://127.0.0.1:3000
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae356a0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+*** isSync: False
+*** lwfm server not found - attempting to start locally
+*** launch: from lwfm.midware._impl.LwfmEventSvc import app; app.run(host='0.0.0.0', port=3000)
+*** lwfm server process started, PID: 9513
+*** allowing time for initialization...
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae3a0d0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae3a990>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae4de00>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae4e650>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae06f90>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae845a0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae84d10>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae84f30>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae85150>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae85370>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93df0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93ce0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af939b0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93790>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93460>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93350>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93240>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af92cf0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93020>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af92ad0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae85150>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae84f30>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae847c0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae848d0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae84d10>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af92ad0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93020>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af92cf0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93240>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93350>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93460>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93790>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af939b0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93ce0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93df0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93f00>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae88160>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae88380>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae885a0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae887c0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae889e0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246ae88c00>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93df0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93ce0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af939b0>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93790>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93460>: Failed to establish a new connection: [Errno 111] Connection refused'))
+isMidwareRunning(2): http://127.0.0.1:3000 trying init/recovery sequence
+HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /isRunning (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7f246af93350>: Failed to establish a new connection: [Errno 111] Connection refused'))

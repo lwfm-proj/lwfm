@@ -54,20 +54,18 @@ from lwfm.sites.LocalSite import LocalSite
 # *********************************************************************************
 # internals
 
-def _makeVenvPath() -> str:   # TODO
+def _makeVenvPath(siteName: str) -> str:   
     """
-    A private helper method to construct the path to the virtual environment.
-    This is used to run commands in the virtual environment.
+    Construct the path to the virtual environment used to run the Site driver.
     """
-    # construct the path to the virtual environment
-    # if os.name == "nt":    # windows
-    #     return os.path.join(os.getcwd(), ".venv", "Scripts")
-    # else:   # a real OS
-    #     return os.path.join(os.getcwd(), ".venv", "bin")
-    return "./.venv"
+    props = lwfManager.getSiteProperties(siteName)
+    if props['venv']:
+        return os.path.expanduser(props['venv'])
+    return os.path.join(os.getcwd(), ".venv")
 
 
-def _executeInProjectVenv(script_path_cmd: str = None) -> str:
+
+def _executeInProjectVenv(siteName: str, script_path_cmd: str = None) -> str:
     """
     Run a command in a virtual environment, used to run canonical Site methods.
     Arbitrary scripts can subsequently be run via Site.Run.submit().
@@ -75,9 +73,9 @@ def _executeInProjectVenv(script_path_cmd: str = None) -> str:
     if script_path_cmd is None:
         raise ValueError("script_path_cmd is required")
 
-    proj_path = _makeVenvPath()
+    proj_path = _makeVenvPath(siteName)
 
-    logger.info(f"_executeInProjectVenv: executing in {proj_path} cmd: {script_path_cmd}")
+    logger.info(f"_executeInProjectVenv: executing in venv {proj_path} cmd: {script_path_cmd}")
 
     try:
         # construct the path to the python executable in the virtual environment

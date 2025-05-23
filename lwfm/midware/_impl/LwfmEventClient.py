@@ -22,16 +22,31 @@ from lwfm.base.Metasheet import Metasheet
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.Workflow import Workflow
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
+from lwfm.midware._impl.SiteConfig import SiteConfig
+from lwfm.midware._impl.SvcLauncher import SvcLauncher
 
 class LwfmEventClient:
-    _SERVICE_URL = "http://127.0.0.1:3000"
+    _SERVICE_URL = ""
     _REST_TIMEOUT = 100
 
-    if os.getenv("LWFM_SERVICE_URL") is not None:
-        _SERVICE_URL = os.getenv("LWFM_SERVICE_URL")
 
     def getUrl(self):
         return self._SERVICE_URL
+
+
+    # is the middleware running?
+    def isMidwareRunning(self):
+        return SvcLauncher.isMidwareRunning(self.getUrl())
+
+
+    def __init__(self) -> None:
+        if os.getenv("LWFM_SERVICE_URL") is not None:
+            self._SERVICE_URL = os.getenv("LWFM_SERVICE_URL")
+        else:
+            host = SiteConfig.getSiteProperties("lwfm").get("host") or "127.0.0.1"
+            port = SiteConfig.getSiteProperties("lwfm").get("port") or "3000"
+            self._SERVICE_URL = f"http://{host}:{port}"
+
 
     #***********************************************************************
     # workflow methods

@@ -7,6 +7,7 @@ Flask app service for the lwfm middleware
 
 import json
 import logging
+import atexit
 from typing import List
 
 from flask import Flask, request
@@ -24,7 +25,17 @@ app = Flask(__name__)
 app.logger.disabled = True
 log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
+
+# Get the singleton instance of the event processor
 wfProcessor = LwfmEventProcessor()
+
+
+def halt():
+    print("*** halting event processor")
+    wfProcessor.exit()
+
+# Register cleanup to happen at exit
+atexit.register(halt)
 
 
 #************************************************************************
@@ -33,6 +44,11 @@ wfProcessor = LwfmEventProcessor()
 @app.route("/")
 def index():
     return str(True)
+
+
+@app.route("/isRunning")
+def isRunning():
+    return str(True), 200
 
 
 #************************************************************************

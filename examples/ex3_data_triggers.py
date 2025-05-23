@@ -9,7 +9,7 @@ from lwfm.base.WorkflowEvent import MetadataEvent
 from lwfm.base.JobDefn import JobDefn
 
 if __name__ == "__main__":
-    site: Site = Site.getSite("local")
+    site: Site = lwfManager.getSite("local")
     site.getAuthDriver().login()
 
     TS = lwfManager.generateId()

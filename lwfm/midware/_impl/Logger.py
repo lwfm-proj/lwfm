@@ -17,11 +17,11 @@ class Logger:
     _lwfmClient = None
 
     # create a singleton logger
-    def __init__(self):
+    def __init__(self, client: LwfmEventClient):
         logging.basicConfig()
         self._logger = logging.getLogger()
         self._logger.setLevel(logging.INFO)
-        self._lwfmClient = LwfmEventClient()
+        self._lwfmClient = client
 
     def _getTimestamp(self) -> str:
         current_time = datetime.datetime.now(datetime.timezone.utc)

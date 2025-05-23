@@ -9,7 +9,7 @@ from lwfm.base.Metasheet import Metasheet
 from lwfm.midware.LwfManager import logger, lwfManager
 
 if __name__ == "__main__":
-    site: Site = Site.getSite("local")
+    site: Site = lwfManager.getSite("local")
     site.getAuthDriver().login()
 
     ts = lwfManager.generateId()

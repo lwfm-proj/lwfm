@@ -8,7 +8,7 @@ from lwfm.midware.LwfManager import lwfManager, logger
 
 if __name__ == "__main__":
     # only using one site for this example - construct an interface to it
-    site = Site.getSite("local-venv")
+    site = lwfManager.getSite("local-venv")
     site.getAuthDriver().login()
 
     # define the job - use all defaults except the actual command to execute

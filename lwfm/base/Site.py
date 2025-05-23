@@ -20,13 +20,10 @@ list of sites provided here with a user's own custom Site implementations.
 #pylint: disable = broad-exception-caught, broad-exception-raised
 
 from abc import ABC, abstractmethod
-import importlib
-import os
-import tomllib
+
 
 from typing import List, TYPE_CHECKING, Union
 
-from lwfm.midware.LwfManager import logger
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.Metasheet import Metasheet
@@ -35,9 +32,6 @@ from lwfm.base.Workflow import Workflow
 # Only import for type checking, not at runtime
 if TYPE_CHECKING:
     from lwfm.base.JobDefn import JobDefn
-
-
-
 
 
 # ***************************************************************************
@@ -305,69 +299,3 @@ class Site:
 
     def setSpinDriver(self, driver):
         self._spin_driver = driver
-
-    # ****************************************************************************
-
-    @staticmethod
-    def _getSiteToml() -> dict:
-        siteToml = """
-
-        [local]
-        class = "lwfm.sites.LocalSite.LocalSite"
-
-        [local-venv]
-        class = "lwfm.sites.LocalVenvSite.LocalVenvSite"
-
-        """
-        USER_TOML = os.path.expanduser("~") + "/.lwfm/sites.toml"
-        siteSet = tomllib.loads(siteToml)
-        # is there a local site config? it can define any custom site, or override
-        # a site driver which ships with lwfm
-        # Check whether the specified path exists or not
-        if os.path.exists(USER_TOML):
-            logger.info(f"Loading custom site configs from {USER_TOML}")
-            with open(USER_TOML, "rb") as f:
-                siteSetUser = tomllib.load(f)
-            siteSet.update(siteSetUser)
-        return siteSet
-
-    @staticmethod
-    def _getSiteEntry(site: str) -> dict:
-        # site drivers which ship with lwfm
-        siteSet = Site._getSiteToml()
-        return siteSet.get(site)
-
-    @staticmethod
-    def getSiteProperties(site: str) -> dict:
-        return Site._getSiteEntry(site)
-
-    @staticmethod
-    def getSite(site: str = "local",
-                auth_driver: SiteAuth = None,
-                run_driver: SiteRun = None,
-                repo_driver: SiteRepo = None,
-                spin_driver: SiteSpin = None) -> 'Site':
-        try:
-            siteObj = Site._getSiteEntry(site)
-            if siteObj is None:
-                raise Exception(f"Cannot find site {site}")
-            class_name = siteObj.get("class")
-            module = importlib.import_module(class_name.rsplit(".", 1)[0])
-            class_ = getattr(module, str(class_name.rsplit(".", 1)[1]))
-            inst = class_(site, auth_driver, run_driver, repo_driver, spin_driver)
-            return inst
-        except Exception as ex:
-            logger.error(
-                f"Cannot instantiate Site for {site} {ex}"
-            )
-            raise ex
-
-
-#***************************************************************************
-# main() - test code
-
-def main():
-    print(Site.getSiteProperties("ibm-quantum"))
-    
-if __name__ == "__main__":
-    main()

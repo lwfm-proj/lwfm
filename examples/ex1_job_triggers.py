@@ -14,7 +14,7 @@ from lwfm.midware.LwfManager import lwfManager, logger
 
 if __name__ == "__main__":
     # get the local site and "login"
-    site = Site.getSite("local")
+    site = lwfManager.getSite("local")
     site.getAuthDriver().login()
 
     # define job A - sit-in for some kind of "real" pre-processing

@@ -8,16 +8,22 @@ from lwfm.midware.LwfManager import lwfManager, logger
 
 if __name__ == "__main__":
     # only using one site for this example - construct an interface to it
-    site = Site.getSite("local")
+    site = lwfManager.getSite("local")
+
+    print("got the site")
 
     # a "local" site login is a no-op; real sites will have a login mechanism
     site.getAuthDriver().login()
+
+    print("logged in")
 
     # define the job - use all defaults except the actual command to execute
     jobDefn = JobDefn("echo 'hello world'")
 
     # submit the job to the site asynchronously, get back an initial status
     status = site.getRunDriver().submit(jobDefn)
+
+    print("submitted the job")
 
     # How could we tell the async job has finished? One way is to synchronously
     # wait on its end status. (Another way is asynchronous triggering, which

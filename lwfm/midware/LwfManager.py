@@ -5,10 +5,12 @@ event handlers, and notating provenancial metadata.
 """
 
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
-#pylint: disable = broad-exception-caught
+#pylint: disable = broad-exception-caught, protected-access
 
 import time
 import os
+import sys
+import atexit
 from typing import List
 
 from lwfm.base.WorkflowEvent import WorkflowEvent
@@ -17,36 +19,90 @@ from lwfm.base.JobStatus import JobStatus
 from lwfm.midware._impl.IdGenerator import IdGenerator
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Workflow import Workflow
-from lwfm.midware._impl.Logger import Logger
+from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
 from lwfm.midware._impl.LwfmEventClient import LwfmEventClient
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
-
-
-# create a singleton logger
-logger = Logger()
+from lwfm.midware._impl.SiteConfig import SiteConfig
+from lwfm.midware._impl.Logger import Logger
+from lwfm.midware._impl.SvcLauncher import launchMidware
 
 # ***************************************************************************
 class LwfManager():
 
-    _client = LwfmEventClient()
+    _midwareProc = None
+
+    def _tryStartMidware(self):
+        print("=== Starting middleware ===")
+        print(f"Working directory: {os.getcwd()}")
+        print(f"Python path: {sys.path}")
+        self._midwareProc = launchMidware()
+
+
+    def _checkMidware(self):
+        if self.isMidwareRunning():
+            return
+        self._tryStartMidware()
+
+
+    def __init__(self):
+        self._client = LwfmEventClient()
+        # Register a shutdown handler to ensure clean termination
+        #atexit.register(self.shutdown)
+        #self._checkMidware()
+
+
+    def isMidwareRunning(self) -> bool:
+        return self._client.isMidwareRunning()
+
+    def shutdown(self):
+        """Shutdown the middleware cleanly if it was started by this process"""
+        if self._midwareProc is not None:
+            self._midwareProc.terminate()
+            self._midwareProc.wait(timeout=5)
+            self._midwareProc = None
+
 
     def generateId(self):
         return IdGenerator().generateId()
 
-    #***********************************************************************
-    # logging methods
 
-    def info(self, msg: str, status: str = None):
-        logger.info(msg, status)
-
-    def error(self, msg: str, status: str = None):
-        logger.error(msg, status)
+    def _getClient(self):
+        return self._client
 
 
     def getLogFilename(self, context: JobContext) -> str:
-        logDir = os.path.expanduser("~/.lwfm/logs")
+        logDir = os.path.expanduser("~/.lwfm/logs")   # TODO move from here and make a property 
         os.makedirs(logDir, exist_ok=True)
         return os.path.join(logDir, f"{context.getJobId()}.log")
+
+
+    #***********************************************************************
+    # configuration methods 
+
+    def getAllSiteProperties(self) -> dict:
+        """
+        Potentially useful for debugging. Returns the contents of the combined TOML.
+        """
+        return SiteConfig.getAllSiteProperties()
+
+
+    def getSiteProperties(self, site: str) -> dict:
+        """
+        Get the properties for a named site.
+        """
+        return SiteConfig.getSiteProperties(site)
+
+
+    def getSite(self, site: str = "local",
+                auth_driver: SiteAuth = None,
+                run_driver: SiteRun = None,
+                repo_driver: SiteRepo = None,
+                spin_driver: SiteSpin = None) -> 'Site':
+        """
+        Get a Site instance. Look it up in the site TOML, instantiate it, potentially 
+        overriding its default Site Pillars with provided drivers.
+        """
+        return SiteConfig.getSite(site, auth_driver, run_driver, repo_driver, spin_driver)
 
 
     #***********************************************************************
@@ -118,12 +174,12 @@ class LwfManager():
                     w_sum += increment
                 elif w_sum < maxMax:
                     w_sum += w_max
-                status = self.getStatus(jobId)
+                status = self.getStatus(jobId)  
                 if status is not None and status.isTerminal():
                     return status
         except Exception as ex:
-            logger.error("Error waiting for job", ex)
-            return None
+            status.setNativeStatus("UNKNOWN", str(ex))
+            return status
 
 
     #***********************************************************************
@@ -160,7 +216,7 @@ class LwfManager():
         props['siteObjPath'] = siteObjPath
         metasheet.setProps(props)
         # persist
-        sheet = LwfmEventClient().notate(metasheet.getSheetId(), metasheet)
+        sheet = self._client.notate(metasheet.getSheetId(), metasheet)
         # now emit an INFO job status
         self._emitRepoInfo(jobContext, metasheet)
         return sheet
@@ -182,3 +238,4 @@ class LwfManager():
 #***********************************************************************
 
 lwfManager = LwfManager()
+logger = Logger(lwfManager._getClient())

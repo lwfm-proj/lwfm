@@ -10,12 +10,11 @@ to a Site when an event of interest occurs.
 import re
 import threading
 from typing import List
+import atexit
 
 from lwfm.base.JobStatus import JobStatus, JobStatusValues
 from lwfm.base.JobContext import JobContext
 from lwfm.base.WorkflowEvent import RemoteJobEvent, WorkflowEvent, JobEvent, MetadataEvent
-from lwfm.base.Site import Site
-from lwfm.midware.LwfManager import lwfManager
 from lwfm.midware._impl.Store import EventStore, JobStatusStore, LoggingStore
 
 # ***************************************************************************
@@ -31,11 +30,22 @@ class LwfmEventProcessor:
     STATUS_CHECK_INTERVAL_SECONDS_STEP = 5
     _statusCheckIntervalSeconds = STATUS_CHECK_INTERVAL_SECONDS_MIN
 
+
     def __init__(self):
+        # Initialize instance variables
+        self._eventStore = None
+        self._jobStatusStore = None
+        self._loggingStore = None
+        self._timer = None
+        self._eventHandlerMap = {}
+        self._infoQueue = []
+        self._statusCheckIntervalSeconds = self.STATUS_CHECK_INTERVAL_SECONDS_MIN
+
+        # Register cleanup to happen at exit
+        atexit.register(lambda: self.exit())
         self._eventStore = EventStore()
         self._jobStatusStore = JobStatusStore()
         self._loggingStore = LoggingStore()
-        self._loggingStore.putLogging("INFO", "LwfmEventProcessor initialized")
         self._timer = threading.Timer(
             self._statusCheckIntervalSeconds,
             LwfmEventProcessor.checkEventHandlers,
@@ -44,8 +54,14 @@ class LwfmEventProcessor:
         self._timer.start()
 
 
+    def exit(self):
+        print("lwfm event processor exit() called")
+        self._timer.cancel()
+
+
     def _runAsyncOnSite(self, trigger: WorkflowEvent, context: JobContext) -> None:
-        site = Site.getSite(trigger.getFireSite())
+        from lwfm.midware.LwfManager import lwfManager
+        site = lwfManager.getSite(trigger.getFireSite())
         runDriver = site.getRunDriver().__class__
         # Note: Comma is needed at end to make this a tuple. DO NOT REMOVE
         thread = threading.Thread(
@@ -87,7 +103,8 @@ class LwfmEventProcessor:
                     self._loggingStore.putLogging("INFO",
                         f"remote id:{e.getFireJobId()} native:{e.getNativeJobId()} site:{e.getFireSite()}")
                     # ask the remote site to inquire status
-                    site = Site.getSite(e.getFireSite())
+                    from lwfm.midware.LwfManager import lwfManager
+                    site = lwfManager.getSite(e.getFireSite())
                     status = site.getRunDriver().getStatus(e.getFireJobId())   # canonical job id
                     if status.isTerminal():
                         # remote job is done
@@ -232,6 +249,8 @@ class LwfmEventProcessor:
         newJobContext.setParentJobId(wfe.getRuleJobId())
         newJobContext.setWorkflowId(self._getWorkflowId(wfe.getRuleJobId()))
         # fire the initial status showing the new job ready on the shelf
+        # Deferred import to avoid circular dependencies
+        from lwfm.midware.LwfManager import lwfManager
         lwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY.value)
         return newJobContext
 
@@ -250,6 +269,8 @@ class LwfmEventProcessor:
         newJobContext.setParentJobId(None)  # we will know the parent & workflow when the
         newJobContext.setWorkflowId(None)  # metadata event occurs
         # fire a status showing the new job ready on the shelf
+        # Deferred import to avoid circular dependencies
+        from lwfm.midware.LwfManager import lwfManager
         lwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY.value)
         return newJobContext
 
@@ -293,6 +314,3 @@ class LwfmEventProcessor:
     def testDataHandler(self, jobStatus: JobStatus) -> None:
         pass
 
-
-    def exit(self):
-        self._timer.cancel()
