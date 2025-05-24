@@ -14,12 +14,16 @@ import requests
 
 from lwfm.midware._impl.SiteConfig import SiteConfig
 
+# try and limit concurrency - we only need one instance of the services running on 
+# a published host/port. the SiteConfig contains the host and port, and if not, we 
+# use localhost and a known port.
 
+# semaphore for locking 
 _middleware_lock = threading.Lock()
+# we lock this variable 
 _starting_middleware = False
+# track the instance of the REST service - there are other processes, but we track this one
 _middleware_process = None
-
-
 
 
 class SvcLauncher:
@@ -27,6 +31,7 @@ class SvcLauncher:
     Launch the lwfm middleware.
     """
 
+    # a separate process to handle asynchronous events, poll remote sites, etc.
     _event_Processor = None
 
     @staticmethod
@@ -62,7 +67,9 @@ class SvcLauncher:
         """
         Handle Ctrl+C signal by terminating the middleware process
         """
-        print(f"*** lwfm server exit signal {sig} handler invoked")
+        print(f"*** lwfm server exit signal={sig} handler invoked")
+
+        # we don't expect to see much of the print statements after this...
 
         global _middleware_process
 
@@ -71,20 +78,20 @@ class SvcLauncher:
                 # Send SIGTERM to the process group
                 print(f"*** Sending SIGTERM to process group {_middleware_process.pid}")
                 os.killpg(os.getpgid(_middleware_process.pid), signal.SIGTERM)
-                
+
                 # Wait for process to terminate
                 print("*** Waiting for process to terminate...")
                 _middleware_process.wait(timeout=5)
-                
+
             except subprocess.TimeoutExpired:
                 print("*** Process did not terminate gracefully, forcing...")
                 os.killpg(os.getpgid(_middleware_process.pid), signal.SIGKILL)
-                
+
             except ProcessLookupError:
                 print("*** Process already terminated")
-                
+
             _middleware_process = None
-            
+
         # Re-raise the signal to exit
         signal.signal(sig, signal.SIG_DFL)
         os.kill(os.getpid(), sig)
@@ -151,6 +158,8 @@ class SvcLauncher:
             return 0
 
         try:
+            print(f"*** lwfm server not already running - proceeding with launch")
+
             project_root = os.path.abspath(os.getcwd())
 
             flask_script = f"""
@@ -225,16 +234,24 @@ except Exception as e:
 
 def launchMidware():
     """
-    Helper function to launch middleware.
+    run the services, register shutdown handler, keep alive
     """
-    print("here in launchMidware()")
-    # Create an instance of the launcher and start the middleware
+    print("*** lwfm Svclauncher: main()")
     signal.signal(signal.SIGINT, SvcLauncher._signal_handler)
-    signal.signal(signal.SIGTERM, SvcLauncher._signal_handler)  # Also handle SIGTERM
+    signal.signal(signal.SIGTERM, SvcLauncher._signal_handler)
 
-    launcher = SvcLauncher()
-    proc = launcher._startMidware()
-    return proc
+    proc = SvcLauncher()._startMidware()
+    if proc is not None and proc != 0:
+        # Keep the main thread alive
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("*** lwfm server exit signal received")
+            sys.exit(0)
+    else:
+        # nothing to do
+        sys.exit(0)
 
 
 #********************************************************************************
@@ -242,10 +259,3 @@ def launchMidware():
 
 if __name__ == "__main__":
     launchMidware()
-
-    # Keep the main thread alive
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        SvcLauncher._signal_handler(signal.SIGINT, None)

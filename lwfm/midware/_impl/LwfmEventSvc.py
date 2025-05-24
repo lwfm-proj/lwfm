@@ -8,6 +8,8 @@ Flask app service for the lwfm middleware
 import json
 import logging
 import atexit
+import signal
+import sys
 from typing import List
 
 from flask import Flask, request
@@ -38,6 +40,14 @@ def halt():
 atexit.register(halt)
 
 
+def sigterm_handler(sig, frame):
+    print("Flask app received SIGTERM, cleaning up...")
+    halt()
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, sigterm_handler)
+
+
 #************************************************************************
 # root endpoint
 
@@ -49,6 +59,13 @@ def index():
 @app.route("/isRunning")
 def isRunning():
     return str(True), 200
+
+
+# curl http://host:port/shutdown
+@app.route("/shutdown")
+def shutdown():
+    halt()
+    sys.exit(0)
 
 
 #************************************************************************

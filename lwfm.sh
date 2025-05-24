@@ -1,16 +1,21 @@
 #!/bin/bash
+# Start the lwfm middleware - a REST service, a remote site poller, a DB maybe. 
+# See the SvcLauncher for details.
 
-# create ~/.lwfm/logs if it doesn't exist
+# ~/.lwfm will contain config files and logs
+# create if it doesn't exist
 mkdir -p ~/.lwfm
 mkdir -p ~/.lwfm/logs
 
+touch ~/.lwfm/logs/midware.log
 
-python ./lwfm/midware/_impl/SvcLauncher.py > ~/.lwfm/logs/midware.log 2>&1 &
+# launch the middleware in the background and route stdout and stderr to a log file
+python ./lwfm/midware/_impl/SvcLauncher.py > ~/.lwfm/logs/launcher.log 2>&1 &
 FLASK_PID=$!
-echo Flask PID = $FLASK_PID
+echo lwfm service PID = $FLASK_PID
 
 
-# Function to clean up background processes
+# function to clean up background processes
 cleanup() {
     echo " * Caught exit signal - propagating... "
     if [ -n "$FLASK_PID" ]; then
@@ -20,13 +25,17 @@ cleanup() {
             kill -9 -- -$FLASK_PID 2>/dev/null
         fi
     fi
+    # rotate the log file for safe keeping 
     mv ~/.lwfm/logs/midware.log ~/.lwfm/logs/midware-$FLASK_PID.log
+    mv ~/.lwfm/logs/launcher.log ~/.lwfm/logs/launcher-$FLASK_PID.log
     echo " * DONE"
     exit 0
 }
 
-# Trap INT and TERM signals to clean up
-trap cleanup INT TERM
+# trap INT and TERM signals to clean up - call the above function
+trap cleanup INT # TERM
 
+
+# tail the log continuously, until control-c
 tail -f ~/.lwfm/logs/midware.log 
 
