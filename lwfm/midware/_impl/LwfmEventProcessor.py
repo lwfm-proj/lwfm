@@ -60,6 +60,7 @@ class LwfmEventProcessor:
 
 
     def _runAsyncOnSite(self, trigger: WorkflowEvent, context: JobContext) -> None:
+        # Deferred import to avoid circular dependencies
         from lwfm.midware.LwfManager import lwfManager
         site = lwfManager.getSite(trigger.getFireSite())
         runDriver = site.getRunDriver().__class__
@@ -103,6 +104,7 @@ class LwfmEventProcessor:
                     self._loggingStore.putLogging("INFO",
                         f"remote id:{e.getFireJobId()} native:{e.getNativeJobId()} site:{e.getFireSite()}")
                     # ask the remote site to inquire status
+                    # Deferred import to avoid circular dependencies
                     from lwfm.midware.LwfManager import lwfManager
                     site = lwfManager.getSite(e.getFireSite())
                     status = site.getRunDriver().getStatus(e.getFireJobId())   # canonical job id

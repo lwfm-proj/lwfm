@@ -44,7 +44,8 @@ class LwfManager:
 
 
     def getLogFilename(self, context: JobContext) -> str:
-        logDir = os.path.expanduser("~/.lwfm/logs")   # TODO move from here and make a property
+        basename = SiteConfig.getLogFilename()
+        logDir = os.path.expanduser(basename)
         os.makedirs(logDir, exist_ok=True)
         return os.path.join(logDir, f"{context.getJobId()}.log")
 

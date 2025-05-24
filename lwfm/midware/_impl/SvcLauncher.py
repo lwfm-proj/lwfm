@@ -190,7 +190,7 @@ except Exception as e:
 
             print("*** launch cmd: " + flask_script)
 
-            log_file_path = os.path.expanduser("~/.lwfm/logs/midware.log")
+            log_file_path = os.path.expanduser(SiteConfig.getLogFilename() + "/midware.log")
             os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
             # Run the Flask app in a subprocess (asynchronously) in detached mode

@@ -63,6 +63,12 @@ class SiteConfig:
         siteSet = SiteConfig._getSiteToml()
         return siteSet.get(site)
 
+
+    @staticmethod
+    def getLogFilename() -> str:
+        return "~/.lwfm/logs"
+
+
     @staticmethod
     def getSite(site: str = "local",
                 auth_driver = None,

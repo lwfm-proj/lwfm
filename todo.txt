@@ -3,21 +3,20 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    - lwfmEventProcessor - imports not at top
-    - location of midware log, #88
-
     + venv project dir (#90)
         - RETEST 
         - SitePillar "usedInSiteName" 
         - _makeVenvPath - make sure .venv exists else create (#90)
         - see TODO in LocalVenvSite - how does the name-to-class lookup work?
     - ibm venv driver, remote polling (#80)
-    - TODOs - other 
+    - inline docs esp. for .base & .midware (#84)
 
-    - inline docs esp. for .base & .midware 
+
++ ai proj
     - "write the docs first"
     - how does the LLM track workflows, how can we mine the logging artifacts - do we trust them?
     - Google Codex use of Agents.md to understand the codebase / guardrails 
+
 
 + ibm site  
     - ibm site w qiskit run - allow 1 session for many circuits
