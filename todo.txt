@@ -3,15 +3,13 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    - midware launcher - what if logger hits the end point first before lwfManager - pass in handle 
-    - or remove launcher code from LwfManager and write a new issue#
     - lwfmEventProcessor - imports not at top
     - location of midware log, #88
 
     + venv project dir (#90)
         - RETEST 
         - SitePillar "usedInSiteName" 
-        - _makeVenvPath - make sure .venv exists else create 
+        - _makeVenvPath - make sure .venv exists else create (#90)
         - see TODO in LocalVenvSite - how does the name-to-class lookup work?
     - ibm venv driver, remote polling (#80)
     - TODOs - other 

@@ -53,6 +53,7 @@ class SvcLauncher:
             print(f"isMidwareRunning(4): {url} unexpected error: {str(ex)}")
             return False
 
+
     #********************************************************************************
 
     # Signal handler for Ctrl+C
@@ -174,18 +175,9 @@ try:
     
     try:
         from lwfm.midware._impl.LwfmEventSvc import app
-        logger.info("Flask app imported successfully")
-        
-        # Ensure the isRunning route exists
-        from flask import Flask
-        
-        @app.route('/isRunning', methods=['GET'])
-        def is_running():
-            logger.info("isRunning endpoint called")
-            return "OK", 200
-            
+        logger.info("Flask app imported successfully")            
         logger.info("Starting Flask app on {SERVER_HOST}:{port}")
-        app.run(host='{SERVER_HOST}', port={port}, debug=True)
+        app.run(host='{SERVER_HOST}', port={port})
     except ImportError as e:
         logger.error("Import error: %s", e)
         traceback.print_exc(file=sys.stderr)
@@ -205,7 +197,7 @@ except Exception as e:
             _middleware_process = subprocess.Popen(
                 [sys.executable, '-c', flask_script],
                 stdout=open(log_file_path, 'a'),
-                stderr=open(log_file_path + ".err", 'a'),
+                stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL,
                 # Add these lines to ensure proper environment inheritance
                 env=os.environ.copy(),

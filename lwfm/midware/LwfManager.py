@@ -9,8 +9,6 @@ event handlers, and notating provenancial metadata.
 
 import time
 import os
-import sys
-import atexit
 from typing import List
 
 from lwfm.base.WorkflowEvent import WorkflowEvent
@@ -24,42 +22,17 @@ from lwfm.midware._impl.LwfmEventClient import LwfmEventClient
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 from lwfm.midware._impl.SiteConfig import SiteConfig
 from lwfm.midware._impl.Logger import Logger
-from lwfm.midware._impl.SvcLauncher import launchMidware
+
 
 # ***************************************************************************
-class LwfManager():
-
-    _midwareProc = None
-
-    def _tryStartMidware(self):
-        print("=== Starting middleware ===")
-        print(f"Working directory: {os.getcwd()}")
-        print(f"Python path: {sys.path}")
-        self._midwareProc = launchMidware()
-
-
-    def _checkMidware(self):
-        if self.isMidwareRunning():
-            return
-        self._tryStartMidware()
-
+class LwfManager:
 
     def __init__(self):
         self._client = LwfmEventClient()
-        # Register a shutdown handler to ensure clean termination
-        #atexit.register(self.shutdown)
-        #self._checkMidware()
 
 
     def isMidwareRunning(self) -> bool:
         return self._client.isMidwareRunning()
-
-    def shutdown(self):
-        """Shutdown the middleware cleanly if it was started by this process"""
-        if self._midwareProc is not None:
-            self._midwareProc.terminate()
-            self._midwareProc.wait(timeout=5)
-            self._midwareProc = None
 
 
     def generateId(self):
@@ -71,13 +44,13 @@ class LwfManager():
 
 
     def getLogFilename(self, context: JobContext) -> str:
-        logDir = os.path.expanduser("~/.lwfm/logs")   # TODO move from here and make a property 
+        logDir = os.path.expanduser("~/.lwfm/logs")   # TODO move from here and make a property
         os.makedirs(logDir, exist_ok=True)
         return os.path.join(logDir, f"{context.getJobId()}.log")
 
 
     #***********************************************************************
-    # configuration methods 
+    # configuration methods
 
     def getAllSiteProperties(self) -> dict:
         """
@@ -174,7 +147,7 @@ class LwfManager():
                     w_sum += increment
                 elif w_sum < maxMax:
                     w_sum += w_max
-                status = self.getStatus(jobId)  
+                status = self.getStatus(jobId)
                 if status is not None and status.isTerminal():
                     return status
         except Exception as ex:

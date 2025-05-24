@@ -12,7 +12,7 @@ The Spin portion provides verbs for spinning up and spinning down computing
 resources from a cafeteria of options.
 
 The Site factory method returns the Python class which implements the
-interfaces for the named Site. ~/.lwfm/sites.txt can be used to augment the
+interfaces for the named Site. ~/.lwfm/sites.toml can be used to augment the
 list of sites provided here with a user's own custom Site implementations. 
 """
 
@@ -252,7 +252,7 @@ class SiteSpin(SitePillar):
 # Repo subsystems.
 #
 # The getSite() factory utility method returns the Python class which implements the
-# interfaces for the named Site. ~/.lwfm/sites.txt can be used to augment the
+# interfaces for the named Site. ~/.lwfm/sites.toml can be used to augment the
 # list of sites provided here with a user's own custom Site implementations. In the
 # event of a name collision between the user's sites.txt and those hardcoded here,
 # the user's sites.txt config trumps.

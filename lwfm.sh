@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # create ~/.lwfm/logs if it doesn't exist
+mkdir -p ~/.lwfm
 mkdir -p ~/.lwfm/logs
+
 
 python ./lwfm/midware/_impl/SvcLauncher.py > ~/.lwfm/logs/midware.log 2>&1 &
 FLASK_PID=$!
@@ -18,6 +20,7 @@ cleanup() {
             kill -9 -- -$FLASK_PID 2>/dev/null
         fi
     fi
+    mv ~/.lwfm/logs/midware.log ~/.lwfm/logs/midware-$FLASK_PID.log
     echo " * DONE"
     exit 0
 }
