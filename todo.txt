@@ -4,11 +4,9 @@ Todo & misc notes
 ******************************************************************************
 + lwfm
     + venv project dir (#90)
-        - RETEST 
-        - SitePillar "usedInSiteName" 
-        - _makeVenvPath - make sure .venv exists else create (#90)
-        - see TODO in LocalVenvSite - how does the name-to-class lookup work?
+
     - ibm venv driver (#72), remote polling (#80)
+
     + 2nd
         - inline docs esp. for .base & .midware (#84)
         - launch own middleware (#93)

@@ -2,9 +2,19 @@
 Abstract class for a Site which runs its functions in a virtual environment. This allows the 
 Site to run with its own set of dependencies independent of the global environment.
 
-The use case is when a Site has dependencies that are not available in or conflict with the global environment. For example, a Site for a quantum computer might be pinned to an older version of the qiskit library, while the global environment has a newer version. In this case, the Site can run in its own virtual environment with the older version of qiskit. (Dealing with the interim representation of the qiskit circuit is handled differently... via QASM or other quantum circuit representation - this class just deals with the library dependencies of Sites.)
+The use case is when a Site has dependencies that are not available in or conflict with the global
+environment. For example, a Site for a quantum computer might be pinned to an older version of the
+qiskit library, while the global environment has a newer version. In this case, the Site can run in
+its own virtual environment with the older version of qiskit. (Dealing with the interim
+representation of the qiskit circuit is handled differently... via QASM or other quantum circuit
+representation - this class just deals with the library dependencies of Sites.)
 
-In general, you can take a Site class and wrap it in a VenvSite class to run it in a virtual environment. We show an example of this in the LocalVenvSite class, which ends up being very little code - basically a contructor. The heavy lift is in this class. Here each of the "pillars" are represented - Auth, Run, Repo, and Spin. Each method of each pillar is represented. The implementation is to wrap the Site method in a subprocess and execute it in the virtual environment. Thus each public method here tends to be rather cookie cutter.
+In general, you can take a Site class and wrap it in a VenvSite class to run it in a virtual
+environment. We show an example of this in the LocalVenvSite class, which ends up being very little
+code - basically a contructor. The heavy lift is in this class. Here each of the "pillars" are
+represented - Auth, Run, Repo, and Spin. Each method of each pillar is represented. The
+implementation is to wrap the Site method in a subprocess and execute it in the virtual
+environment. Thus each public method here tends to be rather cookie cutter.
 
 Here's an example of gthe VenvSite's Auth pillar login() method:
 
@@ -16,7 +26,13 @@ Here's an example of gthe VenvSite's Auth pillar login() method:
         )
         return lwfManager.deserialize(retVal)                       <-- return deserialized result
 
-The user will call login() on the instantied object passing it the normal arguments (e.g. the "force" argument). The method will construct a command string to call login() on a real Site object (self._realAuthDriver), passing in the user's argument. The results of the call might return an arbitrary object (in the case of login its just a bool, but in general a Site method might return any object) - so we serialize it so it can be returned by the subprocess running the virtual env. The result is then deserialized in the original process and returned to the user.
+The user will call login() on the instantied Site Pillar object passing it the normal arguments
+(e.g. in the case of login() the "force" argument). The method will construct a command string to
+call login() on a real Site object (self._realAuthDriver), passing in the user's argument.
+The results of the call might return an arbitrary object (in the case of login its just a bool,
+but in general a Site method might return any object) - so we serialize it so it can be returned
+by the subprocess running the virtual env. The result is then deserialized in the original process
+and returned to the user.
 
 The string created above and passed into _executeInProjectVenv() looks something like this:
 
@@ -28,7 +44,6 @@ The string created above and passed into _executeInProjectVenv() looks something
     print(obj)
 
 All this gets passed to "python -c" and the result is serialized back to the invoker.
-
 
 """
 
@@ -54,7 +69,7 @@ from lwfm.sites.LocalSite import LocalSite
 # *********************************************************************************
 # internals
 
-def _makeVenvPath(siteName: str) -> str:   
+def _makeVenvPath(siteName: str) -> str:
     """
     Construct the path to the virtual environment used to run the Site driver.
     """
@@ -73,26 +88,25 @@ def _executeInProjectVenv(siteName: str, script_path_cmd: str = None) -> str:
     if script_path_cmd is None:
         raise ValueError("script_path_cmd is required")
 
-    proj_path = _makeVenvPath(siteName)
+    venv_path = _makeVenvPath(siteName)
+    if os.name == "nt":    # windows
+        python_executable = os.path.join(venv_path, "Scripts", "python.exe")
+    else:   # a real OS
+        python_executable = os.path.join(venv_path, "bin", "python")
 
-    logger.info(f"_executeInProjectVenv: executing in venv {proj_path} cmd: {script_path_cmd}")
+    logger.info(f"_executeInProjectVenv: executing in venv {venv_path} cmd: {script_path_cmd}")
 
     try:
-        # construct the path to the python executable in the virtual environment
-        if os.name == "nt":    # windows
-            python_executable = os.path.join(proj_path, "Scripts", "python.exe")
-        else:   # a real OS
-            python_executable = os.path.join(proj_path, "bin", "python")
-
-        # Execute the command, making sure to capture only the last line as the 
+        # Execute the command, making sure to capture only the last line as the
         # serialized return value
         # This will allow earlier prints to go to a file without disrupting the
         # return value
         modified_cmd = script_path_cmd
         if "driver.submit(" in script_path_cmd:
             # Modify script to make sure the serialized result is the only thing printed at the end
-            modified_cmd = script_path_cmd.replace("print(obj)", "import sys; sys.stdout.write('RESULT_MARKER: ' + obj)")
-        
+            modified_cmd = script_path_cmd.replace("print(obj)",
+                "import sys; sys.stdout.write('RESULT_MARKER: ' + obj)")
+
         # execute a semicolon separated command in the virtual environment; this
         # includes an import statement and the method call
         process = subprocess.Popen([python_executable, "-c", modified_cmd],
@@ -149,7 +163,8 @@ def _getPackageName(obj: object) -> str:
 
 def _makeSerializeReturnString() -> str:
     """
-    Serialize an object into a string. This is used to pass objects back from the venv subprocess back to the main process (see discussion above).
+    Serialize an object into a string. This is used to pass objects back from the venv
+    subprocess back to the main process (see discussion above).
     """
     # construct the command string to execute in the virtual environment
     return "from lwfm.midware.LwfManager import lwfManager; " + \
@@ -185,12 +200,14 @@ class VenvSiteAuthWrapper(SiteAuth):
     site, this is a no-op.
     """
 
-    def __init__(self, realAuthDriver: SiteAuth) -> None:
+    def __init__(self, siteName: str, realAuthDriver: SiteAuth) -> None:
         super().__init__()
+        self._siteName = siteName
         self._realAuthDriver = realAuthDriver
 
     def login(self, force: bool = False) -> bool:
         retVal = _executeInProjectVenv(
+            self._siteName,
             _makeSiteDriverCommandString(self._realAuthDriver) + \
             f"obj = driver.login({force}); " + \
             f"{_makeSerializeReturnString()}"
@@ -199,6 +216,7 @@ class VenvSiteAuthWrapper(SiteAuth):
 
     def isAuthCurrent(self) -> bool:
         retVal = _executeInProjectVenv(
+            self._siteName,
             _makeSiteDriverCommandString(self._realAuthDriver) + \
             "obj = driver.isAuthCurrent(); " + \
             f"{_makeSerializeReturnString()}"
@@ -213,14 +231,16 @@ class VenvSiteRunWrapper(SiteRun):
     A Run driver for running jobs in a virtual environment.
     """
 
-    def __init__(self, realRunDriver: SiteRun) -> None:
+    def __init__(self, siteName: str, realRunDriver: SiteRun) -> None:
         super().__init__()
+        self._siteName = siteName
         self._realRunDriver = realRunDriver
 
     def submit(self, jobDefn: Union['JobDefn', str],
         parentContext: Union[JobContext, Workflow, str] = None,
         computeType: str = None, runArgs: Union[dict, str] = None) -> JobStatus:
         retVal = _executeInProjectVenv(
+            self._siteName,
             _makeSiteDriverCommandString(self._realRunDriver) + \
             f"obj = driver.submit({_makeArgWrapper(jobDefn)}, " +\
             f"{_makeArgWrapper(parentContext)}, '{computeType}', " + \
@@ -232,6 +252,7 @@ class VenvSiteRunWrapper(SiteRun):
 
     def getStatus(self, jobId: str) -> JobStatus:
         retVal = _executeInProjectVenv(
+            self._siteName,
             _makeSiteDriverCommandString(self._realRunDriver) + \
             f"obj = driver.getStatus('{jobId}'); " + \
             f"{_makeSerializeReturnString()}"
@@ -240,6 +261,7 @@ class VenvSiteRunWrapper(SiteRun):
 
     def cancel(self, jobContext: Union[JobContext, str]) -> bool:
         retVal = _executeInProjectVenv(
+            self._siteName,
             _makeSiteDriverCommandString(self._realRunDriver) + \
             f"obj = driver.cancel({_makeArgWrapper(jobContext)}); " + \
             f"{_makeSerializeReturnString()}"
@@ -254,8 +276,9 @@ class VenvSiteRepoWrapper(SiteRepo):
     A Repo driver for running jobs in a virtual environment.
     """
 
-    def __init__(self, realRepoDriver: SiteRepo) -> None:
+    def __init__(self, siteName: str, realRepoDriver: SiteRepo) -> None:
         super().__init__()
+        self._siteName = siteName
         self._realRepoDriver = realRepoDriver
 
     def put(
@@ -266,13 +289,14 @@ class VenvSiteRepoWrapper(SiteRepo):
         metasheet: Union[Metasheet, str] = None
     ) -> Metasheet:
         retVal = _executeInProjectVenv(
+            self._siteName,
             _makeSiteDriverCommandString(self._realRepoDriver) + \
             f"obj = driver.put('{localPath}', '{siteObjPath}', " + \
             f"{_makeArgWrapper(jobContext)}, {_makeArgWrapper(metasheet)}); " + \
             f"{_makeSerializeReturnString()}"
         )
         return lwfManager.deserialize(retVal)
-    
+
     def get(
         self,
         siteObjPath: str,
@@ -280,14 +304,16 @@ class VenvSiteRepoWrapper(SiteRepo):
         jobContext: Union[JobContext, str] = None
     ) -> str:
         retVal = _executeInProjectVenv(
+            self._siteName,
             _makeSiteDriverCommandString(self._realRepoDriver) + \
             f"obj = driver.get('{siteObjPath}', '{localPath}', {_makeArgWrapper(jobContext)}); " + \
             f"{_makeSerializeReturnString()}"
         )
         return lwfManager.deserialize(retVal)
-    
+
     def find(self, queryRegExs: dict) -> List[Metasheet]:
         retVal = _executeInProjectVenv(
+            self._siteName,
             _makeSiteDriverCommandString(self._realRepoDriver) + \
             f"obj = driver.find({_makeArgWrapper(queryRegExs)}); " + \
             f"{_makeSerializeReturnString()}"
@@ -298,12 +324,14 @@ class VenvSiteRepoWrapper(SiteRepo):
 # *********************************************************************************
 
 class VenvSiteSpinWrapper(SiteSpin):
-    def __init__(self, realSpinDriver: SiteSpin) -> None:
+    def __init__(self, siteName: str, realSpinDriver: SiteSpin) -> None:
         super().__init__()
+        self._siteName = siteName
         self._realSpinDriver = realSpinDriver
 
     def listComputeTypes(self) -> List[str]:
         retVal = _executeInProjectVenv(
+            self._siteName,
             _makeSiteDriverCommandString(self._realSpinDriver) + \
             "obj = driver.listComputeTypes(); " + \
             f"{_makeSerializeReturnString()}"
@@ -325,18 +353,17 @@ class VenvSite(Site, ABC):
                     run_driver: SiteRun = None,
                     repo_driver: SiteRepo = None,
                     spin_driver: SiteSpin = None):
-        # TODO use a LocalSite when the driver is not available - see also LocalVenvSite
         self.localSite = LocalSite()
         if site_name is not None:
             self.localSite.setSiteName(site_name)
         else:
-            self.localSite.setSiteName(self._DEFAULT_SITE_NAME)   
+            self.localSite.setSiteName(self._DEFAULT_SITE_NAME)
         self._realAuthDriver = auth_driver or self.localSite.getAuthDriver()
         self._realRunDriver = run_driver or self.localSite.getRunDriver()
         self._realRepoDriver = repo_driver or self.localSite.getRepoDriver()
         self._realSpinDriver = spin_driver or self.localSite.getSpinDriver()
         super().__init__(site_name,
-                         VenvSiteAuthWrapper(self._realAuthDriver),
-                         VenvSiteRunWrapper(self._realRunDriver),
-                         VenvSiteRepoWrapper(self._realRepoDriver),
-                         VenvSiteSpinWrapper(self._realSpinDriver))
+                         VenvSiteAuthWrapper(self.localSite.getSiteName(), self._realAuthDriver),
+                         VenvSiteRunWrapper(self.localSite.getSiteName(), self._realRunDriver),
+                         VenvSiteRepoWrapper(self.localSite.getSiteName(), self._realRepoDriver),
+                         VenvSiteSpinWrapper(self.localSite.getSiteName(), self._realSpinDriver))

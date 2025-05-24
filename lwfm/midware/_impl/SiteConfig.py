@@ -3,16 +3,13 @@ Site configuration management for lwfm.
 Handles loading site configuration from TOML files and creating site instances.
 """
 
-#pylint: disable = broad-exception-caught
+#pylint: disable = broad-exception-caught, invalid-name
 
 import importlib
 import os
 import tomllib
 
-from typing import Dict, Any, TYPE_CHECKING
-
-#if TYPE_CHECKING:
-#    from lwfm.base.Site import Site
+from typing import Dict, Any
 
 
 class SiteConfig:
@@ -20,7 +17,7 @@ class SiteConfig:
     Manages site configuration from TOML files and provides methods to access 
     site properties and instantiate site objects.
     """
-    
+
     @staticmethod
     def _getSiteToml() -> dict:
         """Load the default and user site configurations from TOML."""
@@ -35,9 +32,9 @@ class SiteConfig:
         [local-venv]
         class = "lwfm.sites.LocalVenvSite.LocalVenvSite"
         """
-        
+
         USER_TOML = os.path.expanduser("~") + "/.lwfm/sites.toml"
-        
+
         siteSet = tomllib.loads(siteToml)
         # is there a local site config? it can define any custom site, or override
         # a site driver which ships with lwfm
@@ -66,6 +63,7 @@ class SiteConfig:
 
     @staticmethod
     def getLogFilename() -> str:
+        """ Get path to the log files. """
         return "~/.lwfm/logs"
 
 
