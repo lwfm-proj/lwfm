@@ -2,7 +2,6 @@
 print 'hello world' but as a Job on a local site
 """
 
-from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn
 from lwfm.midware.LwfManager import lwfManager, logger
 

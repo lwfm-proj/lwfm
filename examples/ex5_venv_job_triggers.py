@@ -3,7 +3,6 @@ demonstrate asynchronous job chaining
 """
 
 
-from lwfm.base.Site import Site
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatusValues
 from lwfm.base.WorkflowEvent import JobEvent
