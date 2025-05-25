@@ -106,15 +106,15 @@ def emitStatus():
         statusBlob = request.form["statusBlob"]
         statusObj : JobStatus = ObjectSerializer.deserialize(statusBlob)
         JobStatusStore().putJobStatus(statusObj)
-        if statusObj.getStatus() == JobStatusValues.READY or \
-            statusObj.getStatus() == JobStatusValues.PENDING:
+        if statusObj.getStatus() == JobStatusValues.READY.value or \
+            statusObj.getStatus() == JobStatusValues.PENDING.value:
             wfId = statusObj.getJobContext().getWorkflowId()
             wf = WorkflowStore().getWorkflow(wfId)
             if wf is None:
                 wf = Workflow()
                 wf._setWorkflowId(wfId)
                 WorkflowStore().putWorkflow(wf)
-        elif statusObj.getStatus() == JobStatusValues.INFO:
+        elif statusObj.getStatus() == JobStatusValues.INFO.value:
             print("test for data triggers goes here")
             _testDataTriggers(statusObj)
         return "", 200

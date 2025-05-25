@@ -9,6 +9,7 @@ It is emitted within the job's context.
 from enum import Enum
 import datetime
 
+
 from lwfm.midware._impl.IdGenerator import IdGenerator
 
 from lwfm.base.JobContext import JobContext
@@ -48,22 +49,22 @@ class JobStatus:
 
     def __init__(self, jobContext: JobContext = None):
         self._status_id = IdGenerator().generateId()
-        self._status = JobStatusValues.UNKNOWN
+        self._status = JobStatusValues.UNKNOWN.value
         self._native_status = None
         self._emit_time = datetime.datetime.now(datetime.timezone.utc)
         self._received_time = None
         self._native_info = None
         self._context = jobContext
         self._status_map = {
-            "UNKNOWN": JobStatusValues.UNKNOWN,
-            "READY": JobStatusValues.READY,
-            "PENDING": JobStatusValues.PENDING,
-            "RUNNING": JobStatusValues.RUNNING,
-            "INFO": JobStatusValues.INFO,
-            "FINISHING": JobStatusValues.FINISHING,
-            "COMPLETE": JobStatusValues.COMPLETE,
-            "FAILED": JobStatusValues.FAILED,
-            "CANCELLED": JobStatusValues.CANCELLED,
+            "UNKNOWN": JobStatusValues.UNKNOWN.value,
+            "READY": JobStatusValues.READY.value,
+            "PENDING": JobStatusValues.PENDING.value,
+            "RUNNING": JobStatusValues.RUNNING.value,
+            "INFO": JobStatusValues.INFO.value,
+            "FINISHING": JobStatusValues.FINISHING.value,
+            "COMPLETE": JobStatusValues.COMPLETE.value,
+            "FAILED": JobStatusValues.FAILED.value,
+            "CANCELLED": JobStatusValues.CANCELLED.value,
         }
 
     def getStatusId(self) -> str:
@@ -78,16 +79,14 @@ class JobStatus:
     def getJobId(self) -> str:
         return self._context.getJobId()
 
-    def setStatus(self, status: JobStatusValues) -> None:
+    def setStatus(self, status: str) -> None:
         self._status = status
 
-    def getStatus(self) -> JobStatusValues:
+    def getStatus(self) -> str:
         return self._status
 
     def setNativeStatusStr(self, status: str) -> None:
         self._native_status = status
-        # now map the native status to a canonical
-        self.mapNativeStatus()
 
     def getNativeStatusStr(self) -> str:
         return self._native_status
@@ -99,7 +98,7 @@ class JobStatus:
         try:
             self._status = self._status_map[self._native_status]
         except Exception:
-            self._status = JobStatusValues.UNKNOWN
+            self._status = JobStatusValues.UNKNOWN.value
 
     def getStatusMap(self) -> dict:
         return self._status_map
@@ -126,13 +125,13 @@ class JobStatus:
         return self._native_info
 
     def isTerminalSuccess(self) -> bool:
-        return self._status == JobStatusValues.COMPLETE
+        return self._status == JobStatusValues.COMPLETE.value
 
     def isTerminalFailure(self) -> bool:
-        return self._status == JobStatusValues.FAILED
+        return self._status == JobStatusValues.FAILED.value
 
     def isTerminalCancelled(self) -> bool:
-        return self._status == JobStatusValues.CANCELLED
+        return self._status == JobStatusValues.CANCELLED.value
 
     def isTerminal(self) -> bool:
         return (
@@ -142,4 +141,4 @@ class JobStatus:
         )
 
     def __str__(self):
-        return f"[status ctx:{self._context} value:{self._status.value} info:{self._native_info}]"
+        return f"[status ctx:{self._context} value:{self._status} info:{self._native_info}]"

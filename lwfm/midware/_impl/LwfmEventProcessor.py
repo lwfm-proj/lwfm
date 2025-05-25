@@ -126,7 +126,7 @@ class LwfmEventProcessor:
             # the statuses will be in reverse chron order
             # does the history contain the state we want to fire on?
             for s in statuses:
-                if s.getStatus().value == jobEvent.getRuleStatus():
+                if s.getStatus() == jobEvent.getRuleStatus():
                     return s
             return None
         except Exception as ex:
@@ -253,7 +253,8 @@ class LwfmEventProcessor:
         # fire the initial status showing the new job ready on the shelf
         # Deferred import to avoid circular dependencies
         from lwfm.midware.LwfManager import lwfManager
-        lwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY.value)
+        lwfManager.emitStatus(newJobContext, JobStatusValues.READY.value,
+            JobStatusValues.READY.value)
         return newJobContext
 
 
@@ -273,7 +274,8 @@ class LwfmEventProcessor:
         # fire a status showing the new job ready on the shelf
         # Deferred import to avoid circular dependencies
         from lwfm.midware.LwfManager import lwfManager
-        lwfManager.emitStatus(newJobContext, JobStatus, JobStatusValues.READY.value)
+        lwfManager.emitStatus(newJobContext, JobStatusValues.READY.value,
+            JobStatusValues.READY.value)
         return newJobContext
 
     # Register an event handler.  When a jobId running on a job Site

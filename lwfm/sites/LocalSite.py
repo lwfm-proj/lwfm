@@ -25,16 +25,6 @@ from lwfm.midware.LwfManager import lwfManager, logger
 # *********************************************************************
 
 
-class LocalJobStatus(JobStatus):
-    def __init__(self, context: JobContext = None):
-        super().__init__(context)
-        # use default canonical status map inherited from the base class
-        self.getJobContext().setSiteName(LocalSite.SITE_NAME)
-
-
-# **********************************************************************
-
-
 class LocalSiteAuth(SiteAuth):
     # Because this is running locally, we don't need any authentication
     def login(self, force: bool = False) -> bool:
@@ -60,8 +50,7 @@ class LocalSiteRun(SiteRun):
         # Putting the job in a new thread means we can easily run it asynchronously
         # while still emitting statuses before and after
         # Emit RUNNING status
-        lwfManager.emitStatus(jobContext, LocalJobStatus,
-                              JobStatusValues.RUNNING.value)
+        lwfManager.emitStatus(jobContext, JobStatusValues.RUNNING.value)
         try:
             # This is synchronous, so we wait here until the subprocess is over.
             cmd = jDefn.getEntryPoint()
@@ -80,15 +69,12 @@ class LocalSiteRun(SiteRun):
 
             subprocess.run(cmd, shell=True, env=env, check=True)
             # Emit success statuses
-            lwfManager.emitStatus(jobContext, LocalJobStatus,
-                                JobStatusValues.FINISHING.value)
-            lwfManager.emitStatus(jobContext, LocalJobStatus,
-                                JobStatusValues.COMPLETE.value)
+            lwfManager.emitStatus(jobContext, JobStatusValues.FINISHING.value)
+            lwfManager.emitStatus(jobContext, JobStatusValues.COMPLETE.value)
         except Exception as ex:
             logger.error(f"ERROR: Job failed: {ex}")
             # Emit FAILED status
-            lwfManager.emitStatus(jobContext, LocalJobStatus,
-                                  JobStatusValues.FAILED.value)
+            lwfManager.emitStatus(jobContext, JobStatusValues.FAILED.value)
 
 
     def _run_with_redirect(self, jobDefn, useContext, log_file_path) -> None:
@@ -127,8 +113,7 @@ class LocalSiteRun(SiteRun):
                     # we still don't know our job id - create a new one
                     useContext = JobContext()
                     # assert readiness
-                    lwfManager.emitStatus(useContext, LocalJobStatus,
-                        JobStatusValues.READY.value)
+                    lwfManager.emitStatus(useContext, JobStatusValues.READY.value)
             elif isinstance(parentContext, JobContext):
                 useContext = parentContext
             elif isinstance(parentContext, Workflow):
@@ -137,8 +122,7 @@ class LocalSiteRun(SiteRun):
                 useContext.setName(parentContext.getName())
 
             # horse at the gate...
-            lwfManager.emitStatus(useContext, LocalJobStatus,
-                                JobStatusValues.PENDING.value)
+            lwfManager.emitStatus(useContext, JobStatusValues.PENDING.value)
 
             # create a log file for this job
             logFilename = lwfManager.getLogFilename(useContext)
@@ -201,7 +185,7 @@ class LocalSiteRepo(SiteRepo):
             context = JobContext()
         if jobContext is None:
             # we drive job state, else we are already part of some other job
-            lwfManager.emitStatus(context, LocalJobStatus, JobStatusValues.RUNNING.value)
+            lwfManager.emitStatus(context, JobStatusValues.RUNNING.value)
         if isinstance(metasheet, str):
             metasheet = lwfManager.deserialize(metasheet)
         success = True
@@ -211,16 +195,13 @@ class LocalSiteRepo(SiteRepo):
         # now do the metadata notate
         if success:
             if jobContext is None:
-                lwfManager.emitStatus(context, LocalJobStatus,
-                    JobStatusValues.FINISHING.value)
+                lwfManager.emitStatus(context, JobStatusValues.FINISHING.value)
             sheet = lwfManager.notatePut(localPath, siteObjPath, context, metasheet)
             if jobContext is None:
-                lwfManager.emitStatus(context, LocalJobStatus,
-                    JobStatusValues.COMPLETE.value)
+                lwfManager.emitStatus(context, JobStatusValues.COMPLETE.value)
             return sheet
         if jobContext is None:
-            lwfManager.emitStatus(context, LocalJobStatus,
-                JobStatusValues.FAILED.value)
+            lwfManager.emitStatus(context, JobStatusValues.FAILED.value)
         return None
 
     def get(self, siteObjPath: str, localPath: str, 
@@ -230,7 +211,7 @@ class LocalSiteRepo(SiteRepo):
         context = jobContext
         if context is None:
             context = JobContext()
-            lwfManager.emitStatus(context, LocalJobStatus, JobStatusValues.RUNNING.value)
+            lwfManager.emitStatus(context, JobStatusValues.RUNNING.value)
         success = True
         if (siteObjPath is not None) and (localPath is not None):
             # copy the file from siteObjPath to localPath
@@ -238,15 +219,13 @@ class LocalSiteRepo(SiteRepo):
         # now do the metadata notate
         if success:
             if jobContext is None:
-                lwfManager.emitStatus(context, LocalJobStatus,
-                    JobStatusValues.FINISHING.value)
+                lwfManager.emitStatus(context, JobStatusValues.FINISHING.value)
             lwfManager.notateGet(localPath, siteObjPath, context)
             if jobContext is None:
-                lwfManager.emitStatus(context, LocalJobStatus,
-                JobStatusValues.COMPLETE.value)
+                lwfManager.emitStatus(context, JobStatusValues.COMPLETE.value)
             return localPath
         if jobContext is None:
-            lwfManager.emitStatus(context, LocalJobStatus,
+            lwfManager.emitStatus(context, JobStatusValues.FAILED.value,
                 JobStatusValues.FAILED.value)
         return None
 

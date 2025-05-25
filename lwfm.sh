@@ -9,6 +9,8 @@ mkdir -p ~/.lwfm/logs
 
 touch ~/.lwfm/logs/midware.log
 
+export PYTHONUNBUFFERED=1
+
 # launch the middleware in the background and route stdout and stderr to a log file
 python ./lwfm/midware/_impl/SvcLauncher.py > ~/.lwfm/logs/launcher.log 2>&1 &
 FLASK_PID=$!

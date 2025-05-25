@@ -105,6 +105,7 @@ class LwfManager:
     def getStatus(self, jobId: str) -> JobStatus:
         return self._client.getStatus(jobId)
 
+
     def getAllStatus(self, jobId: str) -> [JobStatus]:
         return self._client.getAllStatus(jobId)
 
@@ -122,9 +123,12 @@ class LwfManager:
         return None
 
     # emit a status message
-    def emitStatus(self, context: JobContext, statusClass: type,
-                   nativeStatus: str, nativeInfo: str = None) -> None:
-        return self._client.emitStatus(context, statusClass, nativeStatus, nativeInfo)
+    def emitStatus(self, context: JobContext,
+                   statusStr: str, nativeStatusStr: str = None,
+                   nativeInfo: str = None) -> None:
+        if nativeStatusStr is None:
+            nativeStatusStr = statusStr
+        return self._client.emitStatus(context, statusStr, nativeStatusStr, nativeInfo)
 
 
     # Wait synchronously until the job reaches a terminal state, then return
@@ -152,7 +156,8 @@ class LwfManager:
                 if status is not None and status.isTerminal():
                     return status
         except Exception as ex:
-            status.setNativeStatus("UNKNOWN", str(ex))
+            status.setNativeStatus("UNKNOWN")
+            status.setNativeInfo(str(ex))
             return status
 
 
@@ -175,7 +180,7 @@ class LwfManager:
     # repo methods
 
     def _emitRepoInfo(self, context: JobContext, metasheet: Metasheet) -> None:
-        return self.emitStatus(context, JobStatus, "INFO", metasheet)
+        return self.emitStatus(context, "INFO", "INFO", metasheet)
 
     def _notate(self, localPath: str, siteObjPath: str,
                 jobContext: JobContext,

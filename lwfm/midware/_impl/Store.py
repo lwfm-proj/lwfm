@@ -126,9 +126,9 @@ class WorkflowStore(Store):
         try:
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
-            res = cur.execute(f"SELECT data FROM WorkflowStore WHERE pillar='run.wf' and " \
+            results = cur.execute(f"SELECT data FROM WorkflowStore WHERE pillar='run.wf' and " \
                 f"site='local' and key='{workflow_id}' order by ts desc")
-            result = res.fetchone()
+            result = results.fetchone()
             if result is not None:
                 result = ObjectSerializer.deserialize(result[0])
             db.close()
@@ -173,15 +173,15 @@ class EventStore(Store):
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
             if typeT is not None:
-                res = cur.execute(
+                results = cur.execute(
                     "SELECT data FROM EventStore WHERE pillar=? ORDER BY ts DESC",
                     (typeT,)
                 )
             else:
-                res = cur.execute(
+                results = cur.execute(
                     "SELECT data FROM EventStore WHERE pillar LIKE '%' ORDER BY ts DESC"
                 )
-            rows = res.fetchall()
+            rows = results.fetchall()
             if rows:
                 result = [ObjectSerializer.deserialize(row[0]) for row in rows]
             else:
@@ -243,11 +243,11 @@ class JobStatusStore(Store):
         try:
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
-            res = cur.execute(
+            results = cur.execute(
                 "SELECT data FROM JobStatusStore WHERE pillar=? AND key=? ORDER BY ts DESC",
                 ("run.status", jobId)
             )
-            rows = res.fetchall()
+            rows = results.fetchall()
             if rows:
                 result = [ObjectSerializer.deserialize(row[0]) for row in rows]
             else:
@@ -266,11 +266,11 @@ class JobStatusStore(Store):
         try:
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
-            res = cur.execute(
+            results = cur.execute(
                 "SELECT data FROM JobStatusStore WHERE pillar=? AND key=? ORDER BY ts DESC LIMIT 1",
                 ("run.status", jobId)
             )
-            row = res.fetchone()
+            row = results.fetchone()
             if row:
                 result = ObjectSerializer.deserialize(row[0])
             else:
@@ -360,23 +360,23 @@ if __name__ == "__main__":
     print("Inserted metasheets.")
 
     # Query by jobId (exact match)
-    result = ms_store.findMetasheet({"site": "siteA"})
-    print("Query jobId=job1:", result)
+    res = ms_store.findMetasheet({"site": "siteA"})
+    print("Query jobId=job1:", res)
 
     # Query by siteName (partial match)
-    result = ms_store.findMetasheet({"site": "site"})
-    print("Query site contains 'site':", result)
+    res = ms_store.findMetasheet({"site": "site"})
+    print("Query site contains 'site':", res)
 
     # Query by custom property
-    result = ms_store.findMetasheet({"foo": "ba."})
-    print("Query foo matches 'ba.':", result)
+    res = ms_store.findMetasheet({"foo": "ba."})
+    print("Query foo matches 'ba.':", res)
 
     # Query with no matches
-    result = ms_store.findMetasheet({"site": "^notfound$"})
-    print("Query jobId=notfound:", result)
+    res = ms_store.findMetasheet({"site": "^notfound$"})
+    print("Query jobId=notfound:", res)
 
     # Query using multiple fields (AND logic)
-    result = ms_store.findMetasheet({"foo": "ba.", "site": "siteA"})
-    print("Query jobId=job1 AND site=siteA:", result)
+    res = ms_store.findMetasheet({"foo": "ba.", "site": "siteA"})
+    print("Query jobId=job1 AND site=siteA:", res)
 
     print("Test complete.")

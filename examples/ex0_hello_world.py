@@ -22,7 +22,7 @@ if __name__ == "__main__":
     # submit the job to the site asynchronously, get back an initial status
     status = site.getRunDriver().submit(jobDefn)
 
-    print("submitted the job")
+    print(f"submitted the job {status.getJobId()}")
 
     # How could we tell the async job has finished? One way is to synchronously
     # wait on its end status. (Another way is asynchronous triggering, which
@@ -32,4 +32,4 @@ if __name__ == "__main__":
 
     # Let's show that we can also get the result of the job later on
     status = lwfManager.getStatus(status.getJobId())
-    logger.info("job status from persistence", status)
+    logger.info("job status from persistence" + str(status))

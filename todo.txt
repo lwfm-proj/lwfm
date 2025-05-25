@@ -3,13 +3,12 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    + venv project dir (#90)
-
     - ibm venv driver (#72), remote polling (#80)
 
     + 2nd
         - inline docs esp. for .base & .midware (#84)
-        - launch own middleware (#93)
+        - how to add your own self to uv / pyproject.toml 
+        - test data provenance (#78)
 
 
 + ai proj
