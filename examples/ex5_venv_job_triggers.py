@@ -4,7 +4,7 @@ demonstrate asynchronous job chaining
 
 
 from lwfm.base.JobDefn import JobDefn
-from lwfm.base.JobStatus import JobStatusValues
+from lwfm.base.JobStatus import JobStatus
 from lwfm.base.WorkflowEvent import JobEvent
 from lwfm.base.Workflow import Workflow
 from lwfm.midware.LwfManager import lwfManager, logger
@@ -34,14 +34,14 @@ if __name__ == "__main__":
 
     # when job A asynchronously reaches the COMPLETE state, fire job B
     statusB = lwfManager.setEvent(
-        JobEvent(statusA.getJobId(), JobStatusValues.COMPLETE.value,
+        JobEvent(statusA.getJobId(), JobStatus.COMPLETE,
                  JobDefn("echo date = `date` > " + dataFile), "local")
     )
     logger.info(f"job B {statusB.getJobId()} set as a job event on A")
 
     # when job B asynchronously gets to the COMPLETE state, fire job C
     statusC = lwfManager.setEvent(
-        JobEvent(statusB.getJobId(), JobStatusValues.COMPLETE.value,
+        JobEvent(statusB.getJobId(), JobStatus.COMPLETE,
                  JobDefn(">&2 echo " + dataFile), "local")
     )
     logger.info(f"job C {statusC.getJobId()} set as a job event on B")

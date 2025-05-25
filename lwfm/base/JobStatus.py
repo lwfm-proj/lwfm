@@ -6,24 +6,12 @@ It is emitted within the job's context.
 #pylint: disable = missing-function-docstring, missing-class-docstring
 #pylint: disable = invalid-name, broad-exception-caught, line-too-long
 
-from enum import Enum
 import datetime
 
 
 from lwfm.midware._impl.IdGenerator import IdGenerator
 
 from lwfm.base.JobContext import JobContext
-
-class JobStatusValues(Enum):
-    UNKNOWN = "UNKNOWN"
-    READY = "READY"
-    PENDING = "PENDING"
-    RUNNING = "RUNNING"
-    INFO = "INFO"
-    FINISHING = "FINISHING"
-    COMPLETE = "COMPLETE"  # terminal state
-    FAILED = "FAILED"  # terminal state
-    CANCELLED = "CANCELLED"  # terminal state
 
 
 # ***********************************************************************
@@ -47,24 +35,35 @@ class JobStatus:
     status strings.  Native lwfm local jobs will use a pass-thru mapping.
     """
 
+    UNKNOWN = "UNKNOWN"
+    READY = "READY"
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    INFO = "INFO"
+    FINISHING = "FINISHING"
+    COMPLETE = "COMPLETE"  # terminal state
+    FAILED = "FAILED"  # terminal state
+    CANCELLED = "CANCELLED"  # terminal state
+
+
     def __init__(self, jobContext: JobContext = None):
         self._status_id = IdGenerator().generateId()
-        self._status = JobStatusValues.UNKNOWN.value
+        self._status = JobStatus.UNKNOWN
         self._native_status = None
         self._emit_time = datetime.datetime.now(datetime.timezone.utc)
         self._received_time = None
         self._native_info = None
         self._context = jobContext
         self._status_map = {
-            "UNKNOWN": JobStatusValues.UNKNOWN.value,
-            "READY": JobStatusValues.READY.value,
-            "PENDING": JobStatusValues.PENDING.value,
-            "RUNNING": JobStatusValues.RUNNING.value,
-            "INFO": JobStatusValues.INFO.value,
-            "FINISHING": JobStatusValues.FINISHING.value,
-            "COMPLETE": JobStatusValues.COMPLETE.value,
-            "FAILED": JobStatusValues.FAILED.value,
-            "CANCELLED": JobStatusValues.CANCELLED.value,
+            "UNKNOWN": JobStatus.UNKNOWN,
+            "READY": JobStatus.READY,
+            "PENDING": JobStatus.PENDING,
+            "RUNNING": JobStatus.RUNNING,
+            "INFO": JobStatus.INFO,
+            "FINISHING": JobStatus.FINISHING,
+            "COMPLETE": JobStatus.COMPLETE,
+            "FAILED": JobStatus.FAILED,
+            "CANCELLED": JobStatus.CANCELLED,
         }
 
     def getStatusId(self) -> str:
@@ -98,7 +97,7 @@ class JobStatus:
         try:
             self._status = self._status_map[self._native_status]
         except Exception:
-            self._status = JobStatusValues.UNKNOWN.value
+            self._status = JobStatus.UNKNOWN
 
     def getStatusMap(self) -> dict:
         return self._status_map
@@ -125,13 +124,13 @@ class JobStatus:
         return self._native_info
 
     def isTerminalSuccess(self) -> bool:
-        return self._status == JobStatusValues.COMPLETE.value
+        return self._status == JobStatus.COMPLETE
 
     def isTerminalFailure(self) -> bool:
-        return self._status == JobStatusValues.FAILED.value
+        return self._status == JobStatus.FAILED
 
     def isTerminalCancelled(self) -> bool:
-        return self._status == JobStatusValues.CANCELLED.value
+        return self._status == JobStatus.CANCELLED
 
     def isTerminal(self) -> bool:
         return (

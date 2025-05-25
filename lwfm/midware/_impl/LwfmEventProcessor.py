@@ -12,7 +12,7 @@ import threading
 from typing import List
 import atexit
 
-from lwfm.base.JobStatus import JobStatus, JobStatusValues
+from lwfm.base.JobStatus import JobStatus, JobStatus
 from lwfm.base.JobContext import JobContext
 from lwfm.base.WorkflowEvent import RemoteJobEvent, WorkflowEvent, JobEvent, MetadataEvent
 from lwfm.midware._impl.Store import EventStore, JobStatusStore, LoggingStore
@@ -253,8 +253,8 @@ class LwfmEventProcessor:
         # fire the initial status showing the new job ready on the shelf
         # Deferred import to avoid circular dependencies
         from lwfm.midware.LwfManager import lwfManager
-        lwfManager.emitStatus(newJobContext, JobStatusValues.READY.value,
-            JobStatusValues.READY.value)
+        lwfManager.emitStatus(newJobContext, JobStatus.READY,
+            JobStatus.READY)
         return newJobContext
 
 
@@ -274,8 +274,8 @@ class LwfmEventProcessor:
         # fire a status showing the new job ready on the shelf
         # Deferred import to avoid circular dependencies
         from lwfm.midware.LwfManager import lwfManager
-        lwfManager.emitStatus(newJobContext, JobStatusValues.READY.value,
-            JobStatusValues.READY.value)
+        lwfManager.emitStatus(newJobContext, JobStatus.READY,
+            JobStatus.READY)
         return newJobContext
 
     # Register an event handler.  When a jobId running on a job Site

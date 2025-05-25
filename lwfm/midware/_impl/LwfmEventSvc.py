@@ -17,7 +17,7 @@ from lwfm.midware._impl.LwfmEventProcessor import LwfmEventProcessor
 from lwfm.midware._impl.Store import JobStatusStore, LoggingStore, WorkflowStore, MetasheetStore
 from lwfm.base.Workflow import Workflow
 from lwfm.base.Metasheet import Metasheet
-from lwfm.base.JobStatus import JobStatus, JobStatusValues
+from lwfm.base.JobStatus import JobStatus, JobStatus
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 
 #************************************************************************
@@ -106,15 +106,15 @@ def emitStatus():
         statusBlob = request.form["statusBlob"]
         statusObj : JobStatus = ObjectSerializer.deserialize(statusBlob)
         JobStatusStore().putJobStatus(statusObj)
-        if statusObj.getStatus() == JobStatusValues.READY.value or \
-            statusObj.getStatus() == JobStatusValues.PENDING.value:
+        if statusObj.getStatus() == JobStatus.READY or \
+            statusObj.getStatus() == JobStatus.PENDING:
             wfId = statusObj.getJobContext().getWorkflowId()
             wf = WorkflowStore().getWorkflow(wfId)
             if wf is None:
                 wf = Workflow()
                 wf._setWorkflowId(wfId)
                 WorkflowStore().putWorkflow(wf)
-        elif statusObj.getStatus() == JobStatusValues.INFO.value:
+        elif statusObj.getStatus() == JobStatus.INFO:
             print("test for data triggers goes here")
             _testDataTriggers(statusObj)
         return "", 200
