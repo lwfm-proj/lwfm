@@ -54,6 +54,7 @@ class JobStatus:
         self._received_time = None
         self._native_info = None
         self._context = jobContext
+        self._remote = False
         self._status_map = {
             "UNKNOWN": JobStatus.UNKNOWN,
             "READY": JobStatus.READY,
@@ -138,6 +139,17 @@ class JobStatus:
             or self.isTerminalFailure()
             or self.isTerminalCancelled()
         )
+
+    def isInfo(self) -> bool:
+        return self._status == JobStatus.INFO
+        
+
+    def getRemote(self) -> bool:
+        return self._remote
+
+    def setRemote(self, remote: bool) -> None:
+        self._remote = remote
+
 
     def __str__(self):
         return f"[status ctx:{self._context} value:{self._status} info:{self._native_info}]"

@@ -11,6 +11,7 @@ import tomllib
 
 from typing import Dict, Any
 
+from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
 
 class SiteConfig:
     """
@@ -28,9 +29,11 @@ class SiteConfig:
 
         [local]
         class = "lwfm.sites.LocalSite.LocalSite"
+        remote = false
 
         [local-venv]
         class = "lwfm.sites.LocalVenvSite.LocalVenvSite"
+        remote = false
         """
 
         USER_TOML = os.path.expanduser("~") + "/.lwfm/sites.toml"
@@ -69,10 +72,10 @@ class SiteConfig:
 
     @staticmethod
     def getSite(site: str = "local",
-                auth_driver = None,
-                run_driver = None,
-                repo_driver = None,
-                spin_driver = None) -> 'Site':
+                auth_driver: SiteAuth = None,
+                run_driver: SiteRun = None,
+                repo_driver: SiteRepo = None,
+                spin_driver: SiteSpin = None) -> 'Site':
         """
         Get a Site instance. Look it up in the site TOML, instantiate it, potentially 
         overriding its default Site Pillars with provided drivers.
@@ -84,7 +87,12 @@ class SiteConfig:
             class_name = siteObj.get("class")
             module = importlib.import_module(class_name.rsplit(".", 1)[0])
             class_ = getattr(module, str(class_name.rsplit(".", 1)[1]))
-            inst = class_(site, auth_driver, run_driver, repo_driver, spin_driver)
+            inst: Site = class_(site, auth_driver, run_driver, repo_driver, spin_driver)
+            inst.setRemote(siteObj.get("remote", False))
+            inst.getAuthDriver().setSite(inst)
+            inst.getRunDriver().setSite(inst)
+            inst.getRepoDriver().setSite(inst)
+            inst.getSpinDriver().setSite(inst)
             return inst
         except Exception as ex:
             print(f"Cannot instantiate Site for {site} {ex}")

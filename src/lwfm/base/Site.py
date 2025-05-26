@@ -36,7 +36,13 @@ if TYPE_CHECKING:
 
 # ***************************************************************************
 class SitePillar(ABC):
-    pass
+    _site : 'Site' = None
+
+    def setSite(self, site: 'Site') -> None:
+        self._site = site
+
+    def getSite(self) -> 'Site':
+        return self._site
 
 
 # ***************************************************************************
@@ -269,6 +275,7 @@ class Site:
         self._run_driver = run_driver
         self._repo_driver = repo_driver
         self._spin_driver = spin_driver
+        self._remote = False
 
     def getSiteName(self):
         return self._site_name
@@ -299,3 +306,9 @@ class Site:
 
     def setSpinDriver(self, driver):
         self._spin_driver = driver
+
+    def getRemote(self):
+        return self._remote
+
+    def setRemote(self, remote):
+        self._remote = remote

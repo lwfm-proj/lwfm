@@ -96,9 +96,6 @@ def putWorkflow():
 #************************************************************************
 # status endpoints
 
-def _testDataTriggers(statusObj: JobStatus):
-    LwfmEventProcessor().checkDataEvents(statusObj)
-
 
 @app.route("/emitStatus", methods=["POST"])
 def emitStatus():
@@ -106,6 +103,7 @@ def emitStatus():
         statusBlob = request.form["statusBlob"]
         statusObj : JobStatus = ObjectSerializer.deserialize(statusBlob)
         JobStatusStore().putJobStatus(statusObj)
+        # if this is a new job, make sure we persisted its parent workflow
         if statusObj.getStatus() == JobStatus.READY or \
             statusObj.getStatus() == JobStatus.PENDING:
             wfId = statusObj.getJobContext().getWorkflowId()
@@ -114,9 +112,12 @@ def emitStatus():
                 wf = Workflow()
                 wf._setWorkflowId(wfId)
                 WorkflowStore().putWorkflow(wf)
-        elif statusObj.getStatus() == JobStatus.INFO:
-            print("test for data triggers goes here")
-            _testDataTriggers(statusObj)
+        # a new status message came in - wake up the event processor if its sleeping
+        # we can determine which kind of status this is and expedite handling
+        # - a remote job status
+        # - a non-remote local job status
+        # - a data INFO event
+        wfProcessor.wake_up(statusObj)
         return "", 200
     except Exception as ex:
         LoggingStore().putLogging("ERROR", "emitStatus svc: " + str(ex))

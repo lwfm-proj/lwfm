@@ -3,8 +3,7 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    - remote polling (#80)
-    - how to add your own self to uv / pyproject.toml 
+    + remote polling (#80)
 
     + 2nd
         - inline docs esp. for .base & .midware (#84)
