@@ -12,7 +12,7 @@ import threading
 from typing import List
 import atexit
 
-from lwfm.base.JobStatus import JobStatus, JobStatus
+from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobContext import JobContext
 from lwfm.base.WorkflowEvent import RemoteJobEvent, WorkflowEvent, JobEvent, MetadataEvent
 from lwfm.midware._impl.Store import EventStore, JobStatusStore, LoggingStore
@@ -42,7 +42,7 @@ class LwfmEventProcessor:
         self._statusCheckIntervalSeconds = self.STATUS_CHECK_INTERVAL_SECONDS_MIN
 
         # Register cleanup to happen at exit
-        atexit.register(lambda: self.exit())
+        atexit.register(self.exit)
         self._eventStore = EventStore()
         self._jobStatusStore = JobStatusStore()
         self._loggingStore = LoggingStore()

@@ -17,7 +17,7 @@ from lwfm.midware._impl.LwfmEventProcessor import LwfmEventProcessor
 from lwfm.midware._impl.Store import JobStatusStore, LoggingStore, WorkflowStore, MetasheetStore
 from lwfm.base.Workflow import Workflow
 from lwfm.base.Metasheet import Metasheet
-from lwfm.base.JobStatus import JobStatus, JobStatus
+from lwfm.base.JobStatus import JobStatus
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 
 #************************************************************************

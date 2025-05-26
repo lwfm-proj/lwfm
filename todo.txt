@@ -3,11 +3,11 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    - ibm venv driver (#72), remote polling (#80)
+    - remote polling (#80)
+    - how to add your own self to uv / pyproject.toml 
 
     + 2nd
         - inline docs esp. for .base & .midware (#84)
-        - how to add your own self to uv / pyproject.toml 
         - test data provenance (#78)
 
 
