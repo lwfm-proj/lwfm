@@ -362,6 +362,10 @@ class VenvSite(Site, ABC):
         self._realRunDriver = run_driver or self.localSite.getRunDriver()
         self._realRepoDriver = repo_driver or self.localSite.getRepoDriver()
         self._realSpinDriver = spin_driver or self.localSite.getSpinDriver()
+        self._realAuthDriver.setSite(self.localSite)
+        self._realRunDriver.setSite(self.localSite)
+        self._realRepoDriver.setSite(self.localSite)
+        self._realSpinDriver.setSite(self.localSite)
         super().__init__(site_name,
                          VenvSiteAuthWrapper(self.localSite.getSiteName(), self._realAuthDriver),
                          VenvSiteRunWrapper(self.localSite.getSiteName(), self._realRunDriver),

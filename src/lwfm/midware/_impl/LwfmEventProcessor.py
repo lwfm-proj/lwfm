@@ -16,6 +16,7 @@ from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobContext import JobContext
 from lwfm.base.WorkflowEvent import RemoteJobEvent, WorkflowEvent, JobEvent, MetadataEvent
 from lwfm.midware._impl.Store import EventStore, JobStatusStore, LoggingStore
+from lwfm.midware._impl.SiteConfig import SiteConfig
 
 # ***************************************************************************
 
@@ -72,7 +73,30 @@ class LwfmEventProcessor:
                     self.checkDataStatusEvent(statusObj)
                 except Exception as ex:
                     self._loggingStore.putLogging("ERROR",
-                        "Exception checking data event: " + " " + str(ex))                    
+                        "Exception checking data event: " + " " + str(ex))       
+
+            if statusObj is not None and (statusObj.isPreRun() or statusObj.isRunning()):
+                try:
+                    # is this site a remote site? make sure we're tracking this job
+                    # to completion - this server is responsible for that not the user
+                    isRemote = SiteConfig.getSiteProperties(statusObj.getJobContext().
+                        getSiteName())["remote"]
+                    if isRemote:
+                        # check if a remote job event is pending
+                        events = self._eventStore.getAllWfEvents("run.event.REMOTE")
+                        gotOne = False
+                        if events is None:
+                            events = []
+                        for e in events:
+                            if e.getFireJobId() == statusObj.getJobContext().getJobId():
+                                gotOne = True
+                                break
+                        if not gotOne:
+                            # lay down a remote job tracking event
+                            self.setEventHandler(RemoteJobEvent(statusObj.getJobContext()))
+                except Exception as ex:
+                    self._loggingStore.putLogging("ERROR",
+                        "Exception checking remote job events: " + " " + str(ex))
 
             # Start a new timer that will fire immediately (or very quickly)
             self._timer = threading.Timer(
@@ -129,30 +153,34 @@ class LwfmEventProcessor:
         Monitor remote jobs until they reach a terminal state, or until it seems 
         rediculous...
         """
-        return False
-        # gotOne = False
-        # try:
-        #     events: List[RemoteJobEvent] = \
-        #         self._eventStore.getAllWfEvents("run.event.REMOTE")
-        #     for e in events:
-        #         try:
-        #             self._loggingStore.putLogging("INFO",
-        #                 f"remote id:{e.getFireJobId()} native:{e.getNativeJobId()} site:{e.getFireSite()}")
-        #             # ask the remote site to inquire status
-        #             # Deferred import to avoid circular dependencies
-        #             from lwfm.midware.LwfManager import lwfManager
-        #             site = lwfManager.getSite(e.getFireSite())
-        #             status = site.getRunDriver().getStatus(e.getFireJobId())   # canonical job id
-        #             if status.isTerminal():
-        #                 # remote job is done
-        #                 self.unsetEventHandler(e.getEventId())
-        #             gotOne = True
-        #         except Exception as ex1:
-        #             self._loggingStore.putLogging("ERROR",
-        #             "Exception checking remote job event: " + str(ex1))
-        # except Exception as ex:
-        #     self._loggingStore.putLogging("ERROR", "Exception checking remote pollers: " + str(ex))
-        # return gotOne
+        gotOne = False
+        try:
+            events: List[RemoteJobEvent] = \
+                self._eventStore.getAllWfEvents("run.event.REMOTE")
+            if events is None:
+                return gotOne
+            for e in events:
+                try:
+                    self._loggingStore.putLogging("INFO",
+                        f"remote id:{e.getFireJobId()} native:{e.getNativeJobId()} " + \
+                        f"site:{e.getFireSite()}")
+                    # ask the remote site to inquire status
+                    # Deferred import to avoid circular dependencies
+                    from lwfm.midware.LwfManager import lwfManager
+                    site = lwfManager.getSite(e.getFireSite())
+                    status = site.getRunDriver().getStatus(e.getFireJobId())   # canonical job id
+                    if status.isTerminal():
+                        # remote job is done
+                        self.unsetEventHandler(e.getEventId())
+                        # emit status
+                        print(f"Remote job is done {status.getJobId()}")
+                    gotOne = True
+                except Exception as ex1:
+                    self._loggingStore.putLogging("ERROR",
+                    "Exception checking remote job event: " + str(ex1))
+        except Exception as ex:
+            self._loggingStore.putLogging("ERROR", "Exception checking remote pollers: " + str(ex))
+        return gotOne
 
 
     def checkJobEvent(self, jobEvent: JobEvent) -> JobStatus:
