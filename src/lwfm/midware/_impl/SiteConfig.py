@@ -3,7 +3,7 @@ Site configuration management for lwfm.
 Handles loading site configuration from TOML files and creating site instances.
 """
 
-#pylint: disable = broad-exception-caught, invalid-name
+#pylint: disable = broad-exception-caught, broad-exception-raised, invalid-name
 
 import importlib
 import os
@@ -89,10 +89,18 @@ class SiteConfig:
             class_ = getattr(module, str(class_name.rsplit(".", 1)[1]))
             inst: Site = class_(site, auth_driver, run_driver, repo_driver, spin_driver)
             inst.setRemote(siteObj.get("remote", False))
-            inst.getAuthDriver().setSite(inst)
-            inst.getRunDriver().setSite(inst)
-            inst.getRepoDriver().setSite(inst)
-            inst.getSpinDriver().setSite(inst)
+            auth = inst.getAuthDriver()
+            if auth:
+                auth.setSite(inst)
+            run = inst.getRunDriver()
+            if run:
+                run.setSite(inst)
+            repo = inst.getRepoDriver()
+            if repo:
+                repo.setSite(inst)
+            spin = inst.getSpinDriver()
+            if spin:
+                spin.setSite(inst)
             return inst
         except Exception as ex:
             print(f"Cannot instantiate Site for {site} {ex}")
