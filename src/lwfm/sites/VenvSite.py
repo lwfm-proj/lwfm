@@ -355,10 +355,8 @@ class VenvSite(Site, ABC):
                     spin_driver: SiteSpin = None):
         # Any pillars not covered by user drivers will be covered by those from LocalSite.
         self.localSite = LocalSite()
-        if site_name is not None:
-            self.localSite.setSiteName(site_name)
-        else:
-            self.localSite.setSiteName(self._DEFAULT_SITE_NAME)
+        self.localSite.setSiteName(site_name or self._DEFAULT_SITE_NAME)
+        self.setSiteName(site_name or self._DEFAULT_SITE_NAME)
 
         # The idea here is there is a venv wrapper driver (self._authDriver), defined
         # above in this module, and a real driver, which does the work while wrapped
