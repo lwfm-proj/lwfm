@@ -167,20 +167,30 @@ def _makeSerializeReturnString() -> str:
     subprocess back to the main process (see discussion above).
     """
     # construct the command string to execute in the virtual environment
-    return "from lwfm.midware.LwfManager import lwfManager; " + \
-           "obj = lwfManager.serialize(obj); " + \
+    return "obj = lwfManager.serialize(obj); " + \
            "print(obj)"
 
 
-def _makeSiteDriverCommandString(sitePillar: SitePillar) -> str:
+def _makeSiteNameCommandString(siteName: str) -> str:
+    """
+    Get the site name.
+    """
+    return "from lwfm.midware.LwfManager import lwfManager; " + \
+           f"site = lwfManager.getSite('{siteName}'); "
+
+
+
+def _makeSiteDriverCommandString(sitePillar: SitePillar, siteName: str) -> str:
     """
     Import a class from a module and instantiate it.
     """
     # construct the command string to execute in the virtual environment
     pkgName = _getPackageName(sitePillar)
     className = _getClassName(sitePillar)
-    return f"from {pkgName} import {className}; " + \
-           f"driver = {className}(); "
+    return _makeSiteNameCommandString(siteName) + \
+        f"from {pkgName} import {className}; " + \
+        f"driver = {className}(); " + \
+        "driver.setSite(site); "
 
 
 def _makeArgWrapper(obj: object) -> str:
@@ -208,7 +218,7 @@ class VenvSiteAuthWrapper(SiteAuth):
     def login(self, force: bool = False) -> bool:
         retVal = _executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realAuthDriver) + \
+            _makeSiteDriverCommandString(self._realAuthDriver, self.getSite().getSiteName()) + \
             f"obj = driver.login({force}); " + \
             f"{_makeSerializeReturnString()}"
         )
@@ -217,7 +227,7 @@ class VenvSiteAuthWrapper(SiteAuth):
     def isAuthCurrent(self) -> bool:
         retVal = _executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realAuthDriver) + \
+            _makeSiteDriverCommandString(self._realAuthDriver, self.getSite().getSiteName()) + \
             "obj = driver.isAuthCurrent(); " + \
             f"{_makeSerializeReturnString()}"
         )
@@ -241,7 +251,7 @@ class VenvSiteRunWrapper(SiteRun):
         computeType: str = None, runArgs: Union[dict, str] = None) -> JobStatus:
         retVal = _executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRunDriver) + \
+            _makeSiteDriverCommandString(self._realRunDriver, self.getSite().getSiteName()) + \
             f"obj = driver.submit({_makeArgWrapper(jobDefn)}, " +\
             f"{_makeArgWrapper(parentContext)}, '{computeType}', " + \
             f"{_makeArgWrapper(runArgs)}); " + \
@@ -253,7 +263,7 @@ class VenvSiteRunWrapper(SiteRun):
     def getStatus(self, jobId: str) -> JobStatus:
         retVal = _executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRunDriver) + \
+            _makeSiteDriverCommandString(self._realRunDriver, self.getSite().getSiteName()) + \
             f"obj = driver.getStatus('{jobId}'); " + \
             f"{_makeSerializeReturnString()}"
         )
@@ -262,7 +272,7 @@ class VenvSiteRunWrapper(SiteRun):
     def cancel(self, jobContext: Union[JobContext, str]) -> bool:
         retVal = _executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRunDriver) + \
+            _makeSiteDriverCommandString(self._realRunDriver, self.getSite().getSiteName()) + \
             f"obj = driver.cancel({_makeArgWrapper(jobContext)}); " + \
             f"{_makeSerializeReturnString()}"
         )
@@ -290,7 +300,7 @@ class VenvSiteRepoWrapper(SiteRepo):
     ) -> Metasheet:
         retVal = _executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRepoDriver) + \
+            _makeSiteDriverCommandString(self._realRepoDriver, self.getSite().getSiteName()) + \
             f"obj = driver.put('{localPath}', '{siteObjPath}', " + \
             f"{_makeArgWrapper(jobContext)}, {_makeArgWrapper(metasheet)}); " + \
             f"{_makeSerializeReturnString()}"
@@ -305,7 +315,7 @@ class VenvSiteRepoWrapper(SiteRepo):
     ) -> str:
         retVal = _executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRepoDriver) + \
+            _makeSiteDriverCommandString(self._realRepoDriver, self.getSite().getSiteName()) + \
             f"obj = driver.get('{siteObjPath}', '{localPath}', {_makeArgWrapper(jobContext)}); " + \
             f"{_makeSerializeReturnString()}"
         )
@@ -314,7 +324,7 @@ class VenvSiteRepoWrapper(SiteRepo):
     def find(self, queryRegExs: dict) -> List[Metasheet]:
         retVal = _executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRepoDriver) + \
+            _makeSiteDriverCommandString(self._realRepoDriver, self.getSite().getSiteName()) + \
             f"obj = driver.find({_makeArgWrapper(queryRegExs)}); " + \
             f"{_makeSerializeReturnString()}"
         )
@@ -332,7 +342,7 @@ class VenvSiteSpinWrapper(SiteSpin):
     def listComputeTypes(self) -> List[str]:
         retVal = _executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realSpinDriver) + \
+            _makeSiteDriverCommandString(self._realSpinDriver, self.getSite().getSiteName()) + \
             "obj = driver.listComputeTypes(); " + \
             f"{_makeSerializeReturnString()}"
         )
