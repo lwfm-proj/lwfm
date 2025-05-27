@@ -26,17 +26,14 @@ class LocalVenvSite(VenvSite):
         # (truthfully the invoker can pass in any Site pillar implementation, not just
         # one from the local site - this might be convenient, or allow for a chimera...)
         self.localSite = LocalSite()
-        if site_name is not None:
-            self.localSite.setSiteName(site_name)
-        else:
-            self.localSite.setSiteName(self.SITE_NAME)
-
+        self.localSite.setSiteName(site_name or self.SITE_NAME)
+        self.setSiteName(site_name or self.SITE_NAME)
         self._realAuthDriver = authDriver or self.localSite.getAuthDriver()
         self._realRunDriver = runDriver or self.localSite.getRunDriver()
         self._realRepoDriver = repoDriver or self.localSite.getRepoDriver()
         self._realSpinDriver = spinDriver or self.localSite.getSpinDriver()
         super().__init__(
-            site_name or self.SITE_NAME,
+            self.localSite.getSiteName(),
             self._realAuthDriver,
             self._realRunDriver,
             self._realRepoDriver,

@@ -346,28 +346,54 @@ class VenvSite(Site, ABC):
     A Site driver for running jobs in a virtual environment.
     """
 
-    _DEFAULT_SITE_NAME = "local-venv"
+    _DEFAULT_SITE_NAME = "local-venv-base"
 
     def __init__(self, site_name: str = None,
                     auth_driver: SiteAuth = None,
                     run_driver: SiteRun = None,
                     repo_driver: SiteRepo = None,
                     spin_driver: SiteSpin = None):
+        # Any pillars not covered by user drivers will be covered by those from LocalSite.
         self.localSite = LocalSite()
         if site_name is not None:
             self.localSite.setSiteName(site_name)
         else:
             self.localSite.setSiteName(self._DEFAULT_SITE_NAME)
-        self._realAuthDriver = auth_driver or self.localSite.getAuthDriver()
-        self._realRunDriver = run_driver or self.localSite.getRunDriver()
-        self._realRepoDriver = repo_driver or self.localSite.getRepoDriver()
-        self._realSpinDriver = spin_driver or self.localSite.getSpinDriver()
-        self._realAuthDriver.setSite(self.localSite)
-        self._realRunDriver.setSite(self.localSite)
-        self._realRepoDriver.setSite(self.localSite)
-        self._realSpinDriver.setSite(self.localSite)
-        super().__init__(site_name,
-                         VenvSiteAuthWrapper(self.localSite.getSiteName(), self._realAuthDriver),
-                         VenvSiteRunWrapper(self.localSite.getSiteName(), self._realRunDriver),
-                         VenvSiteRepoWrapper(self.localSite.getSiteName(), self._realRepoDriver),
-                         VenvSiteSpinWrapper(self.localSite.getSiteName(), self._realSpinDriver))
+
+        # The idea here is there is a venv wrapper driver (self._authDriver), defined
+        # above in this module, and a real driver, which does the work while wrapped
+        # in the venv wrapper. If the caller does't provide a driver, the real driver
+        # will be the one from LocalSite.
+        if not auth_driver:
+            self._realAuthDriver = self.localSite.getAuthDriver()
+            self._realAuthDriver.setSite(self.localSite)
+        else:
+            self._realAuthDriver = auth_driver
+            self._realAuthDriver.setSite(self)
+        if not run_driver:
+            self._realRunDriver = self.localSite.getRunDriver()
+            self._realRunDriver.setSite(self.localSite)
+        else:
+            self._realRunDriver = run_driver
+            self._realRunDriver.setSite(self)
+        if not repo_driver:
+            self._realRepoDriver = self.localSite.getRepoDriver()
+            self._realRepoDriver.setSite(self.localSite)
+        else:
+            self._realRepoDriver = repo_driver
+            self._realRepoDriver.setSite(self)
+        if not spin_driver:
+            self._realSpinDriver = self.localSite.getSpinDriver()
+            self._realSpinDriver.setSite(self.localSite)
+        else:
+            self._realSpinDriver = spin_driver
+            self._realSpinDriver.setSite(self)
+        super().__init__(self.getSiteName(),
+            VenvSiteAuthWrapper(self._realAuthDriver.getSite().getSiteName(),
+                self._realAuthDriver),
+            VenvSiteRunWrapper(self._realRunDriver.getSite().getSiteName(),
+                self._realRunDriver),
+            VenvSiteRepoWrapper(self._realRepoDriver.getSite().getSiteName(),
+                self._realRepoDriver),
+            VenvSiteSpinWrapper(self._realSpinDriver.getSite().getSiteName(),
+                self._realSpinDriver))
