@@ -21,6 +21,7 @@ from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
 from lwfm.midware._impl.LwfmEventClient import LwfmEventClient
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 from lwfm.midware._impl.SiteConfig import SiteConfig
+from lwfm.midware._impl.SiteConfigBuilder import SiteConfigBuilder
 from lwfm.midware._impl.Logger import Logger
 
 
@@ -76,7 +77,8 @@ class LwfManager:
         Get a Site instance. Look it up in the site TOML, instantiate it, potentially 
         overriding its default Site Pillars with provided drivers.
         """
-        return SiteConfig.getSite(site, auth_driver, run_driver, repo_driver, spin_driver)
+        return SiteConfigBuilder.getSite(site,
+            auth_driver, run_driver, repo_driver, spin_driver)
 
 
     #***********************************************************************

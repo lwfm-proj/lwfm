@@ -19,10 +19,12 @@ environment. Thus each public method here tends to be rather cookie cutter.
 Here's an example of gthe VenvSite's Auth pillar login() method:
 
     def login(self, force: bool = False) -> bool:
-        retVal = _executeInProjectVenv(
-            _makeSiteDriverCommandString(self._realAuthDriver) +    <-- wrap the real auth driver 
+        retVal = self._siteConfigVenv.executeInProject(
+            self._siteConfigVenv.makeSiteDriverCommandString(self._realAuthDriver) +
+            <-- wrap the real auth driver 
             f"obj = driver.login({force}); " +                      <-- call login() with args
-            f"{_makeSerializeReturnString()}"                       <-- serialize subproc result 
+            f"{self._siteConfigVenv.makeSerializeReturnString()}"
+            <-- serialize subproc result 
         )
         return lwfManager.deserialize(retVal)                       <-- return deserialized result
 
@@ -34,7 +36,8 @@ but in general a Site method might return any object) - so we serialize it so it
 by the subprocess running the virtual env. The result is then deserialized in the original process
 and returned to the user.
 
-The string created above and passed into _executeInProjectVenv() looks something like this:
+The string created above and passed into self._siteConfigVenv.executeInProject() looks
+something like this:
 
     from lwfm.sites.LocalSite import LocalSiteAuth; 
     driver = LocalSiteAuth(); 
@@ -53,156 +56,17 @@ All this gets passed to "python -c" and the result is serialized back to the inv
 from typing import List, Union
 from abc import ABC
 
-import subprocess
-import os
 
-from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin, SitePillar
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Workflow import Workflow
 from lwfm.base.JobDefn import JobDefn
-from lwfm.midware.LwfManager import logger, lwfManager
+from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
 from lwfm.sites.LocalSite import LocalSite
+from lwfm.midware.LwfManager import lwfManager
+from lwfm.midware._impl.SiteConfigVenv import SiteConfigVenv
 
-
-# *********************************************************************************
-# internals
-
-def _makeVenvPath(siteName: str) -> str:
-    """
-    Construct the path to the virtual environment used to run the Site driver.
-    """
-    props = lwfManager.getSiteProperties(siteName)
-    if props['venv']:
-        return os.path.expanduser(props['venv'])
-    return os.path.join(os.getcwd(), ".venv")
-
-
-
-def _executeInProjectVenv(siteName: str, script_path_cmd: str = None) -> str:
-    """
-    Run a command in a virtual environment, used to run canonical Site methods.
-    Arbitrary scripts can subsequently be run via Site.Run.submit().
-    """
-    if script_path_cmd is None:
-        raise ValueError("script_path_cmd is required")
-
-    venv_path = _makeVenvPath(siteName)
-    if os.name == "nt":    # windows
-        python_executable = os.path.join(venv_path, "Scripts", "python.exe")
-    else:   # a real OS
-        python_executable = os.path.join(venv_path, "bin", "python")
-
-    logger.info(f"_executeInProjectVenv: executing in venv {venv_path} cmd: {script_path_cmd}")
-
-    try:
-        # Execute the command, making sure to capture only the last line as the
-        # serialized return value
-        # This will allow earlier prints to go to a file without disrupting the
-        # return value
-        modified_cmd = script_path_cmd
-        if "driver.submit(" in script_path_cmd:
-            # Modify script to make sure the serialized result is the only thing printed at the end
-            modified_cmd = script_path_cmd.replace("print(obj)",
-                "import sys; sys.stdout.write('RESULT_MARKER: ' + obj)")
-
-        # execute a semicolon separated command in the virtual environment; this
-        # includes an import statement and the method call
-        process = subprocess.Popen([python_executable, "-c", modified_cmd],
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    text=True
-                                    )
-        # read the output and error streams
-        stdout, stderr = process.communicate()
-
-        if process.returncode != 0:
-            # something bad happened in the subprocess
-            logger.error("_executeInProjectVenv: subproc failed with return code: " + \
-                         f"{process.returncode}")
-            logger.error(f"_executeInProjectVenv: stderr: {stderr}")
-            logger.error(f"_executeInProjectVenv: stdout: {stdout}")
-            raise RuntimeError()
-
-        if stdout:
-            # Check if we marked the result
-            if "RESULT_MARKER: " in stdout:
-                # Extract only the serialized part
-                result_lines = stdout.split("RESULT_MARKER: ")
-                return result_lines[-1].strip()
-            # Otherwise return the whole output
-            return stdout
-
-        # if stdout:
-        #     # if the command was successful, return the output
-        #     return stdout
-        return None
-    except Exception as ex:
-        # something really bad happened
-        logger.error(f"_runInVenv: an error occurred: {ex}")
-
-
-def _makeSerializeReturnString() -> str:
-    """
-    Serialize an object into a string. This is used to pass objects back from the venv
-    subprocess back to the main process (see discussion above).
-    """
-    # construct the command string to execute in the virtual environment
-    return "obj = lwfManager.serialize(obj); " + \
-           "print(obj)"
-
-
-# def _makeSiteNameCommandString(siteName: str) -> str:
-#     """
-#     Get the site name.
-#     """
-#     return "from lwfm.midware.LwfManager import lwfManager; " + \
-#            f"site = lwfManager.getSite('{siteName}'); "
-
-def _makeSiteNameCommandString(siteName: str) -> str:
-    """
-    Create a command string to get the appropriate site implementation directly,
-    avoiding the potential recursion from lwfManager.getSite().
-    """
-    baseSiteName = siteName
-    if baseSiteName.endswith("-venv"):
-        baseSiteName = baseSiteName[:-5]  # Remove "-venv" suffix
-    return "from lwfm.midware.LwfManager import lwfManager; " + \
-           "props = lwfManager.getSiteProperties('" + baseSiteName + "'); " + \
-           "class_name = props['class'].split('.')[-1]; " + \
-           "module_name = '.'.join(props['class'].split('.')[:-1]); " + \
-           "site_module = __import__(module_name, fromlist=['*']); " + \
-           "site_class = getattr(site_module, class_name); " + \
-           f"site = site_class(); site.setSiteName('{baseSiteName}'); "
-
-
-def _makeSiteDriverCommandString(sitePillar: SitePillar, siteName: str) -> str:
-    """
-    Import a class from a module and instantiate it.
-    """
-    # construct the command string to execute in the virtual environment
-    driverStr = ""
-    if isinstance(sitePillar, SiteAuth):
-        driverStr = "driver = site.getAuthDriver()"
-    elif isinstance(sitePillar, SiteRun):
-        driverStr = "driver = site.getRunDriver()"
-    elif isinstance(sitePillar, SiteRepo):
-        driverStr = "driver = site.getRepoDriver()"
-    elif isinstance(sitePillar, SiteSpin):
-        driverStr = "driver = site.getSpinDriver()"
-    else:
-        driverStr = "driver = site.getAuthDriver()"
-    return _makeSiteNameCommandString(siteName) + \
-        driverStr + "; "
-
-
-def _makeArgWrapper(obj: object) -> str:
-    """
-    Any argument we want to pass to a Site method might be a complex object, so we
-    serialize it to pass it to the subprocess running the venv.
-    """
-    return f"'{lwfManager.serialize(obj)}'"
 
 
 # *********************************************************************************
@@ -218,22 +82,25 @@ class VenvSiteAuthWrapper(SiteAuth):
         super().__init__()
         self._siteName = siteName
         self._realAuthDriver = realAuthDriver
+        self._siteConfigVenv = SiteConfigVenv()
 
     def login(self, force: bool = False) -> bool:
-        retVal = _executeInProjectVenv(
+        retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realAuthDriver, self._siteName) + \
-            f"obj = driver.login({force}); " + \
-            f"{_makeSerializeReturnString()}"
+            self._siteConfigVenv.makeSiteDriverCommandString(self._realAuthDriver,
+                self._siteName) + \
+                f"obj = driver.login({force}); " + \
+                f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
         return lwfManager.deserialize(retVal)
 
     def isAuthCurrent(self) -> bool:
-        retVal = _executeInProjectVenv(
+        retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realAuthDriver, self._siteName) + \
-            "obj = driver.isAuthCurrent(); " + \
-            f"{_makeSerializeReturnString()}"
+            self._siteConfigVenv.makeSiteDriverCommandString(self._realAuthDriver,
+                self._siteName) + \
+                "obj = driver.isAuthCurrent(); " + \
+                f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
         return lwfManager.deserialize(retVal)
 
@@ -249,36 +116,41 @@ class VenvSiteRunWrapper(SiteRun):
         super().__init__()
         self._siteName = siteName
         self._realRunDriver = realRunDriver
+        self._siteConfigVenv = SiteConfigVenv()
+
 
     def submit(self, jobDefn: Union['JobDefn', str],
         parentContext: Union[JobContext, Workflow, str] = None,
         computeType: str = None, runArgs: Union[dict, str] = None) -> JobStatus:
-        retVal = _executeInProjectVenv(
+        retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRunDriver, self._siteName) + \
-            f"obj = driver.submit({_makeArgWrapper(jobDefn)}, " +\
-            f"{_makeArgWrapper(parentContext)}, '{computeType}', " + \
-            f"{_makeArgWrapper(runArgs)}); " + \
-            f"{_makeSerializeReturnString()}"
+            self._siteConfigVenv.makeSiteDriverCommandString(self._realRunDriver,
+                self._siteName) + \
+                f"obj = driver.submit({self._siteConfigVenv.makeArgWrapper(jobDefn)}, " +\
+                f"{self._siteConfigVenv.makeArgWrapper(parentContext)}, '{computeType}', " + \
+                f"{self._siteConfigVenv.makeArgWrapper(runArgs)}); " + \
+                f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
         print("retVal = " + retVal)
         return lwfManager.deserialize(retVal)
 
     def getStatus(self, jobId: str) -> JobStatus:
-        retVal = _executeInProjectVenv(
+        retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRunDriver, self._siteName) + \
-            f"obj = driver.getStatus('{jobId}'); " + \
-            f"{_makeSerializeReturnString()}"
+            self._siteConfigVenv.makeSiteDriverCommandString(self._realRunDriver,
+                self._siteName) + \
+                f"obj = driver.getStatus('{jobId}'); " + \
+                f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
         return lwfManager.deserialize(retVal)
 
     def cancel(self, jobContext: Union[JobContext, str]) -> bool:
-        retVal = _executeInProjectVenv(
+        retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRunDriver, self._siteName) + \
-            f"obj = driver.cancel({_makeArgWrapper(jobContext)}); " + \
-            f"{_makeSerializeReturnString()}"
+            self._siteConfigVenv.makeSiteDriverCommandString(self._realRunDriver,
+                self._siteName) + \
+                f"obj = driver.cancel({self._siteConfigVenv.makeArgWrapper(jobContext)}); " + \
+                f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
         return lwfManager.deserialize(retVal)
 
@@ -294,6 +166,8 @@ class VenvSiteRepoWrapper(SiteRepo):
         super().__init__()
         self._siteName = siteName
         self._realRepoDriver = realRepoDriver
+        self._siteConfigVenv = SiteConfigVenv()
+
 
     def put(
         self,
@@ -302,12 +176,13 @@ class VenvSiteRepoWrapper(SiteRepo):
         jobContext: Union[JobContext, str] = None,
         metasheet: Union[Metasheet, str] = None
     ) -> Metasheet:
-        retVal = _executeInProjectVenv(
+        retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRepoDriver, self._siteName) + \
-            f"obj = driver.put('{localPath}', '{siteObjPath}', " + \
-            f"{_makeArgWrapper(jobContext)}, {_makeArgWrapper(metasheet)}); " + \
-            f"{_makeSerializeReturnString()}"
+            self._siteConfigVenv.makeSiteDriverCommandString(self._realRepoDriver,
+                self._siteName) + \
+                f"obj = driver.put('{localPath}', '{siteObjPath}', " + \
+                f"{self._siteConfigVenv.makeArgWrapper(jobContext)}, {self._siteConfigVenv.makeArgWrapper(metasheet)}); " + \
+                f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
         return lwfManager.deserialize(retVal)
 
@@ -317,20 +192,22 @@ class VenvSiteRepoWrapper(SiteRepo):
         localPath: str,
         jobContext: Union[JobContext, str] = None
     ) -> str:
-        retVal = _executeInProjectVenv(
+        retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRepoDriver, self._siteName) + \
-            f"obj = driver.get('{siteObjPath}', '{localPath}', {_makeArgWrapper(jobContext)}); " + \
-            f"{_makeSerializeReturnString()}"
+            self._siteConfigVenv.makeSiteDriverCommandString(self._realRepoDriver,
+                self._siteName) + \
+                f"obj = driver.get('{siteObjPath}', '{localPath}', {self._siteConfigVenv.makeArgWrapper(jobContext)}); " + \
+                f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
         return lwfManager.deserialize(retVal)
 
     def find(self, queryRegExs: dict) -> List[Metasheet]:
-        retVal = _executeInProjectVenv(
+        retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realRepoDriver, self._siteName) + \
-            f"obj = driver.find({_makeArgWrapper(queryRegExs)}); " + \
-            f"{_makeSerializeReturnString()}"
+            self._siteConfigVenv.makeSiteDriverCommandString(self._realRepoDriver,
+                self._siteName) + \
+                f"obj = driver.find({self._siteConfigVenv.makeArgWrapper(queryRegExs)}); " + \
+                f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
         return lwfManager.deserialize(retVal)
 
@@ -342,13 +219,16 @@ class VenvSiteSpinWrapper(SiteSpin):
         super().__init__()
         self._siteName = siteName
         self._realSpinDriver = realSpinDriver
+        self._siteConfigVenv = SiteConfigVenv()
+
 
     def listComputeTypes(self) -> List[str]:
-        retVal = _executeInProjectVenv(
+        retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
-            _makeSiteDriverCommandString(self._realSpinDriver, self._siteName) + \
-            "obj = driver.listComputeTypes(); " + \
-            f"{_makeSerializeReturnString()}"
+            self._siteConfigVenv.makeSiteDriverCommandString(self._realSpinDriver,
+                self._siteName) + \
+                "obj = driver.listComputeTypes(); " + \
+                f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
         return lwfManager.deserialize(retVal)
 

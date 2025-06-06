@@ -5,13 +5,10 @@ Handles loading site configuration from TOML files and creating site instances.
 
 #pylint: disable = broad-exception-caught, broad-exception-raised, invalid-name
 
-import importlib
 import os
 import tomllib
 
 from typing import Dict, Any
-
-from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
 
 class SiteConfig:
     """
@@ -34,6 +31,8 @@ class SiteConfig:
         [local-venv]
         class = "lwfm.sites.LocalVenvSite.LocalVenvSite"
         remote = false
+        venv = "~/to_be_determined"
+        venvSite = "local"
         """
 
         USER_TOML = os.path.expanduser("~") + "/.lwfm/sites.toml"
@@ -68,39 +67,3 @@ class SiteConfig:
     def getLogFilename() -> str:
         """ Get path to the log files. """
         return "~/.lwfm/logs"
-
-
-    @staticmethod
-    def getSite(site: str = "local",
-                auth_driver: SiteAuth = None,
-                run_driver:  SiteRun = None,
-                repo_driver: SiteRepo = None,
-                spin_driver: SiteSpin = None) -> 'Site':
-        """
-        Get a Site instance. Look it up in the site TOML, instantiate it, potentially 
-        overriding its default Site Pillars with provided drivers.
-        """
-        try:
-            siteObj = SiteConfig.getSiteProperties(site)
-            if siteObj is None:
-                raise Exception(f"Cannot find site {site}")
-            class_name = siteObj.get("class")
-            module = importlib.import_module(class_name.rsplit(".", 1)[0])
-            class_ = getattr(module, str(class_name.rsplit(".", 1)[1]))
-            inst: Site = class_(site, auth_driver, run_driver, repo_driver, spin_driver)
-            inst.setRemote(siteObj.get("remote", False))
-            auth = inst.getAuthDriver()
-            if auth:
-                auth.setSite(inst)
-            run = inst.getRunDriver()
-            if run:
-                run.setSite(inst)
-            repo = inst.getRepoDriver()
-            if repo:
-                repo.setSite(inst)
-            spin = inst.getSpinDriver()
-            if spin:
-                spin.setSite(inst)
-            return inst
-        except Exception as ex:
-            raise ex
