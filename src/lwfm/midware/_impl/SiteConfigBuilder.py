@@ -37,6 +37,7 @@ class SiteConfigBuilder:
             "module = importlib.import_module(class_name.rsplit(\".\", 1)[0]); " + \
             "class_= getattr(module, str(class_name.rsplit(\".\", 1)[1])); " + \
             "pillarInst = class_(); " + \
+            f"pillarInst.setSiteName('{siteName}'); " + \
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"{venvHelper.makeSerializeReturnString('pillarInst')}"
         pillarInstStr = venvHelper.executeInProjectVenv(siteName, builderStr)
@@ -72,10 +73,10 @@ class SiteConfigBuilder:
                     siteObj.get("auth"))
                 run_driver = \
                     SiteConfigBuilder.getVenvPillarInstance(site,
-                    siteObj.get("run"))   
+                    siteObj.get("run"))
                 repo_driver = \
                     SiteConfigBuilder.getVenvPillarInstance(site,
-                    siteObj.get("repo"))        
+                    siteObj.get("repo"))
                 spin_driver = \
                     SiteConfigBuilder.getVenvPillarInstance(site,
                     siteObj.get("spin"))
@@ -86,6 +87,10 @@ class SiteConfigBuilder:
                 run_driver  = SiteConfigBuilder.getPillarInstance(siteObj.get("run"))
                 repo_driver = SiteConfigBuilder.getPillarInstance(siteObj.get("repo"))
                 spin_driver = SiteConfigBuilder.getPillarInstance(siteObj.get("spin"))
+                auth_driver.setSiteName(site)
+                run_driver.setSiteName(site)
+                repo_driver.setSiteName(site)
+                spin_driver.setSiteName(site)
                 siteInst = Site(site, auth_driver, run_driver, repo_driver, spin_driver)
                 siteInst.setVenv(False)
             siteInst.setRemote(siteObj.get("remote", False))

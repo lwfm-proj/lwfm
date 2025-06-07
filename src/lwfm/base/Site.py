@@ -40,13 +40,13 @@ if TYPE_CHECKING:
 
 # ***************************************************************************
 class SitePillar(ABC):
-    _site : 'Site' = None
+    _siteName : str = None
 
-    def setSite(self, site: 'Site') -> None:
-        self._site = site
+    def setSiteName(self, siteName: str) -> None:
+        self._siteName = siteName
 
-    def getSite(self) -> 'Site':
-        return self._site
+    def getSiteName(self) -> str:
+        return self._siteName
 
 
 # ***************************************************************************
