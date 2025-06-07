@@ -21,7 +21,7 @@ list of sites provided here with a user's own custom Site implementations.
 
 from abc import ABC, abstractmethod
 
-
+import json
 from typing import List, TYPE_CHECKING, Union
 
 from lwfm.base.JobContext import JobContext
@@ -29,9 +29,13 @@ from lwfm.base.JobStatus import JobStatus
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Workflow import Workflow
 
+from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
+from lwfm.midware._impl.SiteConfigVenv import SiteConfigVenv
+
 # Only import for type checking, not at runtime
 if TYPE_CHECKING:
     from lwfm.base.JobDefn import JobDefn
+
 
 
 # ***************************************************************************
@@ -253,7 +257,210 @@ class SiteSpin(SitePillar):
         """
 
 
-# ****************************************************************************
+
+# *********************************************************************************
+
+
+def makeSiteNameCommandString(siteName: str) -> str:
+    """
+    Create a command string to get the appropriate site implementation directly,
+    avoiding the potential recursion from lwfManager.getSite().
+    """
+    return "from lwfm.midware.LwfManager import lwfManager; " + \
+        "props = lwfManager.getSiteProperties('" + siteName + "'); " + \
+        "class_name = props['class'].split('.')[-1]; " + \
+        "module_name = '.'.join(props['class'].split('.')[:-1]); " + \
+        "site_module = __import__(module_name, fromlist=['*']); " + \
+        "site_class = getattr(site_module, class_name); " + \
+        f"site = site_class(); site.setSiteName('{siteName}'); "
+
+
+def makeSiteDriverCommandString(sitePillar: SitePillar, siteName: str) -> str:
+    """
+    Import a driver class from a module and instantiate it.
+    """
+    # construct the command string to execute in the virtual environment
+    driverStr = ""
+    if isinstance(sitePillar, SiteAuth):
+        driverStr = "driver = site.getAuthDriver()"
+    elif isinstance(sitePillar, SiteRun):
+        driverStr = "driver = site.getRunDriver()"
+    elif isinstance(sitePillar, SiteRepo):
+        driverStr = "driver = site.getRepoDriver()"
+    elif isinstance(sitePillar, SiteSpin):
+        driverStr = "driver = site.getSpinDriver()"
+    else:
+        driverStr = "driver = site.getAuthDriver()"
+    return makeSiteNameCommandString(siteName) + \
+        driverStr + "; "
+
+
+# *********************************************************************************
+# site pillar wrappers
+
+class _VenvSiteAuthWrapper(SiteAuth):
+    """
+    An Auth driver for running jobs in a virtual environment. For a default local
+    site, this is a no-op.
+    """
+
+    def __init__(self, siteName: str, realAuthDriver: str) -> None:
+        super().__init__()
+        self._siteName = siteName
+        self._realAuthDriver = json.dumps(realAuthDriver)
+        self._siteConfigVenv = SiteConfigVenv()
+
+    def login(self, force: bool = False) -> bool:
+        retVal = self._siteConfigVenv.executeInProjectVenv(
+            self._siteName,
+            "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+            f"driver = ObjectSerializer.deserialize('{self._realAuthDriver}'); " + \
+            f"obj = driver.login({force}); " + \
+            f"{self._siteConfigVenv.makeSerializeReturnString()}"
+        )
+        return ObjectSerializer.deserialize(retVal)
+
+    def isAuthCurrent(self) -> bool:
+        retVal = self._siteConfigVenv.executeInProjectVenv(
+            self._siteName,
+            "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+            f"driver = ObjectSerializer.deserialize('{self._realAuthDriver}'); " + \
+            "obj = driver.isAuthCurrent(); " + \
+            f"{self._siteConfigVenv.makeSerializeReturnString()}"
+        )
+        return ObjectSerializer.deserialize(retVal)
+
+
+# *********************************************************************************
+
+class _VenvSiteRunWrapper(SiteRun):
+    """
+    A Run driver for running jobs in a virtual environment.
+    """
+
+    def __init__(self, siteName: str, realRunDriver: str) -> None:
+        super().__init__()
+        self._siteName = siteName
+        self._realRunDriver = json.dumps(realRunDriver)
+        self._siteConfigVenv = SiteConfigVenv()
+
+
+    def submit(self, jobDefn: Union['JobDefn', str],
+        parentContext: Union[JobContext, Workflow, str] = None,
+        computeType: str = None, runArgs: Union[dict, str] = None) -> JobStatus:
+        retVal = self._siteConfigVenv.executeInProjectVenv(
+            self._siteName,
+            "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+            f"driver = ObjectSerializer.deserialize('{self._realRunDriver}'); " + \
+            f"obj = driver.submit({self._siteConfigVenv.makeArgWrapper(jobDefn)}, " +\
+            f"{self._siteConfigVenv.makeArgWrapper(parentContext)}, '{computeType}', " + \
+            f"{self._siteConfigVenv.makeArgWrapper(runArgs)}); " + \
+            f"{self._siteConfigVenv.makeSerializeReturnString()}"
+        )
+        return ObjectSerializer.deserialize(retVal)
+
+    def getStatus(self, jobId: str) -> JobStatus:
+        retVal = self._siteConfigVenv.executeInProjectVenv(
+            self._siteName,
+            "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+            f"driver = ObjectSerializer.deserialize('{self._realRunDriver}'); " + \
+            f"obj = driver.getStatus('{jobId}'); " + \
+            f"{self._siteConfigVenv.makeSerializeReturnString()}"
+        )
+        return ObjectSerializer.deserialize(retVal)
+
+    def cancel(self, jobContext: Union[JobContext, str]) -> bool:
+        retVal = self._siteConfigVenv.executeInProjectVenv(
+            self._siteName,
+            "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+            f"driver = ObjectSerializer.deserialize('{self._realRunDriver}'); " + \
+            f"obj = driver.cancel({self._siteConfigVenv.makeArgWrapper(jobContext)}); " + \
+            f"{self._siteConfigVenv.makeSerializeReturnString()}"
+        )
+        return ObjectSerializer.deserialize(retVal)
+
+
+# *********************************************************************************
+
+class _VenvSiteRepoWrapper(SiteRepo):
+    """
+    A Repo driver for running jobs in a virtual environment.
+    """
+
+    def __init__(self, siteName: str, realRepoDriver: str) -> None:
+        super().__init__()
+        self._siteName = siteName
+        self._realRepoDriver = json.dumps(realRepoDriver)
+        self._siteConfigVenv = SiteConfigVenv()
+
+
+    def put(
+        self,
+        localPath: str,
+        siteObjPath: str,
+        jobContext: Union[JobContext, str] = None,
+        metasheet: Union[Metasheet, str] = None
+    ) -> Metasheet:
+        retVal = self._siteConfigVenv.executeInProjectVenv(
+            self._siteName,
+            "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+            f"driver = ObjectSerializer.deserialize('{self._realRepoDriver}'); " + \
+            f"obj = driver.put('{localPath}', '{siteObjPath}', " + \
+            f"{self._siteConfigVenv.makeArgWrapper(jobContext)}, " + \
+            f"{self._siteConfigVenv.makeArgWrapper(metasheet)}); " + \
+            f"{self._siteConfigVenv.makeSerializeReturnString()}"
+        )
+        return ObjectSerializer.deserialize(retVal)
+
+    def get(
+        self,
+        siteObjPath: str,
+        localPath: str,
+        jobContext: Union[JobContext, str] = None
+    ) -> str:
+        retVal = self._siteConfigVenv.executeInProjectVenv(
+            self._siteName,
+            "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+            f"driver = ObjectSerializer.deserialize('{self._realRepoDriver}'); " + \
+            f"obj = driver.get('{siteObjPath}', '{localPath}', " + \
+            f"{self._siteConfigVenv.makeArgWrapper(jobContext)}); " + \
+            f"{self._siteConfigVenv.makeSerializeReturnString()}"
+        )
+        return ObjectSerializer.deserialize(retVal)
+
+    def find(self, queryRegExs: dict) -> List[Metasheet]:
+        retVal = self._siteConfigVenv.executeInProjectVenv(
+            self._siteName,
+            "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+            f"driver = ObjectSerializer.deserialize('{self._realRepoDriver}'); " + \
+            f"obj = driver.find({self._siteConfigVenv.makeArgWrapper(queryRegExs)}); " + \
+            f"{self._siteConfigVenv.makeSerializeReturnString()}"
+        )
+        return ObjectSerializer.deserialize(retVal)
+
+
+# *********************************************************************************
+
+class _VenvSiteSpinWrapper(SiteSpin):
+    def __init__(self, siteName: str, realSpinDriver: str) -> None:
+        super().__init__()
+        self._siteName = siteName
+        self._realSpinDriver = json.dumps(realSpinDriver)
+        self._siteConfigVenv = SiteConfigVenv()
+
+
+    def listComputeTypes(self) -> List[str]:
+        retVal = self._siteConfigVenv.executeInProjectVenv(
+            self._siteName,
+            "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+            f"driver = ObjectSerializer.deserialize('{self._realSpinDriver}'); " + \
+            "obj = driver.listComputeTypes(); " + \
+            f"{self._siteConfigVenv.makeSerializeReturnString()}"
+        )
+        return ObjectSerializer.deserialize(retVal)
+
+
+# *********************************************************************************
 # Site: the Site is simply a name and the getters and setters for its Auth, Run,
 # Repo subsystems.
 #
@@ -266,16 +473,17 @@ class SiteSpin(SitePillar):
 
 class Site:
     def __init__(self, site_name: str = None,
-                auth_driver: SiteAuth = None,
-                run_driver: SiteRun = None,
-                repo_driver: SiteRepo = None,
-                spin_driver: SiteSpin = None):
+                auth_driver: Union[SiteAuth, str] = None,
+                run_driver: Union[SiteRun, str] = None,
+                repo_driver: Union[SiteRepo, str] = None,
+                spin_driver: Union[SiteSpin, str] = None):
         self._site_name = site_name
         self._auth_driver = auth_driver
         self._run_driver = run_driver
         self._repo_driver = repo_driver
         self._spin_driver = spin_driver
         self._remote = False
+        self._venv = False
 
     def getSiteName(self):
         return self._site_name
@@ -284,31 +492,45 @@ class Site:
         self._site_name = name
 
     def getAuthDriver(self):
+        if self.isVenv():
+            return _VenvSiteAuthWrapper(self.getSiteName(), self._auth_driver)
         return self._auth_driver
 
     def setAuthDriver(self, driver):
         self._auth_driver = driver
 
     def getRunDriver(self):
+        if self.isVenv():
+            return _VenvSiteRunWrapper(self.getSiteName(), self._run_driver)
         return self._run_driver
 
     def setRunDriver(self, driver):
         self._run_driver = driver
 
     def getRepoDriver(self):
+        if self.isVenv():
+            return _VenvSiteRepoWrapper(self.getSiteName(), self._repo_driver)
         return self._repo_driver
 
     def setRepoDriver(self, driver):
         self._repo_driver = driver
 
     def getSpinDriver(self):
+        if self.isVenv():
+            return _VenvSiteSpinWrapper(self.getSiteName(), self._spin_driver)
         return self._spin_driver
 
     def setSpinDriver(self, driver):
         self._spin_driver = driver
 
-    def getRemote(self):
+    def isRemote(self) -> bool:
         return self._remote
 
     def setRemote(self, remote):
         self._remote = remote
+
+    def isVenv(self) -> bool:
+        return self._venv
+
+    def setVenv(self, venv: bool):
+        self._venv = venv

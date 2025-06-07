@@ -12,13 +12,21 @@ if __name__ == "__main__":
     logger.info(f"site={site.getSiteName()} " + \
         f"toml={lwfManager.getSiteProperties(site.getSiteName())}")
 
+    # we expect a wrapper driver, buried within is the real auth driver which
+    # cannot be operated outside the venv - the wrapper handles this
+    logger.info(f"venv site auth driver is of type {type(site.getAuthDriver())}")
+
+    # call thru the wrapper to the driver in the venv to login
     site.getAuthDriver().login()
+    logger.info(f"auth current {site.getAuthDriver().isAuthCurrent()}")
 
     # define the job - use all defaults except the actual command to execute
     jobDefn = JobDefn("echo 'hello world'")
 
     # submit the job to the site asynchronously, get back an initial status
     status = site.getRunDriver().submit(jobDefn)
+    logger.info(f"submitted job {status.getJobId()}, " + \
+        f"native: {status.getJobContext().getNativeId()}")
 
     # How could we tell the async job has finished? One way is to synchronously
     # wait on its end status. (Another way is asynchronous triggering, which

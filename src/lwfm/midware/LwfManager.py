@@ -68,17 +68,12 @@ class LwfManager:
         return SiteConfig.getSiteProperties(site)
 
 
-    def getSite(self, site: str = "local",
-                auth_driver: SiteAuth = None,
-                run_driver: SiteRun = None,
-                repo_driver: SiteRepo = None,
-                spin_driver: SiteSpin = None) -> 'Site':
+    def getSite(self, site: str = "local") -> 'Site':
         """
         Get a Site instance. Look it up in the site TOML, instantiate it, potentially 
         overriding its default Site Pillars with provided drivers.
         """
-        return SiteConfigBuilder.getSite(site,
-            auth_driver, run_driver, repo_driver, spin_driver)
+        return SiteConfigBuilder.getSite(site)
 
 
     #***********************************************************************

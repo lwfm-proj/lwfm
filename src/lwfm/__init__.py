@@ -12,9 +12,10 @@ from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.Workflow import Workflow
 
 # local Site implementation
-from lwfm.sites.LocalSite import LocalSite
-from lwfm.sites.VenvSite import VenvSite
-from lwfm.sites.LocalVenvSite import LocalVenvSite
+from lwfm.sites.LocalSite import LocalSiteAuth
+from lwfm.sites.LocalSite import LocalSiteRun
+from lwfm.sites.LocalSite import LocalSiteRepo
+from lwfm.sites.LocalSite import LocalSiteSpin
 
 # middleware
 from lwfm.midware.LwfManager import lwfManager, logger
@@ -29,9 +30,10 @@ __all__ = [
     "WorkflowEvent",
     "Workflow",
 
-    "LocalSite",
-    "VenvSite",
-    "LocalVenvSite",
+    "LocalSiteAuth",
+    "LocalSiteRun",
+    "LocalSiteRepo",
+    "LocalSiteSpin",
 
     "lwfManager",
     "logger"

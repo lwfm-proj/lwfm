@@ -6,6 +6,7 @@ Todo & misc notes
     - SiteConfig - must instantiate the Site inside the venv
     - VenvSite - assuming -venv
     - remote polling (#80)
+    - load/cache the site properties into the site class
     - better error message when cannot find the venv, or if can't find Site in it
     - inline docs esp. for .base & .midware (#84)
     - test data provenance (#78)

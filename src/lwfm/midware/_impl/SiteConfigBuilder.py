@@ -5,9 +5,7 @@ Site builder
 
 import importlib
 
-
-from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
-from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
+from lwfm.base.Site import Site, SiteAuth, SitePillar, SiteRun, SiteRepo, SiteSpin
 from lwfm.midware._impl.SiteConfigVenv import SiteConfigVenv
 from lwfm.midware._impl.SiteConfig import SiteConfig
 
@@ -17,11 +15,36 @@ class SiteConfigBuilder:
     """
 
     @staticmethod
-    def getSite(site: str = "local",
-                auth_driver: SiteAuth = None,
-                run_driver:  SiteRun = None,
-                repo_driver: SiteRepo = None,
-                spin_driver: SiteSpin = None) -> 'Site':
+    def getPillarInstance(pillar_class: str) -> SitePillar:
+        """
+        instantiate the pillar class
+        """
+        module = importlib.import_module(pillar_class.rsplit(".", 1)[0])
+        class_ = getattr(module, str(pillar_class.rsplit(".", 1)[1]))
+        pillar_driver = class_()
+        return pillar_driver
+
+
+    @staticmethod
+    def getVenvPillarInstance(siteName: str, pillar_class: str) -> str:
+        """
+        instantiate the pillar class from inside a venv 
+        """
+        venvHelper = SiteConfigVenv()
+        builderStr = \
+            "import importlib; " + \
+            f"class_name = '{pillar_class}'; " + \
+            "module = importlib.import_module(class_name.rsplit(\".\", 1)[0]); " + \
+            "class_= getattr(module, str(class_name.rsplit(\".\", 1)[1])); " + \
+            "pillarInst = class_(); " + \
+            "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+            f"{venvHelper.makeSerializeReturnString('pillarInst')}"
+        pillarInstStr = venvHelper.executeInProjectVenv(siteName, builderStr)
+        return pillarInstStr
+
+
+    @staticmethod
+    def getSite(site: str = "local") -> 'Site':
         """
         Get a Site instance. Look it up in the site TOML, instantiate it, potentially 
         overriding its default Site Pillars with provided drivers.
@@ -30,43 +53,42 @@ class SiteConfigBuilder:
             siteObj = SiteConfig.getSiteProperties(site)
             if siteObj is None:
                 raise Exception(f"Cannot find site {site}")
+            auth_driver = None
+            run_driver = None
+            repo_driver = None
+            spin_driver = None
+            siteInst: Site = None
             # if this is a venv site, we need to be inside the venv to
             # construct the site instance
             venv = siteObj.get("venv")
-            venvSite = siteObj.get("venvSite")
-            siteInst: Site = None
-            if venv is not None and venvSite is not None:
-                realSiteObj = SiteConfig.getSiteProperties(venvSite)
-                venvHelper = SiteConfigVenv()
-                builderStr = "import importlib; " + \
-                    f"class_name = \"{realSiteObj.get("class")}\"; " + \
-                    "module = importlib.import_module(class_name.rsplit(\".\", 1)[0]); " + \
-                    "class_= getattr(module, str(class_name.rsplit(\".\", 1)[1])); " + \
-                    f"siteInst = class_('{site}'); " + \
-                    "from lwfm.midware.LwfManager import lwfManager; " + \
-                    f"{venvHelper.makeSerializeReturnString('siteInst')}"
-                siteInstStr = venvHelper.executeInProjectVenv(site, builderStr)
-                siteInst = ObjectSerializer.deserialize(siteInstStr)
+            if venv is not None:
+                # we need to pop into the venv to make the pillar classes
+                # these will be kept serialized in the caller who is outside
+                # the venv
+                # a regular Site object will be returned, and it will be marked
+                # as being for venv wrapper use
+                auth_driver = \
+                    SiteConfigBuilder.getVenvPillarInstance(site,
+                    siteObj.get("auth"))
+                run_driver = \
+                    SiteConfigBuilder.getVenvPillarInstance(site,
+                    siteObj.get("run"))   
+                repo_driver = \
+                    SiteConfigBuilder.getVenvPillarInstance(site,
+                    siteObj.get("repo"))        
+                spin_driver = \
+                    SiteConfigBuilder.getVenvPillarInstance(site,
+                    siteObj.get("spin"))
+                siteInst = Site(site, auth_driver, run_driver, repo_driver, spin_driver)
+                siteInst.setVenv(True)
             else:
-                class_name = siteObj.get("class")
-                module = importlib.import_module(class_name.rsplit(".", 1)[0])
-                class_ = getattr(module, str(class_name.rsplit(".", 1)[1]))
-                siteInst = class_(site,
-                    auth_driver, run_driver, repo_driver, spin_driver)
-
+                auth_driver = SiteConfigBuilder.getPillarInstance(siteObj.get("auth"))
+                run_driver  = SiteConfigBuilder.getPillarInstance(siteObj.get("run"))
+                repo_driver = SiteConfigBuilder.getPillarInstance(siteObj.get("repo"))
+                spin_driver = SiteConfigBuilder.getPillarInstance(siteObj.get("spin"))
+                siteInst = Site(site, auth_driver, run_driver, repo_driver, spin_driver)
+                siteInst.setVenv(False)
             siteInst.setRemote(siteObj.get("remote", False))
-            auth = siteInst.getAuthDriver()
-            if auth:
-                auth.setSite(siteInst)
-            run = siteInst.getRunDriver()
-            if run:
-                run.setSite(siteInst)
-            repo = siteInst.getRepoDriver()
-            if repo:
-                repo.setSite(siteInst)
-            spin = siteInst.getSpinDriver()
-            if spin:
-                spin.setSite(siteInst)
             return siteInst
         except Exception as ex:
             print(ex)

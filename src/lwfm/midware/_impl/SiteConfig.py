@@ -25,14 +25,19 @@ class SiteConfig:
         port = "3000"
 
         [local]
-        class = "lwfm.sites.LocalSite.LocalSite"
+        auth = "lwfm.sites.LocalSite.LocalSiteAuth"
+        run  = "lwfm.sites.LocalSite.LocalSiteRun"     
+        repo = "lwfm.sites.LocalSite.LocalSiteRepo"
+        spin = "lwfm.sites.LocalSite.LocalSiteSpin" 
         remote = false
 
         [local-venv]
-        class = "lwfm.sites.LocalVenvSite.LocalVenvSite"
-        remote = false
         venv = "~/to_be_determined"
-        venvSite = "local"
+        auth = "lwfm.sites.LocalSite.LocalSiteAuth"
+        run  = "lwfm.sites.LocalSite.LocalSiteRun"     
+        repo = "lwfm.sites.LocalSite.LocalSiteRepo"
+        spin = "lwfm.sites.LocalSite.LocalSiteSpin" 
+        remote = false
         """
 
         USER_TOML = os.path.expanduser("~") + "/.lwfm/sites.toml"

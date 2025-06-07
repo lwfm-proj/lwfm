@@ -6,7 +6,6 @@ Helper for venv handling
 import os
 import subprocess
 
-from lwfm.base.Site import SitePillar, SiteAuth, SiteRun, SiteRepo, SiteSpin
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 from lwfm.midware._impl.SiteConfig import SiteConfig
 
@@ -92,52 +91,8 @@ class SiteConfigVenv():
         subprocess back to the main process (see discussion above).
         """
         # construct the command string to execute in the virtual environment
-        return f"obj = lwfManager.serialize({argName}); " + \
+        return f"obj = ObjectSerializer.serialize({argName}); " + \
             "print(obj)"
-
-
-    # def _makeSiteNameCommandString(siteName: str) -> str:
-    #     """
-    #     Get the site name.
-    #     """
-    #     return "from lwfm.midware.LwfManager import lwfManager; " + \
-    #            f"site = lwfManager.getSite('{siteName}'); "
-
-    def makeSiteNameCommandString(self, siteName: str) -> str:
-        """
-        Create a command string to get the appropriate site implementation directly,
-        avoiding the potential recursion from lwfManager.getSite().
-        """
-        baseSiteName = siteName
-        if baseSiteName.endswith("-venv"):
-            baseSiteName = baseSiteName[:-5]  # Remove "-venv" suffix
-        return "from lwfm.midware.LwfManager import lwfManager; " + \
-            "props = lwfManager.getSiteProperties('" + baseSiteName + "'); " + \
-            "class_name = props['class'].split('.')[-1]; " + \
-            "module_name = '.'.join(props['class'].split('.')[:-1]); " + \
-            "site_module = __import__(module_name, fromlist=['*']); " + \
-            "site_class = getattr(site_module, class_name); " + \
-            f"site = site_class(); site.setSiteName('{baseSiteName}'); "
-
-
-    def makeSiteDriverCommandString(self, sitePillar: SitePillar, siteName: str) -> str:
-        """
-        Import a class from a module and instantiate it.
-        """
-        # construct the command string to execute in the virtual environment
-        driverStr = ""
-        if isinstance(sitePillar, SiteAuth):
-            driverStr = "driver = site.getAuthDriver()"
-        elif isinstance(sitePillar, SiteRun):
-            driverStr = "driver = site.getRunDriver()"
-        elif isinstance(sitePillar, SiteRepo):
-            driverStr = "driver = site.getRepoDriver()"
-        elif isinstance(sitePillar, SiteSpin):
-            driverStr = "driver = site.getSpinDriver()"
-        else:
-            driverStr = "driver = site.getAuthDriver()"
-        return self.makeSiteNameCommandString(siteName) + \
-            driverStr + "; "
 
 
     def makeArgWrapper(self, obj: object) -> str:

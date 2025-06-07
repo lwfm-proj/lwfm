@@ -13,9 +13,9 @@ import os
 import subprocess
 import multiprocessing
 
-from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
+from lwfm.base.Site import SiteAuth, SiteRun, SiteRepo, SiteSpin
 from lwfm.base.JobDefn import JobDefn
-from lwfm.base.JobStatus import JobStatus, JobStatus
+from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobContext import JobContext
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Workflow import Workflow
@@ -130,7 +130,7 @@ class LocalSiteRun(SiteRun):
             # Run the job in a new thread so we can wrap it in a bit more code
             # this will kick the status the rest of the way to a terminal state
             logger.info(f"LocalSite: submitting job {useContext.getJobId()}")
-            multiprocessing.Process(target=self._run_with_redirect, 
+            multiprocessing.Process(target=self._run_with_redirect,
                 args=[jobDefn, useContext, logFilename]).start()
             return lwfManager.getStatus(useContext.getJobId())
         except Exception as ex:
@@ -204,7 +204,7 @@ class LocalSiteRepo(SiteRepo):
             lwfManager.emitStatus(context, JobStatus.FAILED)
         return None
 
-    def get(self, siteObjPath: str, localPath: str, 
+    def get(self, siteObjPath: str, localPath: str,
             jobContext: Union[JobContext, str] = None) -> str:
         if isinstance(jobContext, str):
             jobContext = lwfManager.deserialize(jobContext)
@@ -244,21 +244,3 @@ class LocalSiteSpin(SiteSpin):
 
 
 # ************************************************************************
-
-
-class LocalSite(Site):
-
-    SITE_NAME = "local"
-
-    def __init__(self, site_name: str = None,
-                 auth_driver: SiteAuth = None,
-                 run_driver: SiteRun = None,
-                 repo_driver: SiteRepo = None,
-                 spin_driver: SiteSpin = None):
-        super().__init__(
-            site_name or self.SITE_NAME,
-            auth_driver or LocalSiteAuth(),
-            run_driver or LocalSiteRun(),
-            repo_driver or LocalSiteRepo(),
-            spin_driver or LocalSiteSpin()
-        )
