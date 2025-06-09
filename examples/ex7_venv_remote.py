@@ -13,5 +13,8 @@ if __name__ == "__main__":
     logger.info(f"site={site.getSiteName()} " + \
         f"toml={lwfManager.getSiteProperties(site.getSiteName())}")
 
-    isLoggedIn = site.getAuthDriver().login()
-    print(f"We're logged in {isLoggedIn}")
+    #isLoggedIn = site.getAuthDriver().login()
+    #print(f"We're logged in {isLoggedIn}")
+
+    qcTypes = site.getSpinDriver().listComputeTypes()
+    print(f"QC types: {qcTypes}")

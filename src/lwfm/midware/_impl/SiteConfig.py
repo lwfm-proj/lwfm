@@ -32,7 +32,7 @@ class SiteConfig:
         remote = false
 
         [local-venv]
-        venv = "~/to_be_determined"
+        venv = "/tmp"
         auth = "lwfm.sites.LocalSite.LocalSiteAuth"
         run  = "lwfm.sites.LocalSite.LocalSiteRun"     
         repo = "lwfm.sites.LocalSite.LocalSiteRepo"

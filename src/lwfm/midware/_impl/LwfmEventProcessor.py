@@ -5,7 +5,7 @@ to a Site when an event of interest occurs.
 """
 
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
-#pylint: disable = broad-exception-caught, protected-access
+#pylint: disable = broad-exception-caught, protected-access, import-outside-toplevel
 
 import re
 import threading
@@ -272,7 +272,7 @@ class LwfmEventProcessor:
                         # but first, remove the handler
                         self.unsetEventHandler(e.getEventId())
                         # now launch it async
-                        self._runAsyncOnSite(e, 
+                        self._runAsyncOnSite(e,
                             self._makeDataContext(e, status.getJobContext()))
                         gotOne = True
                 except Exception as ex1:
@@ -390,4 +390,3 @@ class LwfmEventProcessor:
 
     def testDataHandler(self, jobStatus: JobStatus) -> None:
         pass
-

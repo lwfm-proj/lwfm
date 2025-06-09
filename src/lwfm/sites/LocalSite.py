@@ -5,7 +5,7 @@ Purposefully unsecure, as this is local and we assume the user is themselves alr
 """
 
 #pylint: disable = missing-function-docstring, invalid-name, missing-class-docstring
-#pylint: disable = broad-exception-caught
+#pylint: disable = broad-exception-caught, protected-access
 
 import shutil
 from typing import List, Union
@@ -108,7 +108,7 @@ class LocalSiteRun(SiteRun):
             if parentContext is None:
                 # we don't know our job id - it wasn't passed in
                 # check the environment
-                useContext = lwfManager.getJobContextFromEnv()
+                useContext = lwfManager._getJobContextFromEnv()
                 if useContext is None:
                     # we still don't know our job id - create a new one
                     useContext = JobContext()

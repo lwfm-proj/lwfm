@@ -17,7 +17,7 @@ from lwfm.base.JobStatus import JobStatus
 from lwfm.midware._impl.IdGenerator import IdGenerator
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Workflow import Workflow
-from lwfm.base.Site import Site, SiteAuth, SiteRun, SiteRepo, SiteSpin
+from lwfm.base.Site import Site
 from lwfm.midware._impl.LwfmEventClient import LwfmEventClient
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 from lwfm.midware._impl.SiteConfig import SiteConfig
@@ -107,7 +107,7 @@ class LwfManager:
         return self._client.getAllStatus(jobId)
 
 
-    def getJobContextFromEnv(self) -> JobContext:
+    def _getJobContextFromEnv(self) -> JobContext:
         # see if we got passed in a job id in the os environment
         if '_LWFM_JOB_ID' in os.environ:
             status = self.getStatus(os.environ['_LWFM_JOB_ID'])
