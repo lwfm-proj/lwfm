@@ -4,17 +4,55 @@ our local python environment doesn't have the IBM libraries necessary to run
 the test - we will launch the test inside a venv.
 """
 
+#pylint: disable=invalid-name
+
+import sys
+
+from lwfm.base.JobDefn import JobDefn
+from lwfm.base.WorkflowEvent import JobEvent
+from lwfm.base.JobStatus import JobStatus
 from lwfm.midware.LwfManager import lwfManager, logger
 
+quantum_circuit = """
+qc = QuantumCircuit(2)
+qc.h(0)
+qc.cx(0, 1)
+qc.measure_all()
+"""
+
+lwfm_site_name = "ibm-quantum-venv"   # the site driver code is in a venv
+
 if __name__ == "__main__":
-    # get inside the venv of this site, get the handle to the remote site, and "login"
-    site = lwfManager.getSite("ibm-quantum-venv")
+    # get the site auth/run/repo/spin drivers for IBM Quantum Cloud
+    site = lwfManager.getSite(lwfm_site_name)
 
-    logger.info(f"site={site.getSiteName()} " + \
-        f"toml={lwfManager.getSiteProperties(site.getSiteName())}")
-
-    #isLoggedIn = site.getAuthDriver().login()
-    #print(f"We're logged in {isLoggedIn}")
-
+    # list the compute types (quantum machines) at this site
     qcTypes = site.getSpinDriver().listComputeTypes()
-    print(f"QC types: {qcTypes}")
+    if not qcTypes:
+        logger.error("No quantum machines found - bad login credentials?")
+        sys.exit(1)
+    qcBackend = "ibm_brisbane"   # currently preferred machine
+    if qcBackend not in qcTypes:
+        qcBackend = qcTypes[0]
+    logger.info(f"Using IBM backend {qcBackend}")
+
+    # to make the point about venvs, let's assume the current one doesn't have
+    # any quantum libs, and that qiskit sits in a separate site-specific venv,
+    # so we'll pass in this circuit as-is; the run driver could accept many formats
+    job_defn = JobDefn(quantum_circuit)
+    job_status = site.getRunDriver().submit(job_defn, None, qcBackend,
+        {"shots": 1024, "format": "qiskit"})
+    logger.info(f"lwfm job {job_status.getJobId()} " + \
+        f"is IBM job {job_status.getJobContext().getNativeId()} " + \
+        f"initial status: {job_status.getStatus()}")
+
+    # we don't want to wait synchronously - its a cloud resource
+    # so set an event handler for its completion to go extract the results
+    #statusB = lwfManager.setEvent(
+    #    JobEvent(job_status.getJobId(), JobStatus.COMPLETE,
+    #             JobDefn("echo 'got it'"), lwfm_site_name)
+    #)
+    #logger.info(f"result extraction job {statusB.getJobId()} set")
+
+
+#**********************************************************************************

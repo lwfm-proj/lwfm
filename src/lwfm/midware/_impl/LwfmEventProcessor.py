@@ -68,6 +68,9 @@ class LwfmEventProcessor:
             if self._timer:
                 self._timer.cancel()  # Stop the current timer
 
+            print(f"wakeUp: {statusObj.getJobContext().getJobId()} {statusObj.getJobContext().getNativeId()} {statusObj.getStatus()}")
+
+
             if statusObj is not None and statusObj.isInfo():
                 try:
                     self.checkDataStatusEvent(statusObj)
@@ -169,7 +172,7 @@ class LwfmEventProcessor:
                     from lwfm.midware.LwfManager import lwfManager
                     site = lwfManager.getSite(e.getFireSite())
                     status = site.getRunDriver().getStatus(e.getFireJobId())   # canonical job id
-                    if status.isTerminal():
+                    if status is not None and status.isTerminal():
                         # remote job is done
                         self.unsetEventHandler(e.getEventId())
                         # emit status
