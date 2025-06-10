@@ -5,7 +5,7 @@ Purposefully unsecure, as this is local and we assume the user is themselves alr
 """
 
 #pylint: disable = missing-function-docstring, invalid-name, missing-class-docstring
-#pylint: disable = broad-exception-caught, protected-access
+#pylint: disable = broad-exception-caught, protected-access, broad-exception-raised
 
 import shutil
 from typing import List, Union
@@ -54,15 +54,21 @@ class LocalSiteRun(SiteRun):
         try:
             # This is synchronous, so we wait here until the subprocess is over.
             cmd = jDefn.getEntryPoint()
-            if jDefn.getJobArgs() is not None:
-                for arg in jDefn.getJobArgs():
-                    cmd += " " + arg
+            if jDefn.getEntryPointType() == JobDefn.ENTRY_TYPE_SHELL:
+                if jDefn.getJobArgs() is not None:
+                    for arg in jDefn.getJobArgs():
+                        cmd += " " + arg
+            elif jDefn.getEntryPointType() == JobDefn.ENTRY_TYPE_SITE:
+                print("here in site call handler")
+            else:
+                raise Exception("Unknown entry point type")
             # copy the current shell environment into the subprocess
             # and inject the job id
             env = os.environ.copy()
             env['_LWFM_JOB_ID'] = jobContext.getJobId()
 
-            # Modify to redirect all output to the file or /dev/null if no file is specified
+            # Modify to redirect all output to the file or /dev/null if no file is
+            # specified. 
             if hasattr(self, '_output_file') and self._output_file:
                 # Redirect all output to the file
                 cmd = f"{cmd} > {self._output_file} 2>&1"

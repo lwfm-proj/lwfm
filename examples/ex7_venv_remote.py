@@ -46,13 +46,18 @@ if __name__ == "__main__":
         f"is IBM job {job_status.getJobContext().getNativeId()} " + \
         f"initial status: {job_status.getStatus()}")
 
-    # we don't want to wait synchronously - its a cloud resource
-    # so set an event handler for its completion to go extract the results
-    #statusB = lwfManager.setEvent(
-    #    JobEvent(job_status.getJobId(), JobStatus.COMPLETE,
-    #             JobDefn("echo 'got it'"), lwfm_site_name)
-    #)
-    #logger.info(f"result extraction job {statusB.getJobId()} set")
+    # # we don't want to wait synchronously - its a cloud resource
+    # # so set an event handler for the remote job completion to fetch the results
+    # statusB = lwfManager.setEvent(
+    #     JobEvent(job_status.getJobId(),                         # when this job
+    #             JobStatus.COMPLETE,                             # hits this state
+    #             JobDefn("repo.get", JobDefn.ENTRY_TYPE_SITE,    # run this repo.get
+    #                 [job_status.getJobId(),                     # remote data source
+    #                 "~/.lwfm/out/" + job_status.getJobId() + \
+    #                 ".out"]),                                   # local data dest 
+    #             lwfm_site_name)                                 # with this site driver
+    # )
+    # logger.info(f"result extraction set - see job log {statusB.getJobId()}.log")
 
 
 #**********************************************************************************

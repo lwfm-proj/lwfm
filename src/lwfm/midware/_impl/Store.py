@@ -164,7 +164,7 @@ class LoggingStore(Store):
 class EventStore(Store):
 
     def putWfEvent(self, datum: WorkflowEvent, typeT: str) -> None:
-        print(f"Putting event {typeT} {datum}")
+        # print(f"Putting event {typeT} {datum}")
         self._put("EventStore", datum.getFireSite(), "run.event." + typeT,
             datum.getEventId(), ObjectSerializer.serialize(datum))
 

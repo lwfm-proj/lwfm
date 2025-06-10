@@ -14,9 +14,24 @@ import atexit
 
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobContext import JobContext
-from lwfm.base.WorkflowEvent import RemoteJobEvent, WorkflowEvent, JobEvent, MetadataEvent
+from lwfm.base.JobDefn import JobDefn
+from lwfm.base.WorkflowEvent import WorkflowEvent, JobEvent, MetadataEvent
 from lwfm.midware._impl.Store import EventStore, JobStatusStore, LoggingStore
-from lwfm.midware._impl.SiteConfig import SiteConfig
+
+# ***************************************************************************
+
+
+class RemoteJobEvent(WorkflowEvent):
+    def __init__(self, context):
+        super().__init__(JobDefn(), context.getSiteName(), context.getJobId())
+        self._native_job_id = context.getNativeId()
+
+    def getNativeJobId(self):
+        return self._native_job_id
+
+    def __str__(self):
+        return super().__str__() + f"+[remote nativeId:{self.getNativeJobId()}]"
+
 
 # ***************************************************************************
 
@@ -54,60 +69,6 @@ class LwfmEventProcessor:
             (self,),
         )
         self._timer.start()
-
-
-    def wake_up(self, statusObj: JobStatus):
-        """
-        Cancel the current timer and start a new one immediately to process events.
-        we can determine which kind of status this is and expedite handling
-        - a remote job status
-        - a non-remote local job status
-        - a data INFO event
-        """
-        with self._timer_lock:
-            if self._timer:
-                self._timer.cancel()  # Stop the current timer
-
-            print(f"wakeUp: {statusObj.getJobContext().getJobId()} {statusObj.getJobContext().getNativeId()} {statusObj.getStatus()}")
-
-
-            if statusObj is not None and statusObj.isInfo():
-                try:
-                    self.checkDataStatusEvent(statusObj)
-                except Exception as ex:
-                    self._loggingStore.putLogging("ERROR",
-                        "Exception checking data event: " + " " + str(ex))       
-
-            if statusObj is not None and (statusObj.isPreRun() or statusObj.isRunning()):
-                try:
-                    # is this site a remote site? make sure we're tracking this job
-                    # to completion - this server is responsible for that not the user
-                    isRemote = SiteConfig.getSiteProperties(statusObj.getJobContext().
-                        getSiteName())["remote"]
-                    if isRemote:
-                        # check if a remote job event is pending
-                        events = self._eventStore.getAllWfEvents("run.event.REMOTE")
-                        gotOne = False
-                        if events is None:
-                            events = []
-                        for e in events:
-                            if e.getFireJobId() == statusObj.getJobContext().getJobId():
-                                gotOne = True
-                                break
-                        if not gotOne:
-                            # lay down a remote job tracking event
-                            self.setEventHandler(RemoteJobEvent(statusObj.getJobContext()))
-                except Exception as ex:
-                    self._loggingStore.putLogging("ERROR",
-                        "Exception checking remote job events: " + " " + str(ex))
-
-            # Start a new timer that will fire immediately (or very quickly)
-            self._timer = threading.Timer(
-                0.1,  # Very short delay
-                LwfmEventProcessor.checkEventHandlers,
-                (self,),
-            )
-            self._timer.start()
 
 
     def exit(self):
@@ -161,7 +122,8 @@ class LwfmEventProcessor:
             events: List[RemoteJobEvent] = \
                 self._eventStore.getAllWfEvents("run.event.REMOTE")
             if events is None:
-                return gotOne
+                events = []
+            self._loggingStore.putLogging("INFO", "Remote events: " + str(len(events)))
             for e in events:
                 try:
                     self._loggingStore.putLogging("INFO",
@@ -171,12 +133,11 @@ class LwfmEventProcessor:
                     # Deferred import to avoid circular dependencies
                     from lwfm.midware.LwfManager import lwfManager
                     site = lwfManager.getSite(e.getFireSite())
-                    status = site.getRunDriver().getStatus(e.getFireJobId())   # canonical job id
+                    # using canonical job id
+                    status = site.getRunDriver().getStatus(e.getFireJobId())
                     if status is not None and status.isTerminal():
                         # remote job is done
                         self.unsetEventHandler(e.getEventId())
-                        # emit status
-                        print(f"Remote job is done {status.getJobId()}")
                     gotOne = True
                 except Exception as ex1:
                     self._loggingStore.putLogging("ERROR",
@@ -214,7 +175,7 @@ class LwfmEventProcessor:
                 l = 0
             else:
                 l = len(events)
-            self._loggingStore.putLogging("INFO", "Job events: " + str(l))
+            self._loggingStore.putLogging("INFO", "Job events:    " + str(l))
             if l == 0:
                 return False
             for e in events:
@@ -360,17 +321,22 @@ class LwfmEventProcessor:
     def setEventHandler(self, wfe: WorkflowEvent) -> str:
         typeT = ""
         try:
+            # set by the user to fire a job after another one - these jobs may
+            # be running anywhere and are referenced by their canonical lwfm job id
             if isinstance(wfe, JobEvent):
                 initialContext = self._initJobEventHandler(wfe)
                 wfe.setFireJobId(initialContext.getJobId())
                 typeT = "JOB"
+            # set by the system when a job is launched on a remote site to track it
             elif isinstance(wfe, RemoteJobEvent):
                 initialContext = self._initRemoteJobHandler(wfe)
                 typeT = "REMOTE"
+            # set by the user to trigger a job when data with a certain metadata is put
             elif isinstance(wfe, MetadataEvent):
                 initialContext = self._initMetadataJobHandler(wfe)
                 wfe.setFireJobId(initialContext.getJobId())
                 typeT = "DATA"
+            # unknown type
             else:
                 self._loggingStore.putLogging("ERROR", "setEventHandler: Unknown type")
                 return None

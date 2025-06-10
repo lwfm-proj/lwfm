@@ -13,12 +13,14 @@ import sys
 from typing import List
 
 from flask import Flask, request
-from lwfm.midware._impl.LwfmEventProcessor import LwfmEventProcessor
+from lwfm.midware._impl.LwfmEventProcessor import LwfmEventProcessor, RemoteJobEvent
 from lwfm.midware._impl.Store import JobStatusStore, LoggingStore, WorkflowStore, MetasheetStore
 from lwfm.base.Workflow import Workflow
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.JobStatus import JobStatus
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
+from lwfm.midware._impl.SiteConfig import SiteConfig
+from lwfm.midware._impl.Store import EventStore
 
 #************************************************************************
 # startup
@@ -112,12 +114,30 @@ def emitStatus():
                 wf = Workflow()
                 wf._setWorkflowId(wfId)
                 WorkflowStore().putWorkflow(wf)
-        # a new status message came in - wake up the event processor if its sleeping
-        # we can determine which kind of status this is and expedite handling
-        # - a remote job status
-        # - a non-remote local job status
-        # - a data INFO event
-        wfProcessor.wake_up(statusObj)
+
+        try:
+            # is this site a remote site? make sure we're tracking this job
+            # to completion - this server is responsible for that not the user
+            isRemote = SiteConfig.getSiteProperties(statusObj.getJobContext().
+                getSiteName())["remote"]
+            if isRemote:
+                # check if a remote job event is pending
+                events = EventStore().getAllWfEvents("run.event.REMOTE")
+                gotOne = False
+                if events is None:
+                    events = []
+                for e in events:
+                    if e.getFireJobId() == statusObj.getJobContext().getJobId():
+                        gotOne = True
+                        break
+                if not gotOne:
+                    # lay down a new remote job tracking event
+                    wfProcessor.setEventHandler(RemoteJobEvent(statusObj.
+                          getJobContext()))
+        except Exception as ex:
+            LoggingStore().putLogging("ERROR",
+                "Exception putting remote job event handler: " + " " + str(ex))
+
         return "", 200
     except Exception as ex:
         LoggingStore().putLogging("ERROR", "emitStatus svc: " + str(ex))

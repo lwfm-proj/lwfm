@@ -8,7 +8,7 @@ from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Site import Site
-from lwfm.base.WorkflowEvent import WorkflowEvent
+from lwfm.base.WorkflowEvent import WorkflowEvent, JobEvent, MetadataEvent
 from lwfm.base.Workflow import Workflow
 
 # local Site implementation
@@ -27,6 +27,8 @@ __all__ = [
     "JobStatus",
     "Metasheet",
     "Site",
+    "JobEvent",
+    "MetadataEvent",
     "WorkflowEvent",
     "Workflow",
 

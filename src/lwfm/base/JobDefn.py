@@ -35,11 +35,23 @@ class JobDefn:
         at runtime
     """
 
-    def __init__(self, entryPoint: str = None):
+    ENTRY_TYPE_SHELL  = "SHELL"
+    ENTRY_TYPE_SITE   = "SITE"
+
+
+    def __init__(self,
+                entryPoint: str = None,
+                entryPointType: str = None,
+                args: List[str] = None):
         self._defn_id = IdGenerator().generateId()
         self.setEntryPoint(entryPoint)
+        if entryPointType is None:
+            entryPointType = JobDefn.ENTRY_TYPE_SHELL
+        self.setEntryPointType(entryPointType)
         self.setName("")
-        self.setJobArgs([])
+        if args is None:
+            args = []
+        self.setJobArgs(args)
 
     def getDefnId(self) -> str:
         return self._defn_id
@@ -55,6 +67,12 @@ class JobDefn:
 
     def getEntryPoint(self) -> str:
         return self._entryPoint
+
+    def setEntryPointType(self, entryPointType: str) -> None:
+        self._entryPointType = entryPointType
+
+    def getEntryPointType(self) -> str:
+        return self._entryPointType
 
     def setJobArgs(self, args: List[str]) -> None:
         self._jobArgs = args

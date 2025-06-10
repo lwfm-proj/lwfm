@@ -3,7 +3,7 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    - remote polling (#80)
+    + remote polling (#80)
     - inline docs esp. for .base & .midware (#84)
     - test data provenance (#78)
     - load/cache the site properties into the site class
