@@ -14,7 +14,7 @@ if __name__ == "__main__":
     jobDefn.setSiteName("local-venv")
 
     # alternative to invoking site interface
-    result: JobStatus = lwfManager.execSiteEndpoint(jobDefn, None, True)
+    result: JobStatus = lwfManager.execSiteEndpoint(jobDefn)
     logger.info(f"{result.getJobId()} {result.getStatus()}")
 
     # wait synchronously for it to finish

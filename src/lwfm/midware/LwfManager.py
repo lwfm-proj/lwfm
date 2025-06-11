@@ -178,6 +178,9 @@ class LwfManager:
         if jobContext is None:
             jobContext = JobContext()
 
+        if emitStatus:
+            self.emitStatus(jobContext, JobStatus.PENDING)
+
         siteName = jDefn.getSiteName()
         site_pillar, site_method = jDefn.getEntryPoint().split('.', 1)
 
@@ -194,15 +197,23 @@ class LwfManager:
             method = getattr(site_pillar, site_method, None)
             if not callable(method):
                 logger.error(f"lwfManager: method {site_method} not found or not callable")
+                if emitStatus:
+                    self.emitStatus(jobContext, JobStatus.FAILED)
                 return False
             args = jDefn.getJobArgs()
             if site_method == "submit":
                 newJobDefn = JobDefn(args[0], JobDefn.ENTRY_TYPE_STRING, args[1:])
                 args = [newJobDefn, jobContext, jDefn.getComputeType(), args[1:]]
             # Call the method with the job arguments
+            if emitStatus:
+                self.emitStatus(jobContext, JobStatus.RUNNING)
             result = method(*args)
+            if emitStatus:
+                self.emitStatus(jobContext, JobStatus.COMPLETE)
             return result
         except Exception as ex:
+            if emitStatus:
+                self.emitStatus(jobContext, JobStatus.FAILED)
             logger.error("lwfManager: error executing site endpoint " + \
                 f"{jDefn.getEntryPoint()}: {str(ex)}")
             return False
