@@ -3,44 +3,45 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    + remote polling (#80)
+    - site endpoints (#102)
     - inline docs esp. for .base & .midware (#84)
-    - test data provenance (#78)
-    - load/cache the site properties into the site class
-    - better error message when cannot find the venv, or if can't find Site in it
-
-+ ai proj
-    - "write the docs first"
-    - how does the LLM track workflows, how can we mine the logging artifacts - do we trust them?
-    - Google Codex use of Agents.md to understand the codebase / guardrails 
+    - test data provenance (#78, #86)
+    - import/export (#73)
 
 
-+ ibm site  
++ ibm site driver
     - ibm site w qiskit run - allow 1 session for many circuits
     - sample vs estimation, etc. - what are the ways to run()
     - runArgs for backend args - shots, etc.
     - jobDefn gets circuit file from somewhere...
     - test circuit(s)
     - set job listener to mine the remote job results 
-    - w. venv wrapper 
+
+
+******************************************************************************
 
 + ornl site
     - PNLL simulator, tensor sim (see also https://github.com/tencent-quantum-lab/tensorcircuit)
 
+
 + lwfm agent - general wf agent
+    - "write the docs first"
+    - how does the LLM track workflows, how can we mine the logging artifacts - do we trust them?
+    - Google Codex use of Agents.md to understand the codebase / guardrails 
     - .base & .midware signatures for mcp wrapper - copiously document
     - mcp async abilities - how to use relative to lwfm triggers - w. example
+    + qwf-agent - quantum wf agent built on lwfm agent
+        - IBM 4-part quantum framework vs. more granular steps (see below)
+        - e.g. swap out transpilation pipelines for target QCs
+        - a2a scenario - Assistant & QA test agents? ("ai4sci", agent surfing arxiv, etc.)
 
-+ qwf-agent - quantum wf agent built on lwfm agent
-    - IBM 4-part quantum framework vs. more granular steps (see below)
-    - e.g. swap out transpilation pipelines for target QCs
-    - a2a scenario - Assistant & QA test agents? ("ai4sci", agent surfing arxiv, etc.)
 
 + quantum_linear_solvers
     - upgrade to qiskit 2.0, and wciscc
     - remove qiskit-algorithms: AlgorithmResult 
     - stamp before & after as releases & update ornl code w/ pr 
     - other fork: https://github.com/richard7990/quantum_linear_solvers, ORNL forked me
+
 
 + wciscc2025
     - IBM, IQM, Quantinuum, IonQ machines w lwfm venv 

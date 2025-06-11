@@ -19,7 +19,7 @@ class WorkflowEvent:
     """
     Base class for workflow events.
     """
-    def __init__(self, fireDefn=None, fireSite=None, fireJobId=None):
+    def __init__(self, fireDefn: JobDefn = None, fireSite=None, fireJobId=None):
         self._event_id = IdGenerator().generateId()
         self._fire_defn = fireDefn
         self._fire_site = fireSite
@@ -69,6 +69,8 @@ class JobEvent(WorkflowEvent):
         super().__init__(fireDefn, fireSite, fireJobId)
         self._rule_job_id = ruleJobId
         self._rule_status = ruleStatus
+        if fireDefn is not None:
+            fireDefn.setSiteName(fireSite)
 
     def setRuleJobId(self, ruleJobId):
         self._rule_job_id = ruleJobId

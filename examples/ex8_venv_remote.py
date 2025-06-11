@@ -38,26 +38,27 @@ if __name__ == "__main__":
 
     # to make the point about venvs, let's assume the current one doesn't have
     # any quantum libs, and that qiskit sits in a separate site-specific venv,
-    # so we'll pass in this circuit as-is; the run driver could accept many formats
+    # so we'll pass in this circuit as-is; a given run driver could accept many formats
     job_defn = JobDefn(quantum_circuit)
+    job_defn.setEntryPointType(JobDefn.ENTRY_TYPE_STRING)    # site/app-specific string
     job_status = site.getRunDriver().submit(job_defn, None, qcBackend,
-        {"shots": 1024, "format": "qiskit"})
+        {"shots": 1024, "format": "qiskit"})                 # format of the string
     logger.info(f"lwfm job {job_status.getJobId()} " + \
         f"is IBM job {job_status.getJobContext().getNativeId()} " + \
         f"initial status: {job_status.getStatus()}")
 
-    # # we don't want to wait synchronously - its a cloud resource
-    # # so set an event handler for the remote job completion to fetch the results
-    # statusB = lwfManager.setEvent(
-    #     JobEvent(job_status.getJobId(),                         # when this job
-    #             JobStatus.COMPLETE,                             # hits this state
-    #             JobDefn("repo.get", JobDefn.ENTRY_TYPE_SITE,    # run this repo.get
-    #                 [job_status.getJobId(),                     # remote data source
-    #                 "~/.lwfm/out/" + job_status.getJobId() + \
-    #                 ".out"]),                                   # local data dest 
-    #             lwfm_site_name)                                 # with this site driver
-    # )
-    # logger.info(f"result extraction set - see job log {statusB.getJobId()}.log")
+    # we don't want to wait synchronously - its a cloud resource
+    # so set an event handler for the remote job completion to fetch the results
+    statusB = lwfManager.setEvent(
+        JobEvent(job_status.getJobId(),                         # when this job
+                JobStatus.COMPLETE,                             # hits this state
+                JobDefn("repo.get", JobDefn.ENTRY_TYPE_SITE,    # run this repo.get
+                    [job_status.getJobId(),                     # with these args
+                    "~/.lwfm/out/" + job_status.getJobId() + \
+                    ".out"]),                                   # 
+                lwfm_site_name)                                 # using this site driver
+    )
+    logger.info(f"result extraction set - see job log {statusB.getJobId()}.log")
 
 
 #**********************************************************************************

@@ -14,6 +14,7 @@ from typing import List
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
+from lwfm.base.JobDefn import JobDefn
 from lwfm.midware._impl.IdGenerator import IdGenerator
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Workflow import Workflow
@@ -96,7 +97,7 @@ class LwfManager:
 
 
     #***********************************************************************
-    # status methods
+    # job & status methods
 
     # given a job id, get back the current status
     def getStatus(self, jobId: str) -> JobStatus:
@@ -156,6 +157,55 @@ class LwfManager:
             status.setNativeStatus("UNKNOWN")
             status.setNativeInfo(str(ex))
             return status
+
+
+    def execSiteEndpoint(self, jDefn: JobDefn, jobContext: JobContext = None,
+        emitStatus: bool = True):
+        """
+        Execute a method on a site pillar object, using venv if needed.
+        In essence this is an alternative means to call "site.get-pillar.get-method"().
+        We can handle the emitting of job status, or not.
+        """
+        if jDefn is None:
+            logger.error("lwfManager: can't execute site endpoint - is none")
+            return False
+        if jDefn.getEntryPointType() != JobDefn.ENTRY_TYPE_SITE:
+            logger.error("lwfManager: can't execute site endpoint - wrong type")
+            return False
+        if '.' not in jDefn.getEntryPoint():
+            logger.error(f"lwfManager: invalid site endpoint format: {jDefn.getEntryPoint()}")
+            return False
+        if jobContext is None:
+            jobContext = JobContext()
+
+        siteName = jDefn.getSiteName()
+        site_pillar, site_method = jDefn.getEntryPoint().split('.', 1)
+
+        try:
+            site = self.getSite(siteName)
+            if site_pillar == "auth":
+                site_pillar = site.getAuthDriver()
+            elif site_pillar == "run":
+                site_pillar = site.getRunDriver()
+            elif site_pillar == "repo":
+                site_pillar = site.getRepoDriver()
+            elif site_pillar == "spin":
+                site_pillar = site.getSpinDriver()
+            method = getattr(site_pillar, site_method, None)
+            if not callable(method):
+                logger.error(f"lwfManager: method {site_method} not found or not callable")
+                return False
+            args = jDefn.getJobArgs()
+            if site_method == "submit":
+                newJobDefn = JobDefn(args[0], JobDefn.ENTRY_TYPE_STRING, args[1:])
+                args = [newJobDefn, jobContext, jDefn.getComputeType(), args[1:]]
+            # Call the method with the job arguments
+            result = method(*args)
+            return result
+        except Exception as ex:
+            logger.error("lwfManager: error executing site endpoint " + \
+                f"{jDefn.getEntryPoint()}: {str(ex)}")
+            return False
 
 
     #***********************************************************************

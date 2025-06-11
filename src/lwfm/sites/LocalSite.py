@@ -6,6 +6,7 @@ Purposefully unsecure, as this is local and we assume the user is themselves alr
 
 #pylint: disable = missing-function-docstring, invalid-name, missing-class-docstring
 #pylint: disable = broad-exception-caught, protected-access, broad-exception-raised
+#pylint: disable = attribute-defined-outside-init
 
 import shutil
 from typing import List, Union
@@ -54,12 +55,14 @@ class LocalSiteRun(SiteRun):
         try:
             # This is synchronous, so we wait here until the subprocess is over.
             cmd = jDefn.getEntryPoint()
-            if jDefn.getEntryPointType() == JobDefn.ENTRY_TYPE_SHELL:
+            if jDefn.getEntryPointType() == JobDefn.ENTRY_TYPE_SHELL or \
+                jDefn.getEntryPointType() == JobDefn.ENTRY_TYPE_STRING:
                 if jDefn.getJobArgs() is not None:
                     for arg in jDefn.getJobArgs():
                         cmd += " " + arg
             elif jDefn.getEntryPointType() == JobDefn.ENTRY_TYPE_SITE:
-                print("here in site call handler")
+                # this is a common function - delegate it to the lwfManager
+                lwfManager.execSiteEndpoint(jDefn, jobContext, False)
             else:
                 raise Exception("Unknown entry point type")
             # copy the current shell environment into the subprocess
@@ -68,7 +71,7 @@ class LocalSiteRun(SiteRun):
             env['_LWFM_JOB_ID'] = jobContext.getJobId()
 
             # Modify to redirect all output to the file or /dev/null if no file is
-            # specified. 
+            # specified.
             if hasattr(self, '_output_file') and self._output_file:
                 # Redirect all output to the file
                 cmd = f"{cmd} > {self._output_file} 2>&1"
@@ -78,6 +81,7 @@ class LocalSiteRun(SiteRun):
             lwfManager.emitStatus(jobContext, JobStatus.FINISHING)
             lwfManager.emitStatus(jobContext, JobStatus.COMPLETE)
         except Exception as ex:
+            logger.error(f"*** {jDefn}")
             logger.error(f"ERROR: Job failed: {ex}")
             # Emit FAILED status
             lwfManager.emitStatus(jobContext, JobStatus.FAILED)
