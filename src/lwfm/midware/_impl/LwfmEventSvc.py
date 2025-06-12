@@ -103,6 +103,11 @@ def putWorkflow():
 def emitStatus():
     try:
         statusBlob = request.form["statusBlob"]
+        fromEvent = False
+        try:
+            fromEvent = request.form["fromEvent"].lower() == "true"
+        except Exception:
+            pass
         statusObj : JobStatus = ObjectSerializer.deserialize(statusBlob)
         JobStatusStore().putJobStatus(statusObj)
         # if this is a new job, make sure we persisted its parent workflow
@@ -130,8 +135,10 @@ def emitStatus():
                     if e.getFireJobId() == statusObj.getJobContext().getJobId():
                         gotOne = True
                         break
-                if not gotOne:
+                if not gotOne and not fromEvent:
                     # lay down a new remote job tracking event
+                    LoggingStore().putLogging("INFO",
+                        f"laying down remote job event {statusObj.getJobId()}")
                     wfProcessor.setEventHandler(RemoteJobEvent(statusObj.
                           getJobContext()))
         except Exception as ex:

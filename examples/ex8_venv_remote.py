@@ -55,7 +55,7 @@ if __name__ == "__main__":
                 JobDefn("repo.get", JobDefn.ENTRY_TYPE_SITE,    # run this repo.get
                     [job_status.getJobId(),                     # with these args
                     "~/.lwfm/out/" + job_status.getJobId() + \
-                    ".out"]),                                   # 
+                    ".out"]),
                 lwfm_site_name)                                 # using this site driver
     )
     logger.info(f"result extraction set - see job log {statusB.getJobId()}.log")

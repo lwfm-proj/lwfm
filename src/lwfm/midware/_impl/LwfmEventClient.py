@@ -114,7 +114,8 @@ class LwfmEventClient:
 
     # emit a status message, perhaps triggering event handlers
     def emitStatus(self, context: JobContext,
-                   statusStr: str, nativeStatusStr: str, nativeInfo: str = None) -> None:
+                   statusStr: str, nativeStatusStr: str, nativeInfo: str = None,
+                   fromEvent: bool = False) -> None:
         try:
             status: JobStatus = JobStatus(context)
             status.setStatus(statusStr)
@@ -122,7 +123,7 @@ class LwfmEventClient:
             status.setNativeInfo(nativeInfo)
             status.setEmitTime(datetime.datetime.now(datetime.UTC))
             statusBlob = ObjectSerializer.serialize(status)
-            data = {"statusBlob": statusBlob}
+            data = {"statusBlob": statusBlob, "fromEvent": str(fromEvent)}
             response = requests.post(f"{self.getUrl()}/emitStatus", data=data,
                 timeout=self._REST_TIMEOUT)
             if response.ok:

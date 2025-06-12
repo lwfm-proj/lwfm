@@ -17,6 +17,7 @@ from lwfm.base.JobContext import JobContext
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.WorkflowEvent import WorkflowEvent, JobEvent, MetadataEvent
 from lwfm.midware._impl.Store import EventStore, JobStatusStore, LoggingStore
+from lwfm.midware._impl.SiteConfig import SiteConfig
 
 # ***************************************************************************
 
@@ -82,16 +83,48 @@ class LwfmEventProcessor:
         # Deferred import to avoid circular dependencies
         from lwfm.midware.LwfManager import lwfManager
         site = lwfManager.getSite(trigger.getFireSite())
-        runDriver = site.getRunDriver().__class__
-        # Note: Comma is needed at end to make this a tuple. DO NOT REMOVE
-        thread = threading.Thread(
-            target=runDriver._submitJob,
-             args=(
-                trigger.getFireDefn(),
-                context,
-                ),
-            )
-        thread.start()
+        runDriver = site.getRunDriver()
+        siteName = site.getSiteName()
+        siteProps = SiteConfig.getSiteProperties(siteName)
+        useVenv = siteProps.get('venv', False)
+        if useVenv:
+            # venv Site - use SiteConfigVenv to execute in the venv
+            from lwfm.midware._impl.SiteConfigVenv import SiteConfigVenv
+            from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
+
+            # Serialize the job definition and context for the venv execution
+            job_defn_serialized = ObjectSerializer.serialize(trigger.getFireDefn())
+            context_serialized = ObjectSerializer.serialize(context)
+
+            # Create the command to run in the venv
+            cmd = f"""
+from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
+from lwfm.midware.LwfManager import lwfManager
+
+# Deserialize the job definition and context
+job_defn = ObjectSerializer.deserialize('{job_defn_serialized}')
+context = ObjectSerializer.deserialize('{context_serialized}')
+
+# Get the site and run driver
+site = lwfManager.getSite('{siteName}')
+run_driver = site.getRunDriver()
+
+# Submit the job
+run_driver.submit(job_defn, context)
+"""
+            # Execute in the venv
+            site_venv = SiteConfigVenv()
+            site_venv.executeInProjectVenv(siteName, cmd)
+        else:
+            # Note: Comma is needed at end to make this a tuple. DO NOT REMOVE
+            thread = threading.Thread(
+                target=runDriver._submitJob,
+                args=(
+                    trigger.getFireDefn(),
+                    context,
+                    ),
+                )
+            thread.start()
 
     def _makeJobContext(self, trigger: JobEvent, parentContext: JobContext) -> JobContext:
         newContext = JobContext()
@@ -290,8 +323,8 @@ class LwfmEventProcessor:
         # fire the initial status showing the new job ready on the shelf
         # Deferred import to avoid circular dependencies
         from lwfm.midware.LwfManager import lwfManager
-        lwfManager.emitStatus(newJobContext, JobStatus.READY,
-            JobStatus.READY)
+        lwfManager._emitStatusFromEvent(newJobContext, JobStatus.READY,
+            JobStatus.READY, None)
         return newJobContext
 
 
@@ -324,11 +357,13 @@ class LwfmEventProcessor:
             # set by the user to fire a job after another one - these jobs may
             # be running anywhere and are referenced by their canonical lwfm job id
             if isinstance(wfe, JobEvent):
+                self._loggingStore.putLogging("INFO", "its a job event")
                 initialContext = self._initJobEventHandler(wfe)
                 wfe.setFireJobId(initialContext.getJobId())
                 typeT = "JOB"
             # set by the system when a job is launched on a remote site to track it
             elif isinstance(wfe, RemoteJobEvent):
+                self._loggingStore.putLogging("INFO", "its a remote event")
                 initialContext = self._initRemoteJobHandler(wfe)
                 typeT = "REMOTE"
             # set by the user to trigger a job when data with a certain metadata is put

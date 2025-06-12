@@ -116,7 +116,8 @@ class SiteRun(SitePillar):
     """
 
     @classmethod
-    def _submitJob(cls, jobDefn, parentContext=None, computeType=None, runArgs=None):
+    def _submitJob(cls, jobDefn, parentContext=None, computeType=None, runArgs=None,
+        inVenv: bool = False, siteName: str  = None, realRunDriver: 'SiteRun' = None):
         """
         This helper function, not a member of the public interface, lets Python
         threading instantiate a SiteRunDriver of the correct subtype on demand.
@@ -124,7 +125,10 @@ class SiteRun(SitePillar):
         to reflectively instantiate a Site Run driver of the correct subtype,
         and then call its submitJob() method.
         """
-        runDriver = cls()
+        if inVenv:
+            runDriver = cls(siteName, realRunDriver)
+        else:
+            runDriver = cls()
         runDriver.submit(jobDefn, parentContext, computeType, runArgs)
 
     @abstractmethod

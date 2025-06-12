@@ -126,7 +126,17 @@ class LwfManager:
                    nativeInfo: str = None) -> None:
         if nativeStatusStr is None:
             nativeStatusStr = statusStr
-        return self._client.emitStatus(context, statusStr, nativeStatusStr, nativeInfo)
+        return self._client.emitStatus(context, statusStr,
+            nativeStatusStr, nativeInfo, False)
+
+
+    def _emitStatusFromEvent(self, context: JobContext,
+                   statusStr: str, nativeStatusStr: str = None,
+                   nativeInfo: str = None) -> None:
+        if nativeStatusStr is None:
+            nativeStatusStr = statusStr
+        return self._client.emitStatus(context, statusStr,
+            nativeStatusStr, nativeInfo, True)
 
 
     # Wait synchronously until the job reaches a terminal state, then return
