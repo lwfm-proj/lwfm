@@ -80,6 +80,10 @@ class LwfmEventProcessor:
 
 
     def _runAsyncOnSite(self, trigger: WorkflowEvent, context: JobContext) -> None:
+        """
+        Executed by the event processor in response to a job trigger being 
+        satisfied.
+        """
         # Deferred import to avoid circular dependencies
         from lwfm.midware.LwfManager import lwfManager
         site = lwfManager.getSite(trigger.getFireSite())
@@ -222,7 +226,8 @@ class LwfmEventProcessor:
                     self._loggingStore.putLogging("ERROR",
                                                   "Exception checking job event: " + str(ex1))
         except Exception as ex:
-            self._loggingStore.putLogging("ERROR", "Exception checking job events: " + str(ex))
+            self._loggingStore.putLogging("ERROR",
+                "Exception checking job events: " + str(ex))
         return gotOne
 
 
