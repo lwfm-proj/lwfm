@@ -4,6 +4,7 @@ Todo & misc notes
 ******************************************************************************
 + lwfm
     - site endpoints (#102)
+    - meta notate, LocalSite:233
     - inline docs esp. for .base & .midware (#84)
     - test data provenance (#78, #86)
     - import/export (#73)

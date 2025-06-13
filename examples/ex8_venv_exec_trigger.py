@@ -15,8 +15,7 @@ if __name__ == "__main__":
     site = lwfManager.getSite("local")
 
     job_defn = JobDefn("echo 'hello world'")
-    job_defn.setEntryPointType(JobDefn.ENTRY_TYPE_SHELL)    # site/app-specific string
-    job_status_A = site.getRunDriver().submit(job_defn, None)
+    job_status_A = site.getRunDriver().submit(job_defn)
     logger.info(f"lwfm job {job_status_A.getJobId()}")
 
     job_status_B = lwfManager.setEvent(

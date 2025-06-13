@@ -53,7 +53,7 @@ class LwfmEventProcessor:
         self._timer_lock = threading.Lock()
         self._eventStore = None
         self._jobStatusStore = None
-        self._loggingStore = None
+        self._loggingStore: LoggingStore = None
         self._timer = None
         self._eventHandlerMap = {}
         self._infoQueue = []
@@ -91,38 +91,73 @@ class LwfmEventProcessor:
         siteName = site.getSiteName()
         siteProps = SiteConfig.getSiteProperties(siteName)
         useVenv = siteProps.get('venv', False)
+        entryPointType = trigger.getFireDefn().getEntryPointType()
         if useVenv:
-            # venv Site - use SiteConfigVenv to execute in the venv
-            from lwfm.midware._impl.SiteConfigVenv import SiteConfigVenv
-            from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
+            if entryPointType == JobDefn.ENTRY_TYPE_SITE:
+                # venv Site - use SiteConfigVenv to execute in the venv
+                from lwfm.midware._impl.SiteConfigVenv import SiteConfigVenv
+                from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 
-            # Serialize the job definition and context for the venv execution
-            job_defn_serialized = ObjectSerializer.serialize(trigger.getFireDefn())
-            context_serialized = ObjectSerializer.serialize(context)
+                # Serialize the job definition and context for the venv execution
+                job_defn_serialized = ObjectSerializer.serialize(trigger.getFireDefn())
+                context_serialized = ObjectSerializer.serialize(context)
 
-            # Create the command to run in the venv
-            cmd = "" + \
-                "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
-                "from lwfm.midware.LwfManager import lwfManager; " + \
-                f"job_defn = ObjectSerializer.deserialize('{job_defn_serialized}'); " + \
-                f"context = ObjectSerializer.deserialize('{context_serialized}'); " + \
-                f"site = lwfManager.getSite('{siteName}'); " + \
-                "run_driver = site.getRunDriver(); " + \
-                "run_driver.submit(job_defn, context)"
-            # Execute in the venv
-            site_venv = SiteConfigVenv()
-            self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}")
-            site_venv.executeInProjectVenv(siteName, cmd)
+                # Create the command to run in the venv
+                cmd = "" + \
+                    "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+                    "from lwfm.midware.LwfManager import lwfManager; " + \
+                    f"job_defn = ObjectSerializer.deserialize('{job_defn_serialized}'); " + \
+                    f"context = ObjectSerializer.deserialize('{context_serialized}'); " + \
+                    "lwfManager.execSiteEndpoint(job_defn, context, False)"
+                # Execute in the venv
+                site_venv = SiteConfigVenv()
+                self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}")
+                site_venv.executeInProjectVenv(siteName, cmd)
+            else:
+                # venv Site - use SiteConfigVenv to execute in the venv
+                from lwfm.midware._impl.SiteConfigVenv import SiteConfigVenv
+                from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
+
+                # Serialize the job definition and context for the venv execution
+                job_defn_serialized = ObjectSerializer.serialize(trigger.getFireDefn())
+                context_serialized = ObjectSerializer.serialize(context)
+
+                # Create the command to run in the venv
+                cmd = "" + \
+                    "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+                    "from lwfm.midware.LwfManager import lwfManager; " + \
+                    f"job_defn = ObjectSerializer.deserialize('{job_defn_serialized}'); " + \
+                    f"context = ObjectSerializer.deserialize('{context_serialized}'); " + \
+                    f"site = lwfManager.getSite('{siteName}'); " + \
+                    "run_driver = site.getRunDriver(); " + \
+                    "run_driver.submit(job_defn, context)"
+                # Execute in the venv
+                site_venv = SiteConfigVenv()
+                self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}")
+                site_venv.executeInProjectVenv(siteName, cmd)
         else:
-            # Note: Comma is needed at end to make this a tuple. DO NOT REMOVE
-            thread = threading.Thread(
-                target=runDriver._submitJob,
-                args=(
-                    trigger.getFireDefn(),
-                    context,
-                    ),
-                )
-            thread.start()
+            if entryPointType == JobDefn.ENTRY_TYPE_SITE:
+                # Non-venv Site - use the run driver directly
+                # Note: Comma is needed at end to make this a tuple. DO NOT REMOVE
+                thread = threading.Thread(
+                    target=lwfManager.execSiteEndpoint,
+                    args=(
+                        trigger.getFireDefn(),
+                        context,
+                        ),
+                    )
+                thread.start()
+            else:
+                # Non-venv Site - use the run driver directly
+                # Note: Comma is needed at end to make this a tuple. DO NOT REMOVE
+                thread = threading.Thread(
+                    target=runDriver._submitJob,
+                    args=(
+                        trigger.getFireDefn(),
+                        context,
+                        ),
+                    )
+                thread.start()
 
     def _makeJobContext(self, trigger: JobEvent, parentContext: JobContext) -> JobContext:
         newContext = JobContext()
