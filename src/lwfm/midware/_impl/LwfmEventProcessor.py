@@ -97,23 +97,17 @@ class LwfmEventProcessor:
             context_serialized = ObjectSerializer.serialize(context)
 
             # Create the command to run in the venv
-            cmd = f"""
-from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
-from lwfm.midware.LwfManager import lwfManager
-
-# Deserialize the job definition and context
-job_defn = ObjectSerializer.deserialize('{job_defn_serialized}')
-context = ObjectSerializer.deserialize('{context_serialized}')
-
-# Get the site and run driver
-site = lwfManager.getSite('{siteName}')
-run_driver = site.getRunDriver()
-
-# Submit the job
-run_driver.submit(job_defn, context)
-"""
+            cmd = "" + \
+                "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
+                "from lwfm.midware.LwfManager import lwfManager; " + \
+                f"job_defn = ObjectSerializer.deserialize('{job_defn_serialized}'); " + \
+                f"context = ObjectSerializer.deserialize('{context_serialized}'); " + \
+                f"site = lwfManager.getSite('{siteName}'); " + \
+                "run_driver = site.getRunDriver(); " + \
+                "run_driver.submit(job_defn, context)"
             # Execute in the venv
             site_venv = SiteConfigVenv()
+            self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}")
             site_venv.executeInProjectVenv(siteName, cmd)
         else:
             # Note: Comma is needed at end to make this a tuple. DO NOT REMOVE

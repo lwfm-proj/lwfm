@@ -52,6 +52,9 @@ class SiteConfigVenv():
                 modified_cmd = script_path_cmd.replace("print(obj)",
                     "import sys; sys.stdout.write('RESULT_MARKER: ' + obj)")
 
+            with open('/tmp/out.out', 'a') as f:
+                f.write(f"cmd: {modified_cmd}\n")
+
             # execute a semicolon separated command in the virtual environment; this
             # includes an import statement and the method call
             process = subprocess.Popen([python_executable, "-c", modified_cmd],
@@ -65,8 +68,9 @@ class SiteConfigVenv():
             if process.returncode != 0:
                 # something bad happened in the subprocess
                 # we're going to give up the ghost - dump the stdout/err for debug
-                print(stdout)
-                print(stderr)
+                with open('/tmp/out.out', 'a') as f:
+                    f.write(stdout)
+                    f.write(stderr)
                 raise RuntimeError("executeInProjectVenv: failed with code: " + \
                             f"{process.returncode}")
 

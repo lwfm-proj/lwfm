@@ -17,8 +17,8 @@ class JobContext:
 
     def __init__(self):
         self._job_id = IdGenerator().generateId()
-        self._native_id = None      # important: can be set later
-        self._parent_job_id = self._job_id
+        self._native_id = self._job_id      # important: can be set later
+        self._parent_job_id = None
         self._workflow_id = self._job_id    # important: can be set later
         self._name = self._job_id           # important: can be set later
         self._compute_type = "default"
