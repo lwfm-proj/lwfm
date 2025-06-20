@@ -175,8 +175,8 @@ class LwfManager:
             return status
 
 
-    def execSiteEndpoint(self, jDefn: JobDefn, jobContext: Optional[JobContext],
-        emitStatus: bool = True):
+    def execSiteEndpoint(self, jDefn: JobDefn, jobContext: Optional[JobContext] = None,
+        emitStatus: Optional[bool] = True):
         """
         Execute a method on a site pillar object, using venv if needed.
         In essence this is an alternative means to call "site.get-pillar.get-method"().
@@ -184,14 +184,14 @@ class LwfManager:
         """
         if jDefn is None:
             logger.error("lwfManager: can't execute site endpoint - is none")
-            return False
+            return None
         if jDefn.getEntryPointType() != JobDefn.ENTRY_TYPE_SITE:
             logger.error("lwfManager: can't execute site endpoint - wrong type")
-            return False
+            return None
         entry_point = jDefn.getEntryPoint()
         if entry_point is None or '.' not in entry_point:
             logger.error(f"lwfManager: invalid site endpoint format: {entry_point}")
-            return False
+            return None
         if jobContext is None:
             jobContext = JobContext()
 
@@ -216,7 +216,7 @@ class LwfManager:
                 logger.error(f"lwfManager: method {site_method} not found or not callable")
                 if emitStatus:
                     self.emitStatus(jobContext, JobStatus.FAILED)
-                return False
+                return None
             args = jDefn.getJobArgs()
             if site_method == "submit":
                 newJobDefn = JobDefn(args[0], JobDefn.ENTRY_TYPE_STRING, args[1:])
@@ -233,7 +233,7 @@ class LwfManager:
                 self.emitStatus(jobContext, JobStatus.FAILED)
             logger.error("lwfManager: error executing site endpoint " + \
                 f"{jDefn.getEntryPoint()}: {str(ex)}")
-            return False
+            return None
 
 
     #***********************************************************************

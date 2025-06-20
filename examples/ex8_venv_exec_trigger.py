@@ -4,6 +4,8 @@ Test job triggers expressed in site endpoint shorthand.
 
 #pylint: disable=invalid-name
 
+import sys
+
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.WorkflowEvent import JobEvent
 from lwfm.base.JobStatus import JobStatus
@@ -11,7 +13,6 @@ from lwfm.midware.LwfManager import lwfManager, logger
 
 
 if __name__ == "__main__":
-    # get the site auth/run/repo/spin drivers for IBM Quantum Cloud
     site = lwfManager.getSite("local")
 
     job_defn = JobDefn("echo 'hello world'")
@@ -27,4 +28,9 @@ if __name__ == "__main__":
                     ".out"]),
                 "local-venv")                                   # using this site driver
     )
-    logger.info(f"result extraction set - see job log {job_status_B.getJobId()}.log")
+    if job_status_B is None:
+        logger.error("Failed to set job B event on job A")
+        sys.exit(1)
+    logger.info(f"job B {str(job_status_B)} set as a job event on A")
+    job_status_B = lwfManager.wait(job_status_B.getJobId())
+    logger.info(f"job B {str(job_status_B)} finished")

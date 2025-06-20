@@ -66,7 +66,7 @@ class JobEvent(WorkflowEvent):
         "when job <j1> reaches <state>, execute job <j2> on Site <s>"
     """
     def __init__(self, ruleJobId: str, ruleStatus: str,
-                 fireDefn: JobDefn, fireSite: str, fireJobId: str):
+                 fireDefn: JobDefn, fireSite: str, fireJobId: Optional[str] = None):
         super().__init__(fireDefn, fireSite, fireJobId)
         self._rule_job_id: str = ruleJobId
         self._rule_status: str = ruleStatus

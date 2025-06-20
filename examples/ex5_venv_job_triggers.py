@@ -1,7 +1,11 @@
 """
-demonstrate asynchronous job chaining
+demonstrate asynchronous job chaining using a venv site
+this is the same as the ex1 example, but using a site that is
+configured to run jobs in a virtual environment - good test might be refactor ex1 
+to take a site arg which might be venv, but the point was to keep the examples simple
 """
 
+import sys
 
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus
@@ -37,14 +41,20 @@ if __name__ == "__main__":
         JobEvent(statusA.getJobId(), JobStatus.COMPLETE,
                  JobDefn("echo date = `date` > " + dataFile), "local")
     )
-    logger.info(f"job B {statusB.getJobId()} set as a job event on A")
+    if statusB is None:
+        logger.error("Failed to set job B event on job A")
+        sys.exit(1)
+    logger.info(f"job B {str(statusB)} set as a job event on A")
 
     # when job B asynchronously gets to the COMPLETE state, fire job C
     statusC = lwfManager.setEvent(
         JobEvent(statusB.getJobId(), JobStatus.COMPLETE,
                  JobDefn(">&2 echo " + dataFile), "local")
     )
-    logger.info(f"job C {statusC.getJobId()} set as a job event on B")
+    if statusC is None:
+        logger.error("Failed to set job C event on job B")
+        sys.exit(1)
+    logger.info(f"job C {str(statusC)} set as a job event on B")
 
 
     # for the purposes of this example, let's wait synchronously on the
@@ -55,8 +65,8 @@ if __name__ == "__main__":
 
     # poll the final status for A, B, & C
     statusA = lwfManager.getStatus(statusA.getJobId())
-    logger.info(f"job A {statusA.getJobId()}", statusA)
     statusB = lwfManager.getStatus(statusB.getJobId())
-    logger.info(f"job B {statusB.getJobId()}", statusB)
     statusC = lwfManager.getStatus(statusC.getJobId())
-    logger.info(f"job C {statusC.getJobId()}", statusC)
+    logger.info(f"job A {str(statusA)}")
+    logger.info(f"job B {str(statusB)}")
+    logger.info(f"job C {str(statusC)}")

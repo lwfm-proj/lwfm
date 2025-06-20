@@ -117,7 +117,7 @@ class SiteRun(SitePillar):
     """
 
     @classmethod
-    def _submitJob(cls, jobDefn, parentContext, computeType, runArgs,
+    def _submitJob(cls, jobDefn, parentContext, computeType=None, runArgs=None,
         inVenv: bool = False, siteName: Optional[str] = None,
         realRunDriver: Optional['SiteRun'] = None) -> JobStatus:
         """
@@ -136,8 +136,8 @@ class SiteRun(SitePillar):
 
     @abstractmethod
     def submit(self, jobDefn: Union['JobDefn', str],
-        parentContext: Optional[Union[JobContext, Workflow, str]],
-        computeType: Optional[str], runArgs: Optional[Union[dict, str]]) -> JobStatus:
+        parentContext: Optional[Union[JobContext, Workflow, str]] = None,
+        computeType: Optional[str] = None, runArgs: Optional[Union[dict, str]] = None) -> JobStatus:
         """
         Submit the job for execution on this Site. It is an implementation
         detail of the Site what that means - everything from pseudo-immediate
@@ -221,8 +221,8 @@ class SiteRepo(SitePillar):
         self,
         localPath: str,
         siteObjPath: str,
-        jobContext: Union[JobContext, str],
-        metasheet: Optional[Union[Metasheet, str]]
+        jobContext: Optional[Union[JobContext, str]] = None,
+        metasheet: Optional[Union[Metasheet, str]] = None
     ) -> Optional[Metasheet]:
         pass
 
@@ -234,7 +234,7 @@ class SiteRepo(SitePillar):
         self,
         siteObjPath: str,
         localPath: str,
-        jobContext: Union[JobContext, str]
+        jobContext: Optional[Union[JobContext, str]] = None
     ) -> Optional[str]:
         pass
 
@@ -384,8 +384,8 @@ class _VenvSiteRunWrapper(SiteRun):
 
 
     def submit(self, jobDefn: Union['JobDefn', str],
-        parentContext: Optional[Union[JobContext, Workflow, str]],
-        computeType: Optional[str], runArgs: Optional[Union[dict, str]]) -> JobStatus:
+        parentContext: Optional[Union[JobContext, Workflow, str]] = None,
+        computeType: Optional[str] = None, runArgs: Optional[Union[dict, str]] = None) -> JobStatus:
         retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
@@ -435,7 +435,7 @@ class _NoopSiteRunWrapper(SiteRun):
         super().__init__()
         self._siteName = "NOOP_" + siteName
 
-    def submit(self, jobDefn, parentContext, computeType, runArgs):
+    def submit(self, jobDefn, parentContext=None, computeType=None, runArgs=None) -> JobStatus:
         return JobStatus()
 
     def getStatus(self, jobId: str) -> JobStatus:
@@ -463,8 +463,8 @@ class _VenvSiteRepoWrapper(SiteRepo):
         self,
         localPath: str,
         siteObjPath: str,
-        jobContext: Union[JobContext, str],
-        metasheet: Optional[Union[Metasheet, str]]
+        jobContext: Optional[Union[JobContext, str]] = None,
+        metasheet: Optional[Union[Metasheet, str]] = None
     ) -> Optional[Metasheet]:
         retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
@@ -483,7 +483,7 @@ class _VenvSiteRepoWrapper(SiteRepo):
         self,
         siteObjPath: str,
         localPath: str,
-        jobContext: Union[JobContext, str]
+        jobContext: Optional[Union[JobContext, str]] = None
     ) -> Optional[str]:
         retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
@@ -509,10 +509,10 @@ class _NoopSiteRepoWrapper(SiteRepo):
         super().__init__()
         self._siteName = "NOOP_" + siteName
 
-    def put(self, localPath, siteObjPath, jobContext, metasheet):
+    def put(self, localPath, siteObjPath, jobContext=None, metasheet=None):
         return None
 
-    def get(self, siteObjPath, localPath, jobContext):
+    def get(self, siteObjPath, localPath, jobContext=None):
         return None
 
 # *********************************************************************************
@@ -618,7 +618,7 @@ class Site:
         if self.isVenv():
             return _VenvSiteSpinWrapper(self.getSiteName(), str(self._spin_driver))
         if self._spin_driver is None:
-            return _NoopSiteSpinWrapper(self.getSiteName()) 
+            return _NoopSiteSpinWrapper(self.getSiteName())
         return cast(SiteSpin, self._spin_driver)
 
     def setSpinDriver(self, driver):

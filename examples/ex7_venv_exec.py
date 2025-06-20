@@ -2,6 +2,7 @@
 Demonstrate alternative site endpoint invocation via lwfManager.execSiteEndpoint()
 """
 
+from typing import cast
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus
 from lwfm.midware.LwfManager import lwfManager, logger
@@ -14,7 +15,10 @@ if __name__ == "__main__":
     jobDefn.setSiteName("local-venv")
 
     # alternative to invoking site interface
-    result: JobStatus = lwfManager.execSiteEndpoint(jobDefn)
+    result = lwfManager.execSiteEndpoint(jobDefn)
+    if result is None:
+        logger.error("Failed to execute job on site endpoint")
+    result = cast(JobStatus, result)
     logger.info(f"{result.getJobId()} {result.getStatus()}")
 
     # wait synchronously for it to finish

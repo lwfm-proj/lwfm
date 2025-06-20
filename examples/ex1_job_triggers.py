@@ -2,6 +2,7 @@
 demonstrate asynchronous job chaining
 """
 
+import sys
 
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus
@@ -37,6 +38,9 @@ if __name__ == "__main__":
         JobEvent(statusA.getJobId(), JobStatus.COMPLETE,
                  JobDefn("echo date = `date` > " + dataFile), "local")
     )
+    if statusB is None:
+        logger.error("Failed to set job B event on job A")
+        sys.exit(1)
     logger.info(f"job B {statusB.getJobId()} set as a job event on A")
 
     # when job B asynchronously gets to the COMPLETE state, fire job C
@@ -44,6 +48,9 @@ if __name__ == "__main__":
         JobEvent(statusB.getJobId(), JobStatus.COMPLETE,
                  JobDefn("echo " + dataFile), "local")
     )
+    if statusC is None:
+        logger.error("Failed to set job C event on job B")
+        sys.exit(1)
     logger.info(f"job C {statusC.getJobId()} set as a job event on B")
 
 
@@ -55,8 +62,8 @@ if __name__ == "__main__":
 
     # poll the final status for A, B, & C
     statusA = lwfManager.getStatus(statusA.getJobId())
-    logger.info(f"job A {statusA.getJobId()}", statusA)
     statusB = lwfManager.getStatus(statusB.getJobId())
-    logger.info(f"job B {statusB.getJobId()}", statusB)
     statusC = lwfManager.getStatus(statusC.getJobId())
-    logger.info(f"job C {statusC.getJobId()}", statusC)
+    logger.info(f"job A {str(statusA)}")
+    logger.info(f"job B {str(statusB)}")
+    logger.info(f"job C {str(statusC)}")

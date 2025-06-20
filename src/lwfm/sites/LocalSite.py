@@ -9,7 +9,7 @@ Purposefully unsecure, as this is local and we assume the user is themselves alr
 #pylint: disable = attribute-defined-outside-init
 
 import shutil
-from typing import List, Union, Optional
+from typing import List, Union, Optional, cast
 import os
 import subprocess
 import multiprocessing
@@ -106,8 +106,9 @@ class LocalSiteRun(SiteRun):
     # might run the job from an event trigger and thus know the job id a priori), or it can
     # be passed in sub rosa via the os environment
     def submit(self, jobDefn: Union[JobDefn, str],
-                parentContext: Optional[Union[JobContext, Workflow, str]],
-                computeType: Optional[str], runArgs: Optional[Union[dict, str]]) -> JobStatus:
+                parentContext: Optional[Union[JobContext, Workflow, str]]=None,
+                computeType: Optional[str]=None,
+                runArgs: Optional[Union[dict, str]]=None) -> JobStatus:
         # if we are passed a string, assume it is a job definition
         if isinstance(jobDefn, str):
             jobDefn = lwfManager.deserialize(jobDefn)
@@ -190,8 +191,8 @@ class LocalSiteRepo(SiteRepo):
         return True
 
     def put(self, localPath: str, siteObjPath: str,
-            jobContext: Union[JobContext, str],
-            metasheet: Optional[Union[Metasheet, str]]) -> Optional[Metasheet]:
+            jobContext: Optional[Union[JobContext, str]] = None,
+            metasheet: Optional[Union[Metasheet, str]] = None) -> Optional[Metasheet]:
         if isinstance(jobContext, str):
             jobContext = lwfManager.deserialize(jobContext)
         if isinstance(metasheet, str):
@@ -222,13 +223,15 @@ class LocalSiteRepo(SiteRepo):
         return None
 
     def get(self, siteObjPath: str, localPath: str,
-            jobContext: Union[JobContext, str]) -> Optional[str]:
+            jobContext: Optional[Union[JobContext, str]] = None) -> Optional[str]:
         if isinstance(jobContext, str):
             jobContext = lwfManager.deserialize(jobContext)
         context = jobContext
         if context is None:
             context = JobContext()
             lwfManager.emitStatus(context, JobStatus.RUNNING)
+        else:
+            context = cast(JobContext, context)
         success = True
         if (siteObjPath is not None) and (localPath is not None):
             # copy the file from siteObjPath to localPath
