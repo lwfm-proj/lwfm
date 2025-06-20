@@ -5,6 +5,7 @@ Helper for venv handling
 
 import os
 import subprocess
+from typing import Optional
 
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 from lwfm.midware._impl.SiteConfig import SiteConfig
@@ -20,13 +21,12 @@ class SiteConfigVenv():
         Construct the path to the virtual environment used to run the Site driver.
         """
         props = SiteConfig.getSiteProperties(siteName)
-        if props['venv']:
+        if props is not None and props.get('venv'):
             return os.path.expanduser(props['venv'])
         return os.path.join(os.getcwd(), ".venv")
 
 
-
-    def executeInProjectVenv(self, siteName: str, script_path_cmd: str = None) -> str:
+    def executeInProjectVenv(self, siteName: str, script_path_cmd: str) -> Optional[str]:
         """
         Run a command in a virtual environment, used to run canonical Site methods.
         Arbitrary scripts can subsequently be run via Site.Run.submit().
@@ -52,7 +52,7 @@ class SiteConfigVenv():
                 modified_cmd = script_path_cmd.replace("print(obj)",
                     "import sys; sys.stdout.write('RESULT_MARKER: ' + obj)")
 
-            with open('/tmp/out.out', 'a') as f:
+            with open('/tmp/out.out', 'a', encoding='utf-8') as f:
                 f.write(f"cmd: {modified_cmd}\n")
 
             # execute a semicolon separated command in the virtual environment; this
@@ -68,7 +68,7 @@ class SiteConfigVenv():
             if process.returncode != 0:
                 # something bad happened in the subprocess
                 # we're going to give up the ghost - dump the stdout/err for debug
-                with open('/tmp/out.out', 'a') as f:
+                with open('/tmp/out.out', 'a', encoding='utf-8') as f:
                     f.write(stdout)
                     f.write(stderr)
                 raise RuntimeError("executeInProjectVenv: failed with code: " + \

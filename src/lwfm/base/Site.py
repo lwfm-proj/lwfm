@@ -17,12 +17,13 @@ list of sites provided here with a user's own custom Site implementations.
 """
 
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
-#pylint: disable = broad-exception-caught, broad-exception-raised
+#pylint: disable = broad-exception-caught, broad-exception-raised, protected-access
 
 from abc import ABC, abstractmethod
 
 import json
-from typing import List, TYPE_CHECKING, Union
+from typing import List, TYPE_CHECKING, Union, Optional, cast
+
 
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
@@ -40,7 +41,7 @@ if TYPE_CHECKING:
 
 # ***************************************************************************
 class SitePillar(ABC):
-    _siteName : str = None
+    _siteName : str = ""
 
     def setSiteName(self, siteName: str) -> None:
         self._siteName = siteName
@@ -116,8 +117,9 @@ class SiteRun(SitePillar):
     """
 
     @classmethod
-    def _submitJob(cls, jobDefn, parentContext=None, computeType=None, runArgs=None,
-        inVenv: bool = False, siteName: str  = None, realRunDriver: 'SiteRun' = None):
+    def _submitJob(cls, jobDefn, parentContext, computeType, runArgs,
+        inVenv: bool = False, siteName: Optional[str] = None,
+        realRunDriver: Optional['SiteRun'] = None) -> JobStatus:
         """
         This helper function, not a member of the public interface, lets Python
         threading instantiate a SiteRunDriver of the correct subtype on demand.
@@ -126,15 +128,16 @@ class SiteRun(SitePillar):
         and then call its submitJob() method.
         """
         if inVenv:
-            runDriver = cls(siteName, realRunDriver)
+            runDriver = cls(siteName, realRunDriver)    #type: ignore
         else:
             runDriver = cls()
-        runDriver.submit(jobDefn, parentContext, computeType, runArgs)
+        return runDriver.submit(jobDefn, parentContext, computeType, runArgs)
+
 
     @abstractmethod
     def submit(self, jobDefn: Union['JobDefn', str],
-        parentContext: Union[JobContext, Workflow, str] = None,
-        computeType: str = None, runArgs: Union[dict, str] = None) -> JobStatus:
+        parentContext: Optional[Union[JobContext, Workflow, str]],
+        computeType: Optional[str], runArgs: Optional[Union[dict, str]]) -> JobStatus:
         """
         Submit the job for execution on this Site. It is an implementation
         detail of the Site what that means - everything from pseudo-immediate
@@ -218,9 +221,9 @@ class SiteRepo(SitePillar):
         self,
         localPath: str,
         siteObjPath: str,
-        jobContext: Union[JobContext, str] = None,
-        metasheet: Union[Metasheet, str] = None
-    ) -> Metasheet:
+        jobContext: Union[JobContext, str],
+        metasheet: Optional[Union[Metasheet, str]]
+    ) -> Optional[Metasheet]:
         pass
 
 
@@ -231,13 +234,8 @@ class SiteRepo(SitePillar):
         self,
         siteObjPath: str,
         localPath: str,
-        jobContext: Union[JobContext, str] = None
-    ) -> str:
-        pass
-
-    # find metasheets by query
-    @abstractmethod
-    def find(self, queryRegExs: Union[dict, str]) -> List[Metasheet]:
+        jobContext: Union[JobContext, str]
+    ) -> Optional[str]:
         pass
 
 
@@ -322,7 +320,9 @@ class _VenvSiteAuthWrapper(SiteAuth):
             f"obj = driver.login({force}); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
-        return ObjectSerializer.deserialize(retVal)
+        if retVal is not None:
+            return ObjectSerializer.deserialize(retVal)
+        return False
 
     def isAuthCurrent(self) -> bool:
         retVal = self._siteConfigVenv.executeInProjectVenv(
@@ -332,7 +332,27 @@ class _VenvSiteAuthWrapper(SiteAuth):
             "obj = driver.isAuthCurrent(); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
-        return ObjectSerializer.deserialize(retVal)
+        if retVal is not None:
+            return ObjectSerializer.deserialize(retVal)
+        return False
+
+
+class _NoopSiteAuthWrapper(SiteAuth):
+    """
+    A no-op Auth driver for a Site which does not require authentication.
+    This is used for local sites or other sites which do not require
+    authentication.
+    """
+
+    def __init__(self, siteName: str) -> None:
+        super().__init__()
+        self._siteName = "NOOP_" + siteName
+
+    def login(self, force: bool = False) -> bool:
+        return True
+
+    def isAuthCurrent(self) -> bool:
+        return True
 
 
 # *********************************************************************************
@@ -349,9 +369,23 @@ class _VenvSiteRunWrapper(SiteRun):
         self._siteConfigVenv = SiteConfigVenv()
 
 
+    def _unknownJobStatus(self, jobId: Optional[str] = None) -> JobStatus:
+        """
+        Return a JobStatus with an UNKNOWN status. This is used when the
+        SiteRun driver cannot determine the status of a job.
+        """
+        jobStatus = JobStatus()
+        if jobId is not None:
+            context = JobContext()
+            context.setJobId(jobId)
+            jobStatus.setJobContext(context)
+        jobStatus._status = JobStatus.UNKNOWN
+        return jobStatus
+
+
     def submit(self, jobDefn: Union['JobDefn', str],
-        parentContext: Union[JobContext, Workflow, str] = None,
-        computeType: str = None, runArgs: Union[dict, str] = None) -> JobStatus:
+        parentContext: Optional[Union[JobContext, Workflow, str]],
+        computeType: Optional[str], runArgs: Optional[Union[dict, str]]) -> JobStatus:
         retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
@@ -361,7 +395,9 @@ class _VenvSiteRunWrapper(SiteRun):
             f"{self._siteConfigVenv.makeArgWrapper(runArgs)}); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
-        return ObjectSerializer.deserialize(retVal)
+        if retVal is not None:
+            return ObjectSerializer.deserialize(retVal)
+        return self._unknownJobStatus()
 
     def getStatus(self, jobId: str) -> JobStatus:
         retVal = self._siteConfigVenv.executeInProjectVenv(
@@ -371,7 +407,10 @@ class _VenvSiteRunWrapper(SiteRun):
             f"obj = driver.getStatus('{jobId}'); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
-        return ObjectSerializer.deserialize(retVal)
+        if retVal is not None:
+            return ObjectSerializer.deserialize(retVal)
+        return self._unknownJobStatus(jobId)
+
 
     def cancel(self, jobContext: Union[JobContext, str]) -> bool:
         retVal = self._siteConfigVenv.executeInProjectVenv(
@@ -381,7 +420,29 @@ class _VenvSiteRunWrapper(SiteRun):
             f"obj = driver.cancel({self._siteConfigVenv.makeArgWrapper(jobContext)}); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
-        return ObjectSerializer.deserialize(retVal)
+        if retVal is not None:
+            return ObjectSerializer.deserialize(retVal)
+        return False
+
+class _NoopSiteRunWrapper(SiteRun):
+    """
+    A no-op Run driver for a Site which does not require job submission or
+    management. This is used for local sites or other sites which do not
+    require job management.
+    """
+
+    def __init__(self, siteName: str) -> None:
+        super().__init__()
+        self._siteName = "NOOP_" + siteName
+
+    def submit(self, jobDefn, parentContext, computeType, runArgs):
+        return JobStatus()
+
+    def getStatus(self, jobId: str) -> JobStatus:
+        return JobStatus()
+
+    def cancel(self, jobContext: Union[JobContext, str]) -> bool:
+        return True
 
 
 # *********************************************************************************
@@ -402,9 +463,9 @@ class _VenvSiteRepoWrapper(SiteRepo):
         self,
         localPath: str,
         siteObjPath: str,
-        jobContext: Union[JobContext, str] = None,
-        metasheet: Union[Metasheet, str] = None
-    ) -> Metasheet:
+        jobContext: Union[JobContext, str],
+        metasheet: Optional[Union[Metasheet, str]]
+    ) -> Optional[Metasheet]:
         retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
@@ -414,14 +475,16 @@ class _VenvSiteRepoWrapper(SiteRepo):
             f"{self._siteConfigVenv.makeArgWrapper(metasheet)}); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
-        return ObjectSerializer.deserialize(retVal)
+        if retVal is not None:
+            return ObjectSerializer.deserialize(retVal)
+        return None
 
     def get(
         self,
         siteObjPath: str,
         localPath: str,
-        jobContext: Union[JobContext, str] = None
-    ) -> str:
+        jobContext: Union[JobContext, str]
+    ) -> Optional[str]:
         retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
@@ -430,18 +493,27 @@ class _VenvSiteRepoWrapper(SiteRepo):
             f"{self._siteConfigVenv.makeArgWrapper(jobContext)}); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
-        return ObjectSerializer.deserialize(retVal)
+        if retVal is not None:
+            return ObjectSerializer.deserialize(retVal)
+        return None
 
-    def find(self, queryRegExs: dict) -> List[Metasheet]:
-        retVal = self._siteConfigVenv.executeInProjectVenv(
-            self._siteName,
-            "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
-            f"driver = ObjectSerializer.deserialize('{self._realRepoDriver}'); " + \
-            f"obj = driver.find({self._siteConfigVenv.makeArgWrapper(queryRegExs)}); " + \
-            f"{self._siteConfigVenv.makeSerializeReturnString()}"
-        )
-        return ObjectSerializer.deserialize(retVal)
 
+class _NoopSiteRepoWrapper(SiteRepo):
+    """
+    A no-op Repo driver for a Site which does not require file management.
+    This is used for local sites or other sites which do not require file
+    management.
+    """
+
+    def __init__(self, siteName: str) -> None:
+        super().__init__()
+        self._siteName = "NOOP_" + siteName
+
+    def put(self, localPath, siteObjPath, jobContext, metasheet):
+        return None
+
+    def get(self, siteObjPath, localPath, jobContext):
+        return None
 
 # *********************************************************************************
 
@@ -461,7 +533,24 @@ class _VenvSiteSpinWrapper(SiteSpin):
             "obj = driver.listComputeTypes(); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
-        return ObjectSerializer.deserialize(retVal)
+        if retVal is not None:
+            return ObjectSerializer.deserialize(retVal)
+        return []
+
+class _NoopSiteSpinWrapper(SiteSpin):
+    """
+    A no-op Spin driver for a Site which does not require resource management.
+    This is used for local sites or other sites which do not require resource
+    management.
+    """
+
+    def __init__(self, siteName: str) -> None:
+        super().__init__()
+        self._siteName = "NOOP_" + siteName
+
+    def listComputeTypes(self) -> List[str]:
+        return []
+
 
 
 # *********************************************************************************
@@ -476,53 +565,61 @@ class _VenvSiteSpinWrapper(SiteSpin):
 
 
 class Site:
-    def __init__(self, site_name: str = None,
-                auth_driver: Union[SiteAuth, str] = None,
-                run_driver: Union[SiteRun, str] = None,
-                repo_driver: Union[SiteRepo, str] = None,
-                spin_driver: Union[SiteSpin, str] = None):
-        self._site_name = site_name
-        self._auth_driver = auth_driver
-        self._run_driver = run_driver
-        self._repo_driver = repo_driver
-        self._spin_driver = spin_driver
+    def __init__(self, site_name: Optional[str],
+                auth_driver: Optional[Union[SiteAuth, str]] = None,
+                run_driver: Optional[Union[SiteRun, str]] = None,
+                repo_driver: Optional[Union[SiteRepo, str]] = None,
+                spin_driver: Optional[Union[SiteSpin, str]] = None):
+        self._site_name: str = site_name or ""
+        self._auth_driver = auth_driver or ""
+        self._run_driver = run_driver or ""
+        self._repo_driver = repo_driver or ""
+        self._spin_driver = spin_driver or ""
         self._remote = False
         self._venv = False
 
-    def getSiteName(self):
+    def getSiteName(self) -> str:
         return self._site_name
 
     def setSiteName(self, name):
         self._site_name = name
 
-    def getAuthDriver(self):
+    def getAuthDriver(self) -> SiteAuth:
         if self.isVenv():
-            return _VenvSiteAuthWrapper(self.getSiteName(), self._auth_driver)
-        return self._auth_driver
+            return _VenvSiteAuthWrapper(self.getSiteName(), str(self._auth_driver))
+        if self._auth_driver is None:
+            return _NoopSiteAuthWrapper(self.getSiteName())
+        return cast(SiteAuth, self._auth_driver)
 
     def setAuthDriver(self, driver):
         self._auth_driver = driver
 
-    def getRunDriver(self):
+    def getRunDriver(self) -> SiteRun:
         if self.isVenv():
-            return _VenvSiteRunWrapper(self.getSiteName(), self._run_driver)
-        return self._run_driver
+            return _VenvSiteRunWrapper(self.getSiteName(), str(self._run_driver))
+        if self._run_driver is None:
+            return _NoopSiteRunWrapper(self.getSiteName())
+        return cast(SiteRun, self._run_driver)
 
     def setRunDriver(self, driver):
         self._run_driver = driver
 
-    def getRepoDriver(self):
+    def getRepoDriver(self) -> SiteRepo:
         if self.isVenv():
-            return _VenvSiteRepoWrapper(self.getSiteName(), self._repo_driver)
-        return self._repo_driver
+            return _VenvSiteRepoWrapper(self.getSiteName(), str(self._repo_driver))
+        if self._repo_driver is None:
+            return _NoopSiteRepoWrapper(self.getSiteName())
+        return cast(SiteRepo, self._repo_driver)
 
     def setRepoDriver(self, driver):
         self._repo_driver = driver
 
-    def getSpinDriver(self):
+    def getSpinDriver(self) -> SiteSpin:
         if self.isVenv():
-            return _VenvSiteSpinWrapper(self.getSiteName(), self._spin_driver)
-        return self._spin_driver
+            return _VenvSiteSpinWrapper(self.getSiteName(), str(self._spin_driver))
+        if self._spin_driver is None:
+            return _NoopSiteSpinWrapper(self.getSiteName()) 
+        return cast(SiteSpin, self._spin_driver)
 
     def setSpinDriver(self, driver):
         self._spin_driver = driver

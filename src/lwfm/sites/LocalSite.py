@@ -9,7 +9,7 @@ Purposefully unsecure, as this is local and we assume the user is themselves alr
 #pylint: disable = attribute-defined-outside-init
 
 import shutil
-from typing import List, Union
+from typing import List, Union, Optional
 import os
 import subprocess
 import multiprocessing
@@ -42,7 +42,7 @@ class LocalSiteRun(SiteRun):
     _pendingJobs = {}
 
     def getStatus(self, jobId: str) -> JobStatus:
-        return lwfManager.getStatus(jobId)
+        return lwfManager.getStatus(jobId) # type: ignore
 
     # at this point we have emitted initial status and have a job id
     # we're about to spawn a subprocess locally to run the job
@@ -55,11 +55,15 @@ class LocalSiteRun(SiteRun):
         try:
             # This is synchronous, so we wait here until the subprocess is over.
             cmd = jDefn.getEntryPoint()
+            if cmd is None:
+                lwfManager.emitStatus(jobContext, JobStatus.FAILED)
+                logger.error("ERROR: Job definition has no entry point")
+                return
             if jDefn.getEntryPointType() == JobDefn.ENTRY_TYPE_SHELL or \
                 jDefn.getEntryPointType() == JobDefn.ENTRY_TYPE_STRING:
                 if jDefn.getJobArgs() is not None:
                     for arg in jDefn.getJobArgs():
-                        cmd += " " + arg
+                        cmd += " " + str(arg)
             elif jDefn.getEntryPointType() == JobDefn.ENTRY_TYPE_SITE:
                 # this is a common function - delegate it to the lwfManager
                 lwfManager.execSiteEndpoint(jDefn, jobContext, False)
@@ -102,8 +106,8 @@ class LocalSiteRun(SiteRun):
     # might run the job from an event trigger and thus know the job id a priori), or it can
     # be passed in sub rosa via the os environment
     def submit(self, jobDefn: Union[JobDefn, str],
-               parentContext: Union[JobContext, Workflow, str] = None,
-        computeType: str = None, runArgs: Union[dict, str] = None) -> JobStatus:
+                parentContext: Optional[Union[JobContext, Workflow, str]],
+                computeType: Optional[str], runArgs: Optional[Union[dict, str]]) -> JobStatus:
         # if we are passed a string, assume it is a job definition
         if isinstance(jobDefn, str):
             jobDefn = lwfManager.deserialize(jobDefn)
@@ -115,7 +119,13 @@ class LocalSiteRun(SiteRun):
             # this is the local Run driver - there is not (as yet) any concept of
             # "computeType" or "runArgs" as there might be on another more complex
             # site (e.g. HPC scheduler, cloud, etc.)
-            if parentContext is None:
+            if isinstance(parentContext, JobContext):
+                useContext = parentContext
+            elif isinstance(parentContext, Workflow):
+                useContext = JobContext()
+                useContext.setWorkflowId(parentContext.getWorkflowId())
+                useContext.setName(parentContext.getName() or "")
+            else:
                 # we don't know our job id - it wasn't passed in
                 # check the environment
                 useContext = lwfManager._getJobContextFromEnv()
@@ -124,12 +134,6 @@ class LocalSiteRun(SiteRun):
                     useContext = JobContext()
                     # assert readiness
                     lwfManager.emitStatus(useContext, JobStatus.READY)
-            elif isinstance(parentContext, JobContext):
-                useContext = parentContext
-            elif isinstance(parentContext, Workflow):
-                useContext = JobContext()
-                useContext.setWorkflowId(parentContext.getWorkflowId())
-                useContext.setName(parentContext.getName())
 
             # horse at the gate...
             lwfManager.emitStatus(useContext, JobStatus.PENDING)
@@ -145,11 +149,11 @@ class LocalSiteRun(SiteRun):
             return lwfManager.getStatus(useContext.getJobId())
         except Exception as ex:
             logger.error(f"ERROR: Could not submit job {ex}")
-            return None
+            raise ex
 
 
     def cancel(self, jobContext: Union[JobContext, str]) -> bool:
-        pass
+        return False
         # # Find the locally running thread and kill it
         # try:
         #     thread = self._pendingJobs[jobContext.getId()]
@@ -186,11 +190,13 @@ class LocalSiteRepo(SiteRepo):
         return True
 
     def put(self, localPath: str, siteObjPath: str,
-            jobContext: Union[JobContext, str] = None,
-            metasheet: Union[Metasheet, str] = None) -> Metasheet:
+            jobContext: Union[JobContext, str],
+            metasheet: Optional[Union[Metasheet, str]]) -> Optional[Metasheet]:
         if isinstance(jobContext, str):
             jobContext = lwfManager.deserialize(jobContext)
-        context = jobContext
+        if isinstance(metasheet, str):
+            metasheet = lwfManager.deserialize(metasheet)
+        context: JobContext = jobContext  #type: ignore
         if context is None:
             context = JobContext()
         if jobContext is None:
@@ -206,7 +212,8 @@ class LocalSiteRepo(SiteRepo):
         if success:
             if jobContext is None:
                 lwfManager.emitStatus(context, JobStatus.FINISHING)
-            sheet = lwfManager.notatePut(localPath, siteObjPath, context, metasheet)
+            sheet = lwfManager._notatePut(self.getSiteName(), localPath, siteObjPath,
+                                          context, metasheet)  #type: ignore
             if jobContext is None:
                 lwfManager.emitStatus(context, JobStatus.COMPLETE)
             return sheet
@@ -215,7 +222,7 @@ class LocalSiteRepo(SiteRepo):
         return None
 
     def get(self, siteObjPath: str, localPath: str,
-            jobContext: Union[JobContext, str] = None) -> str:
+            jobContext: Union[JobContext, str]) -> Optional[str]:
         if isinstance(jobContext, str):
             jobContext = lwfManager.deserialize(jobContext)
         context = jobContext
@@ -238,11 +245,6 @@ class LocalSiteRepo(SiteRepo):
             lwfManager.emitStatus(context, JobStatus.FAILED,
                 JobStatus.FAILED)
         return None
-
-    def find(self, queryRegExs: Union[dict ,str]) -> List[Metasheet]:
-        if isinstance(queryRegExs, str):
-            queryRegExs = lwfManager.deserialize(queryRegExs)
-        return lwfManager.find(queryRegExs)
 
 
 # ************************************************************************

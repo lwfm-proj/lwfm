@@ -3,6 +3,7 @@ start the lwfm middleware
 """
 
 #pylint: disable = invalid-name, broad-exception-caught, unused-argument, protected-access
+#pylint: disable = global-statement, global-variable-not-assigned
 
 import signal
 import sys
@@ -14,13 +15,13 @@ import requests
 
 from lwfm.midware._impl.SiteConfig import SiteConfig
 
-# try and limit concurrency - we only need one instance of the services running on 
-# a published host/port. the SiteConfig contains the host and port, and if not, we 
+# try and limit concurrency - we only need one instance of the services running on
+# a published host/port. the SiteConfig contains the host and port, and if not, we
 # use localhost and a known port.
 
-# semaphore for locking 
+# semaphore for locking
 _middleware_lock = threading.Lock()
-# we lock this variable 
+# we lock this variable
 _starting_middleware = False
 # track the instance of the REST service - there are other processes, but we track this one
 _middleware_process = None
@@ -158,7 +159,7 @@ class SvcLauncher:
             return 0
 
         try:
-            print(f"*** lwfm server not already running - proceeding with launch")
+            print("*** lwfm server not already running - proceeding with launch")
 
             project_root = os.path.abspath(os.getcwd())
 
@@ -198,21 +199,20 @@ except Exception as e:
 """
 
             print("*** launch cmd: " + flask_script)
-
             log_file_path = os.path.expanduser(SiteConfig.getLogFilename() + "/midware.log")
             os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
 
             # Run the Flask app in a subprocess (asynchronously) in detached mode
-            _middleware_process = subprocess.Popen(
-                [sys.executable, '-c', flask_script],
-                stdout=open(log_file_path, 'a'),
-                stderr=subprocess.STDOUT,
-                stdin=subprocess.DEVNULL,
-                # Add these lines to ensure proper environment inheritance
-                env=os.environ.copy(),
-                start_new_session=True  # Important for proper process group handling
-            )
-
+            with open(log_file_path, 'a', encoding='utf-8') as log_file:
+                _middleware_process = subprocess.Popen(
+                    [sys.executable, '-c', flask_script],
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.DEVNULL,
+                    # Add these lines to ensure proper environment inheritance
+                    env=os.environ.copy(),
+                    start_new_session=True  # Important for proper process group handling
+                )
             print(f"*** lwfm server process started, PID: {_middleware_process.pid}")
             print("*** allowing time for initialization...")
             # Try to ensure server is actually ready
@@ -223,7 +223,6 @@ except Exception as e:
                 time.sleep(10)  # Extra seconds wait after server reports ready
                 print("*** lwfm server initialization wait complete")
                 print("*** READY to process jobs.")
-
             return _middleware_process
         finally:
             with _middleware_lock:

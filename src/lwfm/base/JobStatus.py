@@ -7,7 +7,7 @@ It is emitted within the job's context.
 #pylint: disable = invalid-name, broad-exception-caught, line-too-long
 
 import datetime
-
+from typing import Optional
 
 from lwfm.midware._impl.IdGenerator import IdGenerator
 
@@ -46,14 +46,14 @@ class JobStatus:
     CANCELLED = "CANCELLED"  # terminal state
 
 
-    def __init__(self, jobContext: JobContext = None):
+    def __init__(self, jobContext: Optional[JobContext] = None):
         self._status_id = IdGenerator().generateId()
         self._status = JobStatus.UNKNOWN
         self._native_status = None
         self._emit_time = datetime.datetime.now(datetime.timezone.utc)
         self._received_time = None
         self._native_info = None
-        self._context = jobContext
+        self._context = jobContext if jobContext is not None else JobContext()
         self._status_map = {
             "UNKNOWN": JobStatus.UNKNOWN,
             "READY": JobStatus.READY,
@@ -76,6 +76,8 @@ class JobStatus:
         self._context = jobContext
 
     def getJobId(self) -> str:
+        if self._context is None:
+            return None # type: ignore
         return self._context.getJobId()
 
     def setStatus(self, status: str) -> None:
@@ -87,7 +89,7 @@ class JobStatus:
     def setNativeStatusStr(self, status: str) -> None:
         self._native_status = status
 
-    def getNativeStatusStr(self) -> str:
+    def getNativeStatusStr(self) -> Optional[str]:
         return self._native_status
 
     def setNativeStatus(self, nativeStatus: str) -> None:
@@ -95,7 +97,10 @@ class JobStatus:
 
     def mapNativeStatus(self) -> None:
         try:
-            self._status = self._status_map[self._native_status]
+            if self._native_status is not None:
+                self._status = self._status_map[self._native_status]
+            else:
+                self._status = JobStatus.UNKNOWN
         except Exception:
             self._status = JobStatus.UNKNOWN
 
@@ -105,22 +110,22 @@ class JobStatus:
     def setStatusMap(self, statusMap: dict) -> None:
         self._status_map = statusMap
 
-    def setEmitTime(self, emitTime: datetime) -> None:
+    def setEmitTime(self, emitTime: datetime.datetime) -> None:
         self._emit_time = emitTime
 
-    def getEmitTime(self) -> datetime:
+    def getEmitTime(self) -> datetime.datetime:
         return self._emit_time
 
-    def setReceivedTime(self, receivedTime: datetime) -> None:
+    def setReceivedTime(self, receivedTime: datetime.datetime) -> None:
         self._received_time = receivedTime
 
-    def getReceivedTime(self) -> datetime:
+    def getReceivedTime(self) -> Optional[datetime.datetime]:
         return self._received_time
 
     def setNativeInfo(self, info: str) -> None:
         self._native_info = info
 
-    def getNativeInfo(self) -> str:
+    def getNativeInfo(self) -> Optional[str]:
         return self._native_info
 
     def isTerminalSuccess(self) -> bool:

@@ -4,8 +4,8 @@ Regularize handling of object (de)serialization.
 
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
 
-import dill
 import base64
+import dill
 
 class ObjectSerializer:
 

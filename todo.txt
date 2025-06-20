@@ -3,7 +3,8 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    - site endpoints (#102)
+    - IBM driver Repo put / get with non-optional jobContext, run submit, _submit
+    - site endpoints - return values 
     - meta notate, LocalSite:233, IBMQuantumSite.get
     - inline docs esp. for .base & .midware (#84)
     - test data provenance (#78, #86)

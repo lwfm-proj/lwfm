@@ -9,7 +9,7 @@ event handlers, and notating provenancial metadata.
 
 import time
 import os
-from typing import List
+from typing import List, Optional
 
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.JobContext import JobContext
@@ -69,11 +69,13 @@ class LwfManager:
         return SiteConfig.getSiteProperties(site)
 
 
-    def getSite(self, site: str = "local") -> 'Site':
+    def getSite(self, site: Optional[str]) -> 'Site':
         """
         Get a Site instance. Look it up in the site TOML, instantiate it, potentially 
         overriding its default Site Pillars with provided drivers.
         """
+        if site is None or site == "":
+            site = "local"
         return SiteConfigBuilder.getSite(site)
 
 
@@ -89,10 +91,10 @@ class LwfManager:
     #***********************************************************************
     # workflow methods
 
-    def putWorkflow(self, workflow: Workflow) -> str:
+    def putWorkflow(self, workflow: Workflow) -> Optional[str]:
         return self._client.putWorkflow(workflow)
 
-    def getWorkflow(self, workflow_id: str) -> Workflow:
+    def getWorkflow(self, workflow_id: str) -> Optional[Workflow]:
         return self._client.getWorkflow(workflow_id)
 
 
@@ -101,14 +103,14 @@ class LwfManager:
 
     # given a job id, get back the current status
     def getStatus(self, jobId: str) -> JobStatus:
-        return self._client.getStatus(jobId)
+        return self._client.getStatus(jobId) or None # type: ignore
 
 
-    def getAllStatus(self, jobId: str) -> [JobStatus]:
+    def getAllStatus(self, jobId: str) -> Optional[List[JobStatus]]:
         return self._client.getAllStatus(jobId)
 
 
-    def _getJobContextFromEnv(self) -> JobContext:
+    def _getJobContextFromEnv(self) -> Optional[JobContext]:
         # see if we got passed in a job id in the os environment
         if '_LWFM_JOB_ID' in os.environ:
             status = self.getStatus(os.environ['_LWFM_JOB_ID'])
@@ -122,17 +124,17 @@ class LwfManager:
 
     # emit a status message
     def emitStatus(self, context: JobContext,
-                   statusStr: str, nativeStatusStr: str = None,
-                   nativeInfo: str = None) -> None:
+                   statusStr: str, nativeStatusStr: Optional[str] = None,
+                   nativeInfo: Optional[str] = None) -> None:
         if nativeStatusStr is None:
             nativeStatusStr = statusStr
         return self._client.emitStatus(context, statusStr,
-            nativeStatusStr, nativeInfo, False)
+            nativeStatusStr, nativeInfo or "", False)
 
 
     def _emitStatusFromEvent(self, context: JobContext,
-                   statusStr: str, nativeStatusStr: str = None,
-                   nativeInfo: str = None) -> None:
+                   statusStr: str, nativeStatusStr: str,
+                   nativeInfo: str) -> None:
         if nativeStatusStr is None:
             nativeStatusStr = statusStr
         return self._client.emitStatus(context, statusStr,
@@ -141,16 +143,18 @@ class LwfManager:
 
     # Wait synchronously until the job reaches a terminal state, then return
     # that state.  Uses a progressive sleep time to avoid polling too frequently.
-    def wait(self, jobId: str) -> JobStatus:  # return JobStatus when the job is done
+    def wait(self, jobId: str) -> JobStatus:  # type: ignore
+        status: JobStatus = self.getStatus(jobId)
+        if status is None:
+            return None
+        if status.isTerminal():
+            # we're done waiting
+            return status
         try:
             increment = 3
             w_sum = 1
             w_max = 60
             maxMax = 6000
-            status = self.getStatus(jobId)
-            if status is not None and status.isTerminal():
-                # we're done waiting
-                return status
             doneWaiting = False
             while not doneWaiting:
                 time.sleep(w_sum)
@@ -164,12 +168,14 @@ class LwfManager:
                 if status is not None and status.isTerminal():
                     return status
         except Exception as ex:
+            if status is None:
+                return None
             status.setNativeStatus("UNKNOWN")
             status.setNativeInfo(str(ex))
             return status
 
 
-    def execSiteEndpoint(self, jDefn: JobDefn, jobContext: JobContext = None,
+    def execSiteEndpoint(self, jDefn: JobDefn, jobContext: Optional[JobContext],
         emitStatus: bool = True):
         """
         Execute a method on a site pillar object, using venv if needed.
@@ -182,8 +188,9 @@ class LwfManager:
         if jDefn.getEntryPointType() != JobDefn.ENTRY_TYPE_SITE:
             logger.error("lwfManager: can't execute site endpoint - wrong type")
             return False
-        if '.' not in jDefn.getEntryPoint():
-            logger.error(f"lwfManager: invalid site endpoint format: {jDefn.getEntryPoint()}")
+        entry_point = jDefn.getEntryPoint()
+        if entry_point is None or '.' not in entry_point:
+            logger.error(f"lwfManager: invalid site endpoint format: {entry_point}")
             return False
         if jobContext is None:
             jobContext = JobContext()
@@ -192,7 +199,7 @@ class LwfManager:
             self.emitStatus(jobContext, JobStatus.PENDING)
 
         siteName = jDefn.getSiteName()
-        site_pillar, site_method = jDefn.getEntryPoint().split('.', 1)
+        site_pillar, site_method = entry_point.split('.', 1)
 
         try:
             site = self.getSite(siteName)
@@ -233,14 +240,14 @@ class LwfManager:
     # event methods
 
     # register an event handler, get back the initial queued status of the future job
-    def setEvent(self, wfe: WorkflowEvent) -> JobStatus:
+    def setEvent(self, wfe: WorkflowEvent) -> Optional[JobStatus]:
         return self._client.setEvent(wfe)
 
     def unsetEvent(self, wfe: WorkflowEvent) -> None:
         return self._client.unsetEvent(wfe)
 
     # get all active event handlers
-    def getActiveWfEvents(self) -> List[WorkflowEvent]:
+    def getActiveWfEvents(self) -> Optional[List[WorkflowEvent]]:
         return self._client.getActiveWfEvents()
 
 
@@ -248,37 +255,44 @@ class LwfManager:
     # repo methods
 
     def _emitRepoInfo(self, context: JobContext, metasheet: Metasheet) -> None:
-        return self.emitStatus(context, "INFO", "INFO", metasheet)
+        return self.emitStatus(context, "INFO", "INFO", str(metasheet))
 
-    def _notate(self, localPath: str, siteObjPath: str,
+    def _notate(self, siteName: str, localPath: str, siteObjPath: str,
                 jobContext: JobContext,
-                metasheet: Metasheet = None,
+                metasheet: Metasheet,
                 isPut: bool = False) -> Metasheet:
         if jobContext is not None:
             metasheet.setJobId(jobContext.getJobId())
         # now do the metadata notate
         props = metasheet.getProps()
         props['_direction'] = 'put' if isPut else 'get'
+        props['_siteName'] = siteName
         props['localPath'] = localPath
         props['siteObjPath'] = siteObjPath
         metasheet.setProps(props)
         # persist
-        sheet = self._client.notate(metasheet.getSheetId(), metasheet)
+        self._client.notate(metasheet.getSheetId(), metasheet)
+        # TODO technically the above notate() might be None if the notate fails - conisder
         # now emit an INFO job status
         self._emitRepoInfo(jobContext, metasheet)
-        return sheet
+        return metasheet
 
-    def notatePut(self, localPath: str, siteObjPath: str,
+    def _notatePut(self, siteName: str, localPath: str, siteObjPath: str,
         jobContext: JobContext,
-        metasheet: Metasheet = None) -> Metasheet:
-        return self._notate(localPath, siteObjPath, jobContext, metasheet, True)
+        metasheet: Optional[Metasheet]) -> Metasheet:
+        if metasheet is None:
+            metasheet = Metasheet(siteName, localPath, siteObjPath)
+        return self._notate(siteName, localPath, siteObjPath, jobContext, metasheet, True)
 
-    def notateGet(self, localPath: str, siteObjPath: str,
+    def _notateGet(self, siteName: str, localPath: str, siteObjPath: str,
         jobContext: JobContext,
-        metasheet: Metasheet = None) -> Metasheet:
-        return self._notate(localPath, siteObjPath, jobContext, metasheet, False)
+        metasheet: Optional[Metasheet]) -> Metasheet:
+        if metasheet is None:
+            metasheet = Metasheet(siteName, localPath, siteObjPath)
+        return self._notate(siteName, localPath, siteObjPath, jobContext, metasheet, False)
 
-    def find(self, queryRegExs: dict) -> List[Metasheet]:
+
+    def find(self, queryRegExs: dict) -> Optional[List[Metasheet]]:
         return self._client.find(queryRegExs)
 
 

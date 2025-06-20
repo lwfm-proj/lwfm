@@ -42,7 +42,7 @@ def halt():
 atexit.register(halt)
 
 
-def sigterm_handler(sig, frame):
+def sigterm_handler(_, __):
     print("Flask app received SIGTERM, cleaning up...")
     halt()
     sys.exit(0)
@@ -79,7 +79,7 @@ def getWorkflow(workflow_id: str):
     try:
         w = WorkflowStore().getWorkflow(workflow_id)
         if w is not None:
-            return w.serialize()
+            return ObjectSerializer.serialize(w)
         return "", 404
     except Exception as ex:
         LoggingStore().putLogging("ERROR", "getWorkflow: " + str(ex))
@@ -122,9 +122,12 @@ def emitStatus():
 
         try:
             # is this site a remote site? make sure we're tracking this job
-            # to completion - this server is responsible for that not the user
-            isRemote = SiteConfig.getSiteProperties(statusObj.getJobContext().
-                getSiteName())["remote"]
+            # to completion - lwfm is responsible for that not the user
+            props = SiteConfig.getSiteProperties(statusObj.getJobContext().getSiteName())
+            if props is not None:
+                isRemote = props.get("remote", False)
+            else:
+                isRemote = False
             if isRemote:
                 # check if a remote job event is pending
                 events = EventStore().getAllWfEvents("run.event.REMOTE")
@@ -196,7 +199,10 @@ def emitLogging():
 def setHandler():
     try:
         obj = ObjectSerializer.deserialize(request.form["eventObj"])
-        return wfProcessor.setEventHandler(obj), 200
+        result = wfProcessor.setEventHandler(obj)
+        if result is None:
+            return "", 200
+        return str(result), 200
     except Exception as ex:
         LoggingStore().putLogging("ERROR", "setEvent: " + str(ex))
         return "", 400
@@ -212,7 +218,8 @@ def unsetHandler(handlerId: str):
 # list the ids of all active handlers
 @app.route("/listEvents")
 def listHandlers():
-    return
+    # TODO - this should return a list of all active handlers
+    return "", 200
 
 
 #************************************************************************

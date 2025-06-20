@@ -8,7 +8,7 @@ Handles loading site configuration from TOML files and creating site instances.
 import os
 import tomllib
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 class SiteConfig:
     """
@@ -65,7 +65,7 @@ class SiteConfig:
         Get the properties for a named site.
         """
         siteSet = SiteConfig._getSiteToml()
-        return siteSet.get(site)
+        return siteSet.get(site) or {}
 
 
     @staticmethod

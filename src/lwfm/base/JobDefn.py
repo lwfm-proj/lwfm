@@ -7,6 +7,7 @@ args to instantiate a job from the definition.
 #pylint: disable = missing-function-docstring, invalid-name
 
 from typing import List
+from typing import Optional
 
 from lwfm.midware._impl.IdGenerator import IdGenerator
 
@@ -41,9 +42,9 @@ class JobDefn:
 
 
     def __init__(self,
-                entryPoint: str = None,
-                entryPointType: str = None,
-                args: List[str] = None):
+                entryPoint: Optional[str] = None,
+                entryPointType: Optional[str] = None,
+                args: Optional[List[str]] = None):
         self._defn_id = IdGenerator().generateId()
         self.setEntryPoint(entryPoint)
         if entryPointType is None:
@@ -65,10 +66,10 @@ class JobDefn:
     def getName(self) -> str:
         return self._name
 
-    def setEntryPoint(self, entryPoint: str) -> None:
+    def setEntryPoint(self, entryPoint: Optional[str]) -> None:
         self._entryPoint = entryPoint
 
-    def getEntryPoint(self) -> str:
+    def getEntryPoint(self) -> Optional[str]:
         return self._entryPoint
 
     def setEntryPointType(self, entryPointType: str) -> None:
@@ -83,16 +84,16 @@ class JobDefn:
     def getJobArgs(self) -> List[str]:
         return self._jobArgs
 
-    def setSiteName(self, siteName: str) -> None:
+    def setSiteName(self, siteName: Optional[str]) -> None:
         self._siteName = siteName
 
-    def getSiteName(self) -> str:
+    def getSiteName(self) -> Optional[str]:
         return self._siteName
 
-    def setComputeType(self, computeType: str) -> None:
+    def setComputeType(self, computeType: Optional[str]) -> None:
         self._computeType = computeType
 
-    def getComputeType(self) -> str:
+    def getComputeType(self) -> Optional[str]:
         return self._computeType
 
 

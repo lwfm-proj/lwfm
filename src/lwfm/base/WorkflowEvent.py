@@ -9,6 +9,7 @@ in these cases, a user-provided handler is fired
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
 
 from enum import Enum
+from typing import Optional
 
 from lwfm.midware._impl.IdGenerator import IdGenerator
 from lwfm.base.JobDefn import JobDefn
@@ -19,7 +20,7 @@ class WorkflowEvent:
     """
     Base class for workflow events.
     """
-    def __init__(self, fireDefn: JobDefn = None, fireSite=None, fireJobId=None):
+    def __init__(self, fireDefn: JobDefn, fireSite: str, fireJobId: Optional[str]):
         self._event_id = IdGenerator().generateId()
         self._fire_defn = fireDefn
         self._fire_site = fireSite
@@ -64,11 +65,11 @@ class JobEvent(WorkflowEvent):
     lwfm canonical set. We can set event triggers - on canonical status strings, job ids:
         "when job <j1> reaches <state>, execute job <j2> on Site <s>"
     """
-    def __init__(self, ruleJobId=None, ruleStatus=None, fireDefn=None, fireSite=None,
-        fireJobId=None):
+    def __init__(self, ruleJobId: str, ruleStatus: str,
+                 fireDefn: JobDefn, fireSite: str, fireJobId: str):
         super().__init__(fireDefn, fireSite, fireJobId)
-        self._rule_job_id = ruleJobId
-        self._rule_status = ruleStatus
+        self._rule_job_id: str = ruleJobId
+        self._rule_status: str = ruleStatus
         if fireDefn is not None:
             fireDefn.setSiteName(fireSite)
 
@@ -89,7 +90,7 @@ class JobEvent(WorkflowEvent):
             f"+[rule jobId:{self.getRuleJobId()} status:{self.getRuleStatus()}]"
 
     def getKey(self):
-        return str("" + self.getRuleJobId() + "." + str(self.getRuleStatus()))
+        return str(str(self.getRuleJobId()) + "." + str(self.getRuleStatus()))
 
     @staticmethod
     def getJobEventKey(jobId: str, status: Enum) -> str:
@@ -104,7 +105,7 @@ class MetadataEvent(WorkflowEvent):
     JobDefn at the site. 
     """
     def __init__(self, queryRegExs: dict, fireDefn: 'JobDefn', fireSite: str):
-        super().__init__(fireDefn, fireSite)
+        super().__init__(fireDefn, fireSite, None)
         self._query_regexs = queryRegExs
 
     def getQueryRegExs(self) -> dict:

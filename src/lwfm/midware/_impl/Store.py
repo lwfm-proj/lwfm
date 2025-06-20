@@ -6,12 +6,12 @@ Data stores for job status, metadata, logging, and workflow events.
 #pylint: disable = broad-exception-caught, global-statement
 
 import os
-import time
+import time as _time
 import datetime
 import json
 import re
 
-from typing import List
+from typing import List, Optional
 import sqlite3
 
 from lwfm.base.JobStatus import JobStatus
@@ -83,13 +83,13 @@ class Store:
         db.commit()
         db.close()
 
-    def _put(self, table: str, siteName: str, pillar: str, key: str, data: str) -> None:
-        import time as _time
+    def _put(self, table: str, siteName: str, pillar: str, key: Optional[str], data: str) -> None:
         max_retries = 5
         delay = 0.1  # seconds
-        ts = time.perf_counter_ns()
+        ts = _time.perf_counter_ns()
         if (key is None) or (key == ""):
-            key = ts
+            key = str(ts)
+        db = None
         for attempt in range(max_retries):
             try:
                 db = sqlite3.connect(_DB_FILE)
@@ -114,7 +114,6 @@ class Store:
             finally:
                 if db:
                     db.close()
-                break
 
 
 # ****************************************************************************
@@ -122,7 +121,8 @@ class Store:
 class WorkflowStore(Store):
 
     # return the site-specific auth blob for this site
-    def getWorkflow(self, workflow_id: str) -> Workflow:
+    def getWorkflow(self, workflow_id: str) -> Optional[Workflow]:
+        db = None
         try:
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
@@ -164,11 +164,11 @@ class LoggingStore(Store):
 class EventStore(Store):
 
     def putWfEvent(self, datum: WorkflowEvent, typeT: str) -> None:
-        # print(f"Putting event {typeT} {datum}")
         self._put("EventStore", datum.getFireSite(), "run.event." + typeT,
             datum.getEventId(), ObjectSerializer.serialize(datum))
 
-    def getAllWfEvents(self, typeT: str = None) -> List[WorkflowEvent]:
+    def getAllWfEvents(self, typeT: Optional[str]) -> Optional[List[WorkflowEvent]]:
+        db = None
         try:
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
@@ -196,9 +196,9 @@ class EventStore(Store):
                 db.close()
 
     def deleteWfEvent(self, eventId: str) -> None:
-        import time as _time
         max_retries = 5
         delay = 0.1  # seconds
+        db = None
         for attempt in range(max_retries):
             try:
                 db = sqlite3.connect(_DB_FILE)
@@ -234,12 +234,22 @@ class EventStore(Store):
 class JobStatusStore(Store):
 
     def putJobStatus(self, datum: JobStatus) -> None:
+        if datum is None or datum.getJobContext() is None:
+            self._put("LoggingStore", "local", "run.log." + "ERROR", None,
+                "Store.putJobStatus called with None datum")
+            return
+        jobId = datum.getJobId()
+        if jobId is None:
+            self._put("LoggingStore", "local", "run.log." + "ERROR", None,
+                "Store.putJobStatus called with datum that has no job ID")
+            return
         self._put("JobStatusStore", datum.getJobContext().getSiteName(),
-                  "run.status", datum.getJobId(), ObjectSerializer.serialize(datum))
+                  "run.status", jobId, ObjectSerializer.serialize(datum))
 
-    def getAllJobStatuses(self, jobId: str) -> List[JobStatus]:
+    def getAllJobStatuses(self, jobId: str) -> Optional[List[JobStatus]]:
         if jobId is None:
             return None
+        db = None
         try:
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
@@ -262,7 +272,8 @@ class JobStatusStore(Store):
             if db:
                 db.close()
 
-    def getJobStatus(self, jobId: str) -> JobStatus:
+    def getJobStatus(self, jobId: str) -> Optional[JobStatus]:
+        db = None
         try:
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
@@ -302,6 +313,7 @@ class MetasheetStore(Store):
             json.dumps(keys), ObjectSerializer.serialize(datum))
 
     def findMetasheet(self, queryRegExs: dict) -> List[Metasheet]:
+        db = None
         try:
             db = sqlite3.connect(_DB_FILE)
             db.create_function("REGEXP", 2, lambda expr,
@@ -315,7 +327,7 @@ class MetasheetStore(Store):
                 # This pattern matches the JSON key and value as a substring
                 # e.g. "jobId": "abc123"
                 pattern = f'"{k}"\\s*:\\s*"[^"]*{regex}[^"]*"'
-                where_clauses.append(f'key REGEXP ?')
+                where_clauses.append('key REGEXP ?')
                 params.append(pattern)
 
             sql = "SELECT key, data FROM MetasheetStore"
@@ -324,59 +336,14 @@ class MetasheetStore(Store):
 
             cur.execute(sql, params)
             results = []
-            for key, data in cur.fetchall():
+            for _, data in cur.fetchall():
                 # Deserialize as needed for your Metasheet constructor
                 ms = ObjectSerializer.deserialize(data)
                 results.append(ms)
-            return results if results else None
+            return results
         except Exception as e:
-            print(f"Error in findMetasheet: {e}")
-            return None
+            LoggingStore().putLogging("ERROR", f"Error in findMetasheet: {e}")
+            return []
         finally:
             if db:
                 db.close()
-
-# ****************************************************************************
-# test code
-
-if __name__ == "__main__":
-    # Minimal test code for Store and its subclasses
-    print("Testing Store and subclasses with sqlite backend")
-
-    # Test LoggingStore
-    log_store = LoggingStore()
-    log_store.putLogging("INFO", "This is a test log entry.")
-
-    # Test MetasheetStore
-    ms_store = MetasheetStore()
-
-    # Create and put metasheets
-    ms1 = Metasheet(siteName="siteA", siteUrl="http://siteA", 
-        props={"foo": "bar", "alpha": "beta"})
-    ms2 = Metasheet(siteName="siteB", siteUrl="http://siteB", 
-        props={"foo": "baz", "alpha": "gamma"})
-    ms_store.putMetasheet(ms1)
-    ms_store.putMetasheet(ms2)
-    print("Inserted metasheets.")
-
-    # Query by jobId (exact match)
-    res = ms_store.findMetasheet({"site": "siteA"})
-    print("Query jobId=job1:", res)
-
-    # Query by siteName (partial match)
-    res = ms_store.findMetasheet({"site": "site"})
-    print("Query site contains 'site':", res)
-
-    # Query by custom property
-    res = ms_store.findMetasheet({"foo": "ba."})
-    print("Query foo matches 'ba.':", res)
-
-    # Query with no matches
-    res = ms_store.findMetasheet({"site": "^notfound$"})
-    print("Query jobId=notfound:", res)
-
-    # Query using multiple fields (AND logic)
-    res = ms_store.findMetasheet({"foo": "ba.", "site": "siteA"})
-    print("Query jobId=job1 AND site=siteA:", res)
-
-    print("Test complete.")
