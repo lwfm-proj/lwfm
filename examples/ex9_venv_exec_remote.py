@@ -58,7 +58,7 @@ if __name__ == "__main__":
                     ".out"]),
                 lwfm_site_name)                                 # using this site driver
     )
-    logger.info(f"result extraction set - see job log {statusB.getJobId()}.log")
+    logger.info("result extraction job set")
 
 
 #**********************************************************************************
