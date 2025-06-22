@@ -222,7 +222,7 @@ class SiteRepo(SitePillar):
         localPath: str,
         siteObjPath: str,
         jobContext: Optional[Union[JobContext, str]] = None,
-        metasheet: Optional[Union[Metasheet, str]] = None
+        metasheet: Optional[Union[Metasheet, dict, str]] = None
     ) -> Optional[Metasheet]:
         pass
 
@@ -464,7 +464,7 @@ class _VenvSiteRepoWrapper(SiteRepo):
         localPath: str,
         siteObjPath: str,
         jobContext: Optional[Union[JobContext, str]] = None,
-        metasheet: Optional[Union[Metasheet, str]] = None
+        metasheet: Optional[Union[Metasheet, dict, str]] = None
     ) -> Optional[Metasheet]:
         retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,

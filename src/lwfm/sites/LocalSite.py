@@ -192,11 +192,13 @@ class LocalSiteRepo(SiteRepo):
 
     def put(self, localPath: str, siteObjPath: str,
             jobContext: Optional[Union[JobContext, str]] = None,
-            metasheet: Optional[Union[Metasheet, str]] = None) -> Optional[Metasheet]:
+            metasheet: Optional[Union[Metasheet, dict, str]] = None) -> Optional[Metasheet]:
         if isinstance(jobContext, str):
             jobContext = lwfManager.deserialize(jobContext)
         if isinstance(metasheet, str):
             metasheet = lwfManager.deserialize(metasheet)
+        if isinstance(metasheet, dict):
+            metasheet = Metasheet(self.getSiteName(), localPath, siteObjPath, metasheet)
         context: JobContext = jobContext  #type: ignore
         if context is None:
             context = JobContext()
