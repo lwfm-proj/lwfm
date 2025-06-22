@@ -21,12 +21,12 @@ class WorkflowEvent:
     Base class for workflow events.
     """
     def __init__(self, fireDefn: JobDefn, fireSite: str, fireJobId: Optional[str]):
-        self._event_id = IdGenerator().generateId()
+        self._event_id: str = IdGenerator().generateId()
         self._fire_defn = fireDefn
         self._fire_site = fireSite
         self._fire_job_id = fireJobId
 
-    def getEventId(self):
+    def getEventId(self) -> str:
         return self._event_id
 
     def setFireDefn(self, fireDefn):

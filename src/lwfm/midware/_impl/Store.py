@@ -179,7 +179,7 @@ class EventStore(Store):
                 )
             else:
                 results = cur.execute(
-                    "SELECT data FROM EventStore WHERE pillar LIKE '%' ORDER BY ts DESC"
+                    "SELECT data FROM EventStore ORDER BY ts DESC"
                 )
             rows = results.fetchall()
             if rows:

@@ -7,7 +7,7 @@ where its not running on the same machine as the workflow
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
 #pylint: disable = broad-exception-caught, logging-not-lazy, logging-fstring-interpolation
 
-from typing import List, Optional
+from typing import List, Optional, cast
 import os
 import datetime
 
@@ -148,9 +148,10 @@ class LwfmEventClient:
         return None
 
     def unsetEvent(self, wfe: WorkflowEvent) -> None:
-        payload = {}
-        payload["eventObj"] = ObjectSerializer.serialize(wfe)
-        response = requests.post(f"{self.getUrl()}/unsetEvent", payload,
+        if wfe is None or wfe.getEventId() is None:
+            self.emitLogging("ERROR", "unsetEvent called with None or empty eventId")
+            return
+        response = requests.get(f"{self.getUrl()}/unsetEvent/{wfe.getEventId()}",
             timeout=self._REST_TIMEOUT)
         if response.ok:
             # TODO should return a terminal status
@@ -161,10 +162,9 @@ class LwfmEventClient:
     def getActiveWfEvents(self) -> Optional[List[WorkflowEvent]]:
         response = requests.get(f"{self.getUrl()}/listEvents",
             timeout=self._REST_TIMEOUT)
-        if response.ok:
-            l = json.loads(response.text)
-            return [ObjectSerializer.deserialize(blob) for blob in l]
-        self.emitLogging("ERROR", "getActiveWfEvents error: " + str(response.text))
+        if response.ok and response.text is not None and len(response.text) > 0:
+            # deserialize the list of WorkflowEvent objects
+            return ObjectSerializer.deserialize(response.text)
         return None
 
 

@@ -11,7 +11,7 @@ import time
 import os
 import argparse
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.JobContext import JobContext
@@ -322,7 +322,7 @@ if __name__ == "__main__":
     elif args.generate_id:
         print(lwfManager.generateId())
     elif args.clear_events:
-        events = lwfManager.getActiveWfEvents()
+        events: Union[List[WorkflowEvent], None] = lwfManager.getActiveWfEvents()
         if events:
             for event in events:
                 lwfManager.unsetEvent(event)

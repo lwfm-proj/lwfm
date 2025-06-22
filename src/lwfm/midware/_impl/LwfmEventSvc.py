@@ -218,8 +218,17 @@ def unsetHandler(handlerId: str):
 # list the ids of all active handlers
 @app.route("/listEvents")
 def listHandlers():
-    # TODO - this should return a list of all active handlers
-    return "", 200
+    try:
+        # Get all active workflow events (handlers)
+        events = EventStore().getAllWfEvents(None)
+        if events is None:
+            return "", 200
+        # Return a list of handler IDs (assuming each event has getHandlerId())
+        return ObjectSerializer.serialize(events), 200
+    except Exception as ex:
+        print(ex)
+        LoggingStore().putLogging("ERROR", "listHandlers: " + str(ex))
+        return "", 500
 
 
 #************************************************************************
