@@ -108,11 +108,12 @@ class LwfmEventProcessor:
                     "from lwfm.midware.LwfManager import lwfManager; " + \
                     f"job_defn = ObjectSerializer.deserialize('{job_defn_serialized}'); " + \
                     f"context = ObjectSerializer.deserialize('{context_serialized}'); " + \
-                    "lwfManager.execSiteEndpoint(job_defn, context, False)"
+                    "lwfManager.execSiteEndpoint(job_defn, context, True)"
                 # Execute in the venv
                 site_venv = SiteConfigVenv()
                 self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}")
-                site_venv.executeInProjectVenv(siteName, cmd)
+                # TODO result
+                result = site_venv.executeInProjectVenv(siteName, cmd)
             else:
                 # venv Site - use SiteConfigVenv to execute in the venv
                 from lwfm.midware._impl.SiteConfigVenv import SiteConfigVenv
@@ -134,7 +135,8 @@ class LwfmEventProcessor:
                 # Execute in the venv
                 site_venv = SiteConfigVenv()
                 self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}")
-                site_venv.executeInProjectVenv(siteName, cmd)
+                # TODO result
+                result = site_venv.executeInProjectVenv(siteName, cmd)
         else:
             if entryPointType == JobDefn.ENTRY_TYPE_SITE:
                 # Non-venv Site - use the run driver directly
@@ -144,6 +146,7 @@ class LwfmEventProcessor:
                     args=(
                         trigger.getFireDefn(),
                         context,
+                        True,
                         ),
                     )
                 thread.start()
@@ -251,6 +254,8 @@ class LwfmEventProcessor:
                     cast_e = cast(JobEvent, e)
                     status = self.checkJobEvent(cast_e)
                     if status:
+                        self._loggingStore.putLogging("INFO",
+                            f"triggered job id:{e.getFireJobId()} on site:{e.getFireSite()}")
                         # job event satisfied - going to fire the handler
                         # get a complete updated status
                         status = self._jobStatusStore.getJobStatus(status.getJobId())

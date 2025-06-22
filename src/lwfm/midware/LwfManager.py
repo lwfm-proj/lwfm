@@ -9,6 +9,8 @@ event handlers, and notating provenancial metadata.
 
 import time
 import os
+import argparse
+
 from typing import List, Optional
 
 from lwfm.base.WorkflowEvent import WorkflowEvent
@@ -195,6 +197,8 @@ class LwfManager:
         if jobContext is None:
             jobContext = JobContext()
 
+        logger.info(f"lwfManager: exec site endpoint {entry_point} job {jobContext.getJobId()}")
+
         if emitStatus:
             self.emitStatus(jobContext, JobStatus.PENDING)
 
@@ -300,3 +304,36 @@ class LwfManager:
 
 lwfManager = LwfManager()
 logger = Logger(lwfManager._getClient())
+
+#***********************************************************************
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="LwfManager CLI")
+    parser.add_argument("--check", action="store_true", help="Check if middleware is running")
+    parser.add_argument("--generate-id", action="store_true", help="Generate a new ID")
+    parser.add_argument("--clear-events", action="store_true", help="Clear outstanding events")
+    parser.add_argument("--status", metavar="JOB_ID", type=str, help="Get the status of a job")
+    args = parser.parse_args()
+
+    if args.check:
+        running = lwfManager.isMidwareRunning()
+        print(f"Middleware running: {running}")
+    elif args.generate_id:
+        print(lwfManager.generateId())
+    elif args.clear_events:
+        events = lwfManager.getActiveWfEvents()
+        if events:
+            for event in events:
+                lwfManager.unsetEvent(event)
+            print(f"Cleared {len(events)} outstanding unsatisfied events.")
+        else:
+            print("No outstanding unsatisfied events to clear.")
+    elif args.status:
+        status = lwfManager.getStatus(args.status)
+        if status is not None:
+            print(f"Status for job {args.status}: {status}")
+        else:
+            print(f"No status found for job {args.status}")
+    else:
+        parser.print_help()

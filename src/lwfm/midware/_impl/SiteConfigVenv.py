@@ -52,9 +52,6 @@ class SiteConfigVenv():
                 modified_cmd = script_path_cmd.replace("print(obj)",
                     "import sys; sys.stdout.write('RESULT_MARKER: ' + obj)")
 
-            with open('/tmp/out.out', 'a', encoding='utf-8') as f:
-                f.write(f"cmd: {modified_cmd}\n")
-
             # execute a semicolon separated command in the virtual environment; this
             # includes an import statement and the method call
             process = subprocess.Popen([python_executable, "-c", modified_cmd],

@@ -2,7 +2,7 @@
 Test job triggers expressed in site endpoint shorthand. 
 """
 
-#pylint: disable=invalid-name
+#pylint: disable=invalid-name, broad-exception-caught
 
 import sys
 
@@ -31,6 +31,13 @@ if __name__ == "__main__":
     if job_status_B is None:
         logger.error("Failed to set job B event on job A")
         sys.exit(1)
-    logger.info(f"job B {str(job_status_B)} set as a job event on A")
+    logger.info(f"job B {str(job_status_B)} set to create /tmp/{job_status_A.getJobId()}.out")
     job_status_B = lwfManager.wait(job_status_B.getJobId())
     logger.info(f"job B {str(job_status_B)} finished")
+    out_file = f"/tmp/{job_status_A.getJobId()}.out"
+    try:
+        with open(out_file, "r", encoding="utf-8") as f:
+            contents = f.read()
+        print(f"Contents of {out_file}:\n{contents}")
+    except Exception as e:
+        logger.error(f"Failed to read {out_file}: {e}")
