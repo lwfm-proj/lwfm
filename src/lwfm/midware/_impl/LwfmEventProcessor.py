@@ -192,7 +192,8 @@ class LwfmEventProcessor:
                 self._eventStore.getAllWfEvents("run.event.REMOTE") or []
             if events is None:
                 events = []
-            self._loggingStore.putLogging("INFO", "Remote events: " + str(len(events)))
+            if len(events) > 0:
+                self._loggingStore.putLogging("INFO", "Remote events: " + str(len(events)))
             for e in events:
                 try:
                     self._loggingStore.putLogging("INFO",
@@ -246,7 +247,8 @@ class LwfmEventProcessor:
                 l = 0
             else:
                 l = len(events)
-            self._loggingStore.putLogging("INFO", "Job events:    " + str(l))
+            if l > 0:
+                self._loggingStore.putLogging("INFO", "Job events:    " + str(l))
             if l == 0:
                 return False
             for e in events:
@@ -303,6 +305,7 @@ class LwfmEventProcessor:
     def checkDataStatusEvent(self, status: JobStatus) -> bool:
         gotOne = False
         try:
+            # TODO make a better query
             events: List[WorkflowEvent] = self._eventStore.getAllWfEvents("run.event.DATA") \
                 or []
             for e in events:

@@ -110,6 +110,7 @@ def emitStatus():
             pass
         statusObj : JobStatus = ObjectSerializer.deserialize(statusBlob)
         JobStatusStore().putJobStatus(statusObj)
+
         # if this is a new job, make sure we persisted its parent workflow
         if statusObj.getStatus() == JobStatus.READY or \
             statusObj.getStatus() == JobStatus.PENDING:
@@ -120,9 +121,9 @@ def emitStatus():
                 wf._setWorkflowId(wfId)
                 WorkflowStore().putWorkflow(wf)
 
+        # is this site a remote site? make sure we're tracking this job
+        # to completion - lwfm is responsible for that not the user
         try:
-            # is this site a remote site? make sure we're tracking this job
-            # to completion - lwfm is responsible for that not the user
             props = SiteConfig.getSiteProperties(statusObj.getJobContext().getSiteName())
             if props is not None:
                 isRemote = props.get("remote", False)
@@ -147,6 +148,12 @@ def emitStatus():
         except Exception as ex:
             LoggingStore().putLogging("ERROR",
                 "Exception putting remote job event handler: " + " " + str(ex))
+
+        # is this an INFO? check for data triggers
+        if statusObj.getStatus() == JobStatus.INFO:
+            if wfProcessor.checkDataStatusEvent(statusObj):
+                LoggingStore().putLogging("INFO",
+                    f"Data trigger event(s) processed for job {statusObj.getJobId()}")
 
         return "", 200
     except Exception as ex:
