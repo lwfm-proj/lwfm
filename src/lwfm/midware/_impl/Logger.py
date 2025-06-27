@@ -10,6 +10,7 @@ import logging
 import datetime
 from typing import Optional
 
+from lwfm.base.JobContext import JobContext
 from lwfm.midware._impl.LwfmEventClient import LwfmEventClient
 
 
@@ -20,47 +21,74 @@ class Logger:
         # should suppress most 3rd party libraries' logging output below INFO level
         self._logger.setLevel(logging.INFO)
         self._lwfmClient = client
+        self._context = None
 
     def _getTimestamp(self) -> str:
         current_time = datetime.datetime.now(datetime.timezone.utc)
         formatted_time = current_time.strftime("%Y%m%dT%H:%M:%SZ")
         return formatted_time
 
-    def _buildMsg(self, msg: str = "", status: str = "") -> str:
-        out = f"{self._getTimestamp()} [{status}] {msg}"
+    def _buildMsg(self, msg: str = "", site: Optional[str] = None,
+                workflowId: Optional[str] = None,
+                jobId: Optional[str] = None) -> str:
+        out = f"{self._getTimestamp()} {msg}"
+        if site is not None:
+            out += f" site={site}"
+        if workflowId is not None:
+            out += f" wfId={workflowId}"
+        if jobId is not None:
+            out += f" jobId={jobId}"
         return out
+
+    def setContext(self, context: JobContext) -> None:
+        """
+        Set the context for the logger, which can be used to include job-related
+        information in log messages.
+        """
+        self._context = context
+
+    def getContext(self) -> Optional[JobContext]:
+        """
+        Get the current context of the logger.
+        """
+        return self._context
 
     def setLevel(self, level) -> None:
         self._logger.setLevel(level)
 
-    def _generateLog(self, level: str, msg: str, status: Optional[str] = None) -> str:
-        safe_status = status if status is not None else ""
-        out = self._buildMsg(msg, safe_status)
-        self._lwfmClient.emitLogging(safe_status, out)
-        self._lwfmClient.emitLogging(level, out)
+    def _generateLog(self, level: str, msg: str, context: Optional[JobContext] = None) -> str:
+        if context is not None:
+            site = context.getSiteName()
+            workflowId = context.getWorkflowId()
+            jobId = context.getJobId()
+        elif self._context is not None:
+            site = self._context.getSiteName()
+            workflowId = self._context.getWorkflowId()
+            jobId = self._context.getJobId()
+        else:
+            site = None
+            workflowId = None
+            jobId = None
+        out = self._buildMsg(msg, site, workflowId, jobId)
+        self._lwfmClient.emitLogging(level, out, site or "", workflowId or "", jobId or "")
         return out
 
-    def debug(self, msg: str, status: Optional[str] = None) -> None:
-        safe_status = status if status is not None else ""
-        out = self._generateLog("DEBUG", msg, safe_status)
+    def debug(self, msg: str, context: Optional[JobContext] = None) -> None:
+        out = self._generateLog("DEBUG", msg, context)
         self._logger.debug(out)
 
-    def info(self, msg: str, status: Optional[str] = None) -> None:
-        safe_status = status if status is not None else ""
-        out = self._generateLog("INFO", msg, safe_status)
+    def info(self, msg: str, context: Optional[JobContext] = None) -> None:
+        out = self._generateLog("INFO", msg, context)
         self._logger.info(out)
 
-    def warning(self, msg: str, status: Optional[str] = None) -> None:
-        safe_status = status if status is not None else ""
-        out = self._generateLog("WARNING", msg, safe_status)
+    def warning(self, msg: str, context: Optional[JobContext] = None) -> None:
+        out = self._generateLog("WARNING", msg, context)
         self._logger.warning(out)
 
-    def error(self, msg: str, status: Optional[str] = None) -> None:
-        safe_status = status if status is not None else ""
-        out = self._generateLog("ERROR", msg, safe_status)
+    def error(self, msg: str, context: Optional[JobContext] = None) -> None:
+        out = self._generateLog("ERROR", msg, context)
         self._logger.error(out)
 
-    def critical(self, msg: str, status: Optional[str] = None) -> None:
-        safe_status = status if status is not None else ""
-        out = self._generateLog("CRITICAL", msg, safe_status)
+    def critical(self, msg: str, context: Optional[JobContext] = None) -> None:
+        out = self._generateLog("CRITICAL", msg, context)
         self._logger.critical(out)

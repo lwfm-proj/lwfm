@@ -33,6 +33,7 @@ class LwfManager:
 
     def __init__(self):
         self._client = LwfmEventClient()
+        self._context = None
 
 
     def isMidwareRunning(self) -> bool:
@@ -46,6 +47,22 @@ class LwfManager:
     def _getClient(self):
         return self._client
 
+
+    def setContext(self, context: JobContext) -> None:
+        """
+        Set the context for the lwfManager, which can be used to include job-related
+        information in log messages and status updates.
+        """
+        self._context = context
+
+    def getContext(self) -> Optional[JobContext]:
+        """
+        Get the current context of the lwfManager.
+        """
+        if self._context is None:
+            # try to get it from the environment
+            self._context = self._getJobContextFromEnv()
+        return self._context
 
     def getLogFilename(self, context: JobContext) -> str:
         basename = SiteConfig.getLogFilename()
@@ -93,11 +110,41 @@ class LwfManager:
     #***********************************************************************
     # workflow methods
 
-    def putWorkflow(self, workflow: Workflow) -> Optional[str]:
-        return self._client.putWorkflow(workflow)
+    def putWorkflow(self, wflow: Workflow) -> Optional[str]:
+        return self._client.putWorkflow(wflow)
 
     def getWorkflow(self, workflow_id: str) -> Optional[Workflow]:
         return self._client.getWorkflow(workflow_id)
+
+    def getAllWorkflows(self) -> Optional[List[Workflow]]:
+        """
+        Get all workflows stored in the middleware.
+        
+        Returns:
+            List of Workflow objects, or None if no workflows are found
+        """
+        try:
+            val = self._client.getAllWorkflows()
+            if val is None:
+                return None
+            if isinstance(val, List):
+                return val
+            return [val]
+        except Exception as e:
+            logger.error(f"Error in LwfManager.getAllWorkflows: {e}")
+            return None
+
+    def getAllJobStatusesForWorkflow(self, workflow_id: str) -> Optional[List[JobStatus]]:
+        """
+        Get all job status messages for all jobs in a workflow, ordered by timestamp (newest first).
+        """
+        if workflow_id is None:
+            return None
+        try:
+            return self._client.getAllJobStatusesForWorkflow(workflow_id)
+        except Exception as e:
+            logger.error(f"Error in LwfManager.getAllJobStatusesForWorkflow: {e}")
+            return None
 
 
     #***********************************************************************
@@ -240,6 +287,45 @@ class LwfManager:
             return None
 
 
+
+    def getLoggingByWorkflowId(self, workflowId: str) -> Optional[List[str]]:
+        """
+        Retrieve logging entries for a given workflow ID.
+        
+        Args:
+            workflowId: The workflow ID to get logging entries for
+            
+        Returns:
+            List of logging entries as dictionaries, or None if error
+        """
+        if workflowId is None:
+            return None
+            
+        try:
+            return self._client.getLoggingByWorkflowId(workflowId)
+        except Exception as e:
+            logger.error(f"Error in LwfManager.getLoggingByWorkflowId: {e}")
+            return None
+
+    def getLoggingByJobId(self, jobId: str) -> Optional[List[str]]:
+        """
+        Retrieve logging entries for a given job ID.
+        
+        Args:
+            jobId: The job ID to get logging entries for
+            
+        Returns:
+            List of logging entries as dictionaries, or None if error
+        """
+        if jobId is None:
+            return None
+            
+        try:
+            return self._client.getLoggingByJobId(jobId)
+        except Exception as e:
+            logger.error(f"Error in LwfManager.getLoggingByJobId: {e}")
+            return None
+
     #***********************************************************************
     # event methods
 
@@ -271,11 +357,14 @@ class LwfManager:
         props = metasheet.getProps()
         props['_direction'] = 'put' if isPut else 'get'
         props['_siteName'] = siteName
-        props['localPath'] = localPath
-        props['siteObjPath'] = siteObjPath
+        props['_localPath'] = localPath
+        props['_siteObjPath'] = siteObjPath
+        if jobContext is not None:
+            props['_workflowId'] = jobContext.getWorkflowId()
+            props['_jobId'] = jobContext.getJobId()
         metasheet.setProps(props)
         # persist
-        self._client.notate(metasheet.getSheetId(), metasheet)
+        self._client.notate(metasheet)
         # TODO technically the above notate() might be None if the notate fails - conisder
         # now emit an INFO job status
         self._emitRepoInfo(jobContext, metasheet)
@@ -289,10 +378,8 @@ class LwfManager:
         return self._notate(siteName, localPath, siteObjPath, jobContext, metasheet, True)
 
     def _notateGet(self, siteName: str, localPath: str, siteObjPath: str,
-        jobContext: JobContext,
-        metasheet: Optional[Metasheet]) -> Metasheet:
-        if metasheet is None:
-            metasheet = Metasheet(siteName, localPath, siteObjPath)
+        jobContext: JobContext) -> Metasheet:
+        metasheet = Metasheet(siteName, localPath, siteObjPath)
         return self._notate(siteName, localPath, siteObjPath, jobContext, metasheet, False)
 
 
@@ -312,8 +399,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LwfManager CLI")
     parser.add_argument("--check", action="store_true", help="Check if middleware is running")
     parser.add_argument("--generate-id", action="store_true", help="Generate a new ID")
-    parser.add_argument("--clear-events", action="store_true", help="Clear outstanding events")
+    parser.add_argument("--clear-events", action="store_true", help="Unset outstanding handlers")
     parser.add_argument("--status", metavar="JOB_ID", type=str, help="Get the status of a job")
+    parser.add_argument("--workflows", action="store_true",
+                        help="Dump out all stored workflow top-level info")
+    parser.add_argument("--workflow", metavar="WORKFLOW_ID", type=str,
+                        help="Print workflow and status of all its jobs")
+    parser.add_argument("--logs-by-workflow", metavar="WORKFLOW_ID", type=str,
+                        help="Get logs by workflow ID")
+    parser.add_argument("--logs-by-job", metavar="JOB_ID", type=str,
+                        help="Get logs by job ID")
+    parser.add_argument("--active-events", action="store_true",
+                        help="Return all active workflow events")
+    parser.add_argument("--metasheets", metavar="WORKFLOW_ID", type=str,
+                        help="Get all metasheets for a workflow")
     args = parser.parse_args()
 
     if args.check:
@@ -335,5 +434,53 @@ if __name__ == "__main__":
             print(f"Status for job {args.status}: {status}")
         else:
             print(f"No status found for job {args.status}")
+    elif args.workflows:
+        workflows = lwfManager.getAllWorkflows()
+        if workflows:
+            for workflow in workflows:
+                print(f"{workflow}")
+        else:
+            print("No workflows found.")
+    elif args.workflow:
+        workflow = lwfManager.getWorkflow(args.workflow)
+        if workflow is None:
+            print(f"No workflow found with id {args.workflow}")
+        else:
+            print(f"{str(workflow)}")
+            statuses = lwfManager.getAllJobStatusesForWorkflow(args.workflow)
+            if statuses is not None:
+                for status in statuses:
+                    print(f"{status}")
+            else:
+                print(f"No job statuses found for workflow {args.workflow}")
+    elif args.logs_by_workflow:
+        logs = lwfManager.getLoggingByWorkflowId(args.logs_by_workflow)
+        if logs:
+            for log in logs:
+                print("* " + log)
+        else:
+            print(f"No logs found for workflow {args.logs_by_workflow}")
+    elif args.logs_by_job:
+        logs = lwfManager.getLoggingByJobId(args.logs_by_job)
+        if logs:
+            for log in logs:
+                print(log)
+        else:
+            print(f"No logs found for job {args.logs_by_job}")
+    elif args.active_events:
+        events = lwfManager.getActiveWfEvents()
+        if events:
+            for event in events:
+                print(event)
+        else:
+            print("No active workflow events found.")
+    elif args.metasheets:
+        # Return all metasheets for a given workflow
+        metasheets = lwfManager.find({"_workflowId": args.metasheets})
+        if metasheets:
+            for metasheet in metasheets:
+                print(metasheet)
+        else:
+            print(f"No metasheets found for workflow {args.metasheets}")
     else:
         parser.print_help()

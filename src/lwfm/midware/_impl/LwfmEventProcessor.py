@@ -111,7 +111,9 @@ class LwfmEventProcessor:
                     "lwfManager.execSiteEndpoint(job_defn, context, True)"
                 # Execute in the venv
                 site_venv = SiteConfigVenv()
-                self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}")
+                self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}", siteName,
+                                              context.getWorkflowId(),
+                                              context.getJobId())
                 # TODO result
                 result = site_venv.executeInProjectVenv(siteName, cmd)
             else:
@@ -134,7 +136,10 @@ class LwfmEventProcessor:
                     "run_driver.submit(job_defn, context)"
                 # Execute in the venv
                 site_venv = SiteConfigVenv()
-                self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}")
+                self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}",
+                                              siteName,
+                                              context.getWorkflowId(),
+                                              context.getJobId())
                 # TODO result
                 result = site_venv.executeInProjectVenv(siteName, cmd)
         else:
@@ -193,12 +198,15 @@ class LwfmEventProcessor:
             if events is None:
                 events = []
             if len(events) > 0:
-                self._loggingStore.putLogging("INFO", "Remote events: " + str(len(events)))
+                self._loggingStore.putLogging("INFO", "Remote events: " + str(len(events)),
+                                              "", "", "") # TODO add context info
             for e in events:
                 try:
                     self._loggingStore.putLogging("INFO",
                         f"remote id:{e.getFireJobId()} native:{e.getNativeJobId()} " + \
-                        f"site:{e.getFireSite()}")
+                        f"site:{e.getFireSite()}",
+                        "", "", "") # TODO: add context info
+
                     # ask the remote site to inquire status
                     # Deferred import to avoid circular dependencies
                     from lwfm.midware.LwfManager import lwfManager
@@ -211,9 +219,11 @@ class LwfmEventProcessor:
                     gotOne = True
                 except Exception as ex1:
                     self._loggingStore.putLogging("ERROR",
-                    "Exception checking remote job event: " + str(ex1))
+                    "Exception checking remote job event: " + str(ex1),
+                    "", "", "") # TODO: add context info
         except Exception as ex:
-            self._loggingStore.putLogging("ERROR", "Exception checking remote pollers: " + str(ex))
+            self._loggingStore.putLogging("ERROR", "Exception checking remote pollers: " + str(ex),
+                                          "", "", "") # TODO: add context info
         return gotOne
 
 
@@ -223,7 +233,7 @@ class LwfmEventProcessor:
         """
         try:
             statuses: List[JobStatus] = \
-                self._jobStatusStore.getAllJobStatuses(jobEvent.getRuleJobId()) or []
+                self._jobStatusStore.getJobStatuses(jobEvent.getRuleJobId()) or []
             # the statuses will be in reverse chron order
             # does the history contain the state we want to fire on?
             for s in statuses:
@@ -232,7 +242,8 @@ class LwfmEventProcessor:
             return None
         except Exception as ex:
             self._loggingStore.putLogging("ERROR",
-                "Exception checking job event: " + jobEvent.getRuleJobId() + " " + str(ex))
+                "Exception checking job event: " + jobEvent.getRuleJobId() + " " + str(ex),
+                "", "", "") # TODO: add context info
 
 
     def checkJobEvents(self) -> bool:
@@ -248,7 +259,8 @@ class LwfmEventProcessor:
             else:
                 l = len(events)
             if l > 0:
-                self._loggingStore.putLogging("INFO", "Job events:    " + str(l))
+                self._loggingStore.putLogging("INFO", "Job events:    " + str(l),
+                                              "", "", "") # TODO add context info
             if l == 0:
                 return False
             for e in events:
@@ -257,13 +269,15 @@ class LwfmEventProcessor:
                     status = self.checkJobEvent(cast_e)
                     if status:
                         self._loggingStore.putLogging("INFO",
-                            f"triggered job id:{e.getFireJobId()} on site:{e.getFireSite()}")
+                            f"triggered job id:{e.getFireJobId()} on site:{e.getFireSite()}",
+                            "", "", "") # TODO add context info
                         # job event satisfied - going to fire the handler
                         # get a complete updated status
                         status = self._jobStatusStore.getJobStatus(status.getJobId())
                         if status is None:
                             self._loggingStore.putLogging("ERROR",
-                                "checkJobEvents: Job status not found for event: " + str(e))
+                                "checkJobEvents: Job status not found for event: " + str(e),
+                                "", "", "") # TODO add context info
                             continue
                         # remove the handler
                         self.unsetEventHandler(e.getEventId())
@@ -273,10 +287,11 @@ class LwfmEventProcessor:
                         gotOne = True
                 except Exception as ex1:
                     self._loggingStore.putLogging("ERROR",
-                                                  "Exception checking job event: " + str(ex1))
+                                                  "Exception checking job event: " + str(ex1),
+                                                  "", "", "") # TODO add context info
         except Exception as ex:
             self._loggingStore.putLogging("ERROR",
-                "Exception checking job events: " + str(ex))
+                "Exception checking job events: " + str(ex), "", "", "") # TODO add context info
         return gotOne
 
 
@@ -313,7 +328,10 @@ class LwfmEventProcessor:
                     cast_e = cast(MetadataEvent, e)
                     if self.checkDataEvent(cast_e, status):
                         self._loggingStore.putLogging("INFO",
-                            f"data triggered id:{e.getFireJobId()} on site:{e.getFireSite()}")
+                            f"data triggered id:{e.getFireJobId()} on site:{e.getFireSite()}",
+                            e.getFireSite(),
+                            status.getJobContext().getWorkflowId(),
+                            status.getJobContext().getJobId())
                         # event satisfied - going to fire the handler
                         # but first, remove the handler
                         self.unsetEventHandler(e.getEventId())
@@ -323,9 +341,11 @@ class LwfmEventProcessor:
                         gotOne = True
                 except Exception as ex1:
                     self._loggingStore.putLogging("ERROR",
-                                                  "Exception checking data event: " + str(ex1))
+                                                  "Exception checking data event: " + str(ex1),
+                                                  "", "", "") # TODO add context info
         except Exception as ex:
-            self._loggingStore.putLogging("ERROR", "Exception checking data events: " + str(ex))
+            self._loggingStore.putLogging("ERROR", "Exception checking data events: " + str(ex),
+                                          "", "", "") # TODO add context info
         return gotOne
 
 
@@ -403,13 +423,11 @@ class LwfmEventProcessor:
             # set by the user to fire a job after another one - these jobs may
             # be running anywhere and are referenced by their canonical lwfm job id
             if isinstance(wfe, JobEvent):
-                self._loggingStore.putLogging("INFO", "its a job event")
                 initialContext = self._initJobEventHandler(wfe)
                 wfe.setFireJobId(initialContext.getJobId())
                 typeT = "JOB"
             # set by the system when a job is launched on a remote site to track it
             elif isinstance(wfe, RemoteJobEvent):
-                self._loggingStore.putLogging("INFO", "its a remote event")
                 initialContext = self._initRemoteJobHandler(wfe)
                 typeT = "REMOTE"
             # set by the user to trigger a job when data with a certain metadata is put
@@ -419,13 +437,15 @@ class LwfmEventProcessor:
                 typeT = "DATA"
             # unknown type
             else:
-                self._loggingStore.putLogging("ERROR", "setEventHandler: Unknown type")
+                self._loggingStore.putLogging("ERROR", "setEventHandler: Unknown type",
+                                              "", "", "") # TODO add context info
                 return None
             # store the event handler
             self._eventStore.putWfEvent(wfe, typeT)
             return initialContext.getJobId()
         except Exception as ex:
-            self._loggingStore.putLogging("ERROR", "setEventHandler: " + str(ex))
+            self._loggingStore.putLogging("ERROR", "setEventHandler: " + str(ex),
+                                          "", "", "") # TODO add context info
             return None
 
 
@@ -434,7 +454,8 @@ class LwfmEventProcessor:
             self._eventStore.deleteWfEvent(handlerId)
             return
         except Exception as ex:
-            self._loggingStore.putLogging("ERROR", "unsetEventHandler: " + str(ex))
+            self._loggingStore.putLogging("ERROR", "unsetEventHandler: " + str(ex),
+                                          "", "", "") # TODO add context info
             return
 
 

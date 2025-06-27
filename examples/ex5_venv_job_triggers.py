@@ -39,7 +39,7 @@ if __name__ == "__main__":
     # when job A asynchronously reaches the COMPLETE state, fire job B
     statusB = lwfManager.setEvent(
         JobEvent(statusA.getJobId(), JobStatus.COMPLETE,
-                 JobDefn("echo date = `date` > " + dataFile), "local")
+                 JobDefn("echo date = `date` > " + dataFile), "local", None, wf.getWorkflowId())
     )
     if statusB is None:
         logger.error("Failed to set job B event on job A")
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     # when job B asynchronously gets to the COMPLETE state, fire job C
     statusC = lwfManager.setEvent(
         JobEvent(statusB.getJobId(), JobStatus.COMPLETE,
-                 JobDefn(">&2 echo " + dataFile), "local")
+                 JobDefn(">&2 echo " + dataFile), "local", None, wf.getWorkflowId())
     )
     if statusC is None:
         logger.error("Failed to set job C event on job B")

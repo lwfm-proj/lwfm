@@ -41,3 +41,7 @@ class Workflow:
 
     def setProps(self, props: dict) -> None:
         self._props = props
+
+    def __str__(self) -> str:
+        return f"[wf id: {self._workflow_id} name:{self._name} " + \
+            f"description:{self._description} props:{self._props}]"

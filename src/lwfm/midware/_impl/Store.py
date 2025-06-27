@@ -1,5 +1,19 @@
 """
 Data stores for job status, metadata, logging, and workflow events.
+
+Little effort is being made here to optimize the database schema or queries.
+This is a reference implementation.
+
+The Store is a singleton in the lwfm instance, parked behind a REST service
+LwfmEventSvc that is used by LwfmEventClient to access the store. Workflow authors
+(i.e users) are not aware of these layers, iteracting exclusively with Site(s) and 
+the lwfManager.
+
+Authors of Site drivers will similarly interact solely with the Site parent classes
+and the lwfManager.
+
+Thus these service layers should be refactorable freely.
+
 """
 
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
@@ -11,21 +25,19 @@ import datetime
 import json
 import re
 
+
 from typing import List, Optional
 import sqlite3
+
+import argparse
+
 
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.Workflow import Workflow
 from lwfm.base.Metasheet import Metasheet
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
-
-
-
-def regexp(expr, item):
-    if item is None:
-        return False
-    return re.search(expr, item) is not None
+from lwfm.midware._impl.IdGenerator import IdGenerator
 
 
 # ****************************************************************************
@@ -40,63 +52,92 @@ class Store:
             _SCHEMA_CREATED = True
 
     def getDBFilePath(self) -> str:
+        """
+        Get the path to the database file.
+        """
         return _DB_FILE
 
     def createSchema(self) -> None:
+        """
+        Create the database schema if it does not exist.
+        """
         db = sqlite3.connect(_DB_FILE)
         cur = db.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS WorkflowStore ( " \
+            # pk is generated id
             "id INTEGER PRIMARY KEY, "\
             "ts INTEGER, "\
             "site TEXT, " \
             "pillar TEXT, " \
+            "workflowId TEXT, " \
+            # key = workflowId
             "key TEXT, " \
             "data TEXT)")
         cur.execute("CREATE TABLE IF NOT EXISTS LoggingStore ( " \
+            # pk is generated id
             "id INTEGER PRIMARY KEY, "\
             "ts INTEGER, "\
             "site TEXT, " \
             "pillar TEXT, " \
+            "workflowId TEXT, " \
+            # key = jobId
             "key TEXT, " \
             "data TEXT)")
         cur.execute("CREATE TABLE IF NOT EXISTS EventStore ( " \
+            # pk is generated id
             "id INTEGER PRIMARY KEY, "\
             "ts INTEGER, "\
             "site TEXT, " \
             "pillar TEXT, " \
+            "workflowId TEXT, " \
+            # key = eventId  TODO
             "key TEXT, " \
             "data TEXT)")
         cur.execute("CREATE TABLE IF NOT EXISTS JobStatusStore ( " \
+            # pk is generated id
             "id INTEGER PRIMARY KEY, "\
             "ts INTEGER, "\
             "site TEXT, " \
             "pillar TEXT, " \
+            "workflowId TEXT, " \
+            # key = jobId
             "key TEXT, " \
             "data TEXT)")
         cur.execute("CREATE TABLE IF NOT EXISTS MetasheetStore ( " \
+            # pk is generated id
             "id INTEGER PRIMARY KEY, "\
             "ts INTEGER, "\
             "site TEXT, " \
             "pillar TEXT, " \
+            "workflowId TEXT, " \
+            # key = jobId
             "key TEXT, " \
             "data TEXT)")
         db.commit()
         db.close()
 
-    def _put(self, table: str, siteName: str, pillar: str, key: Optional[str], data: str) -> None:
+    def _put(self, store: str, siteName: str, pillar: str, workflowId: Optional[str] = None,
+             key: Optional[str] = None, data: Optional[str] = None) -> None:
+        """
+        Generalized write method for all stores.
+        """
         max_retries = 5
         delay = 0.1  # seconds
         ts = _time.perf_counter_ns()
         if (key is None) or (key == ""):
             key = str(ts)
+        if workflowId is None:
+            workflowId = IdGenerator().generateId()
+        if data is None:
+            data = ""
         db = None
         for attempt in range(max_retries):
             try:
                 db = sqlite3.connect(_DB_FILE)
                 db.cursor().execute(
-                    "INSERT INTO " + table + \
-                    " (ts, site, pillar, key, data) VALUES (?, ?, ?, ?, ?)",
-                    (ts, siteName, pillar, key, data)
+                    "INSERT INTO " + store + \
+                    " (ts, site, pillar, workflowId, key, data) VALUES (?, ?, ?, ?, ?, ?)",
+                    (ts, siteName, pillar, workflowId, key, data)
                 )
                 db.commit()
                 db.close()
@@ -127,14 +168,42 @@ class WorkflowStore(Store):
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
             results = cur.execute(f"SELECT data FROM WorkflowStore WHERE pillar='run.wf' and " \
-                f"site='local' and key='{workflow_id}' order by ts desc")
+                f"key='{workflow_id}' order by ts desc")
             result = results.fetchone()
             if result is not None:
                 result = ObjectSerializer.deserialize(result[0])
             db.close()
             return result
         except Exception as e:
-            print(f"Error in getWorkflow: {e}")
+            print(f"Error in getWorkflow: {e}") # TODO logging
+            return None
+        finally:
+            if db:
+                db.close()
+
+    def getAllWorkflows(self) -> Optional[List[Workflow]]:
+        """
+        Get all workflows stored in the database, ordered by timestamp (newest first).
+        Workflows are relatively lightweight objects, so this should be efficient enough 
+        vs. returning just the ids.
+        :return: List of Workflow objects or None if no workflows found
+        """
+        db = None
+        try:
+            db = sqlite3.connect(_DB_FILE)
+            cur = db.cursor()
+            results = cur.execute("SELECT data FROM WorkflowStore WHERE " \
+                                  "pillar='run.wf' " \
+                                  "ORDER BY ts DESC")
+            rows = results.fetchall()
+            if rows:
+                result = [ObjectSerializer.deserialize(row[0]) for row in rows]
+            else:
+                result = None
+            db.close()
+            return result
+        except Exception as e:
+            print(f"Error in getAllWorkflows: {e}") # TODO logging
             return None
         finally:
             if db:
@@ -143,20 +212,88 @@ class WorkflowStore(Store):
     # set the site-specific auth blob for this site
     def putWorkflow(self, workflow: Workflow) -> None:
         self._put("WorkflowStore", "local", "run.wf", workflow.getWorkflowId(),
-            ObjectSerializer.serialize(workflow))
+                workflow.getWorkflowId(), ObjectSerializer.serialize(workflow))
+
 
 
 # ****************************************************************************
 
 class LoggingStore(Store):
 
+    # Enable or disable echoing log messages to standard output
+    # This can be useful for debugging or development purposes
+    # Set to False to disable echoing to stdout.
     _ECHO_STDIO = True
 
-    # put a record in the logging store
-    def putLogging(self, level: str, mydoc: str) -> None:
+    def putLogging(self, level: str, mydoc: str,
+                   site: str, workflowId: str, jobId: str) -> None:
+        """
+        Put a log message in the store.
+        :param level: The log level (e.g., "INFO", "ERROR", etc)
+        :param mydoc: The log message to store
+        :return: None
+        """
         if self._ECHO_STDIO:
             print(f"{datetime.datetime.now()} {level} {mydoc}")
-        self._put("LoggingStore", "local", "run.log." + level, None, mydoc)
+        self._put("LoggingStore", site, "run.log." + level, workflowId, jobId, mydoc)
+
+
+    def getLogsByWorkflow(self, workflowId: Optional[str] = None) -> Optional[List[str]]:
+        """
+        Get all log messages for a specific workflow, ordered by timestamp (newest first).
+        """
+        db = None
+        try:
+            db = sqlite3.connect(_DB_FILE)
+            cur = db.cursor()
+            if workflowId is not None:
+                results = cur.execute(
+                    "SELECT data FROM LoggingStore WHERE workflowId=? ORDER BY ts DESC",
+                    (workflowId,)
+                )
+                rows = results.fetchall()
+                if rows:
+                    result = [row[0] for row in rows]
+                else:
+                    result = None
+                db.close()
+                return result
+        except Exception as e:
+            print(f"Error in getAllLogsByWorkflow: {e}")
+            return None
+        finally:
+            if db:
+                db.close()
+
+
+    def getLogsByJob(self, jobId: Optional[str] = None) -> Optional[List[str]]:
+        """
+        Get all log messages for a specific job, ordered by timestamp (newest first).
+        :param site: The site name
+        :param jobId: The job ID to filter logs by
+        :return: List of log messages or None if no logs found
+        """
+        db = None
+        try:
+            db = sqlite3.connect(_DB_FILE)
+            cur = db.cursor()
+            results = cur.execute(
+                "SELECT data FROM LoggingStore WHERE pillar='run.log' AND key=? ORDER BY ts DESC",
+                (jobId,)
+            )
+            rows = results.fetchall()
+            if rows:
+                result = [row[0] for row in rows]
+            else:
+                result = None
+            db.close()
+            return result
+        except Exception as e:
+            print(f"Error in getAllLogsByJob: {e}")
+            return None
+        finally:
+            if db:
+                db.close()
 
 
 # ****************************************************************************
@@ -165,6 +302,7 @@ class EventStore(Store):
 
     def putWfEvent(self, datum: WorkflowEvent, typeT: str) -> None:
         self._put("EventStore", datum.getFireSite(), "run.event." + typeT,
+            datum.getWorkflowId(),
             datum.getEventId(), ObjectSerializer.serialize(datum))
 
     def getAllWfEvents(self, typeT: Optional[str]) -> Optional[List[WorkflowEvent]]:
@@ -234,19 +372,31 @@ class EventStore(Store):
 class JobStatusStore(Store):
 
     def putJobStatus(self, datum: JobStatus) -> None:
+        """
+        Put a job status record in the store.
+        """
         if datum is None or datum.getJobContext() is None:
-            self._put("LoggingStore", "local", "run.log." + "ERROR", None,
-                "Store.putJobStatus called with None datum")
+            self._put("LoggingStore", "local", "run.log." + "ERROR",
+                    datum.getJobContext().getWorkflowId(),
+                    None,
+                    "Store.putJobStatus called with None datum")
             return
         jobId = datum.getJobId()
         if jobId is None:
-            self._put("LoggingStore", "local", "run.log." + "ERROR", None,
-                "Store.putJobStatus called with datum that has no job ID")
+            self._put("LoggingStore", "local", "run.log." + "ERROR",
+                    datum.getJobContext().getWorkflowId(),
+                    None,
+                    "Store.putJobStatus called with datum that has no job ID")
             return
         self._put("JobStatusStore", datum.getJobContext().getSiteName(),
-                  "run.status", jobId, ObjectSerializer.serialize(datum))
+                  "run.status", datum.getJobContext().getWorkflowId(), jobId, 
+                  ObjectSerializer.serialize(datum))
 
-    def getAllJobStatuses(self, jobId: str) -> Optional[List[JobStatus]]:
+
+    def getJobStatuses(self, jobId: str) -> Optional[List[JobStatus]]:
+        """
+        Get all job status messages for a specific job, ordered by timestamp (newest first).
+        """
         if jobId is None:
             return None
         db = None
@@ -272,7 +422,11 @@ class JobStatusStore(Store):
             if db:
                 db.close()
 
+
     def getJobStatus(self, jobId: str) -> Optional[JobStatus]:
+        """
+        Get the most recent job status for a specific job.
+        """
         db = None
         try:
             db = sqlite3.connect(_DB_FILE)
@@ -296,6 +450,44 @@ class JobStatusStore(Store):
                 db.close()
 
 
+
+
+    def getJobStatusesForWorkflow(self, workflow_id: str) -> Optional[List[JobStatus]]:
+        """
+        Get all job status messages for all jobs in a workflow, ordered by timestamp (newest first).
+        """
+        if workflow_id is None:
+            return None
+
+        db = None
+        try:
+            # Build SQL query to get all job statuses for these job IDs
+            db = sqlite3.connect(_DB_FILE)
+            cur = db.cursor()
+
+            results = cur.execute(
+                "SELECT data FROM JobStatusStore WHERE pillar='run.status' " + \
+                "AND workflowId=? ORDER BY ts DESC",
+                (workflow_id,)
+            )
+
+            rows = results.fetchall()
+            if rows:
+                result = [ObjectSerializer.deserialize(row[0]) for row in rows]
+            else:
+                result = None
+
+            db.close()
+            return result
+        except Exception as e:
+            LoggingStore().putLogging("ERROR", f"Error in getAllJobStatusesForWorkflow: {e}",
+                                      "", workflow_id, "") # TODO add context
+            return None
+        finally:
+            if db:
+                db.close()
+
+
 # ****************************************************************************
 # Metasheet Store
 
@@ -305,17 +497,17 @@ class MetasheetStore(Store):
         keys = datum.getProps()
         if keys is None:
             keys = {}
-        keys["jobId"] = datum.getJobId()
-        keys["site"] = datum.getSiteName()
-        keys["url"] = datum.getSiteUrl()
-        keys["sheetId"] = datum.getSheetId()
+        keys["_sheetId"] = datum.getSheetId()
+        print(f"MetasheetStore.putMetasheet: {keys}")
         self._put("MetasheetStore", datum.getSiteName(), "repo.meta",
+            datum.getProps().get("_workflowId", ""),
             json.dumps(keys), ObjectSerializer.serialize(datum))
 
-    def findMetasheet(self, queryRegExs: dict) -> List[Metasheet]:
+
+    def findMetasheets(self, queryRegExs: dict) -> List[Metasheet]:
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_DB_FILE) 
             db.create_function("REGEXP", 2, lambda expr,
                 val: re.search(expr, val or "") is not None)
             cur = db.cursor()
@@ -323,6 +515,7 @@ class MetasheetStore(Store):
             # Build SQL WHERE clause
             where_clauses = []
             params = []
+            pattern = ""
             for k, regex in queryRegExs.items():
                 # This pattern matches the JSON key and value as a substring
                 # e.g. "jobId": "abc123"
@@ -334,6 +527,9 @@ class MetasheetStore(Store):
             if where_clauses:
                 sql += " WHERE " + " AND ".join(where_clauses)
 
+            print(sql)
+            print(pattern)
+
             cur.execute(sql, params)
             results = []
             for _, data in cur.fetchall():
@@ -342,7 +538,8 @@ class MetasheetStore(Store):
                 results.append(ms)
             return results
         except Exception as e:
-            LoggingStore().putLogging("ERROR", f"Error in findMetasheet: {e}")
+            LoggingStore().putLogging("ERROR", f"Error in findMetasheet: {e}",
+                                      "", "", "")
             return []
         finally:
             if db:

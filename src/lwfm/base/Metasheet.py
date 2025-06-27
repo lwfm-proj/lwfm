@@ -13,7 +13,6 @@ class Metasheet:
     """
     def __init__(self, siteName: str, localUrl: str, siteUrl: str, props: Optional[dict] = None):
         self._sheet_id = IdGenerator().generateId()
-        self._sheet_id = IdGenerator().generateId()
         self._job_id = self._sheet_id
         self._siteName = siteName
         self._localUrl = localUrl
@@ -40,7 +39,7 @@ class Metasheet:
 
     def getLocalUrl(self) -> str:
         return self._localUrl
-    
+
     def setLocalUrl(self, localUrl: str) -> None:
         self._localUrl = localUrl
 

@@ -96,5 +96,11 @@ class JobDefn:
     def getComputeType(self) -> Optional[str]:
         return self._computeType
 
+    def __str__(self) -> str:
+        return f"[name:{self.getName()} " + \
+            f"entryPoint:{self.getEntryPoint()} entryPointType:{self.getEntryPointType()} " + \
+            f"args:{self.getJobArgs()} siteName:{self.getSiteName()} " + \
+            f"computeType:{self.getComputeType()}]"
+
 
 #****************************************************************************

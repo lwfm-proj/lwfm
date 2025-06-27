@@ -82,7 +82,8 @@ def getWorkflow(workflow_id: str):
             return ObjectSerializer.serialize(w)
         return "", 404
     except Exception as ex:
-        LoggingStore().putLogging("ERROR", "getWorkflow: " + str(ex))
+        LoggingStore().putLogging("ERROR", "getWorkflow: " + str(ex),
+                                  "", workflow_id, "") # TODO context
         return "", 500
 
 @app.route("/workflow", methods=["POST"])
@@ -92,8 +93,38 @@ def putWorkflow():
         WorkflowStore().putWorkflow(workflow)
         return "", 200
     except Exception as ex:
-        LoggingStore().putLogging("ERROR", "putWorkflow: " + str(ex))
+        LoggingStore().putLogging("ERROR", "putWorkflow: " + str(ex),
+                                  "", "", "") # TODO context
         return "", 500
+
+@app.route("/workflows")
+def getWorkflows():
+    try:
+        workflows = WorkflowStore().getAllWorkflows()
+        if workflows is not None:
+            # Serialize each workflow for transport
+            serialized_workflows = ObjectSerializer.serialize(workflows)
+            return serialized_workflows, 200
+        return "", 404
+    except Exception as ex:
+        LoggingStore().putLogging("ERROR", "getWorkflows: " + str(ex),
+                                  "", "", "") # TODO context
+        return "", 500
+
+
+@app.route("/workflow/<workflow_id>/statuses")
+def getWorkflowStatuses(workflow_id: str):
+    try:
+        statuses = JobStatusStore().getJobStatusesForWorkflow(workflow_id)
+        if statuses is not None:
+            serialized_statuses = ObjectSerializer.serialize(statuses)
+            return serialized_statuses
+        return "", 404
+    except Exception as ex:
+        LoggingStore().putLogging("ERROR", "getWorkflowStatuses: " + str(ex),
+                                  "", "", "") # TODO context
+        return "", 500
+
 
 #************************************************************************
 # status endpoints
@@ -142,22 +173,26 @@ def emitStatus():
                 if not gotOne and not fromEvent:
                     # lay down a new remote job tracking event
                     LoggingStore().putLogging("INFO",
-                        f"laying down remote job event {statusObj.getJobId()}")
+                        f"laying down remote job event {statusObj.getJobId()}",
+                        "", "", "") # TODO context
                     wfProcessor.setEventHandler(RemoteJobEvent(statusObj.
                           getJobContext()))
         except Exception as ex:
             LoggingStore().putLogging("ERROR",
-                "Exception putting remote job event handler: " + " " + str(ex))
+                "Exception putting remote job event handler: " + " " + str(ex),
+                "", "", "") # TODO context
 
         # is this an INFO? check for data triggers
         if statusObj.getStatus() == JobStatus.INFO:
             if wfProcessor.checkDataStatusEvent(statusObj):
                 LoggingStore().putLogging("INFO",
-                    f"Data trigger event(s) processed for job {statusObj.getJobId()}")
+                    f"Data trigger event(s) processed for job {statusObj.getJobId()}",
+                    "", "", "") # TODO context
 
         return "", 200
     except Exception as ex:
-        LoggingStore().putLogging("ERROR", "emitStatus svc: " + str(ex))
+        LoggingStore().putLogging("ERROR", "emitStatus svc: " + str(ex),
+                                  "", "", "") # TODO context
         return "", 400
 
 
@@ -169,18 +204,20 @@ def getStatus(jobId: str):
             return ObjectSerializer.serialize(s)
         return ""
     except Exception:
-        LoggingStore().putLogging("ERROR", "Unable to /getStatus() for jobId: " + jobId)
+        LoggingStore().putLogging("ERROR", "Unable to /getStatus() for jobId: " + jobId,
+                                  "", jobId, "") # TODO context
         return ""
 
 @app.route("/statusAll/<jobId>")
 def getStatusAll(jobId: str):
     try:
-        s = JobStatusStore().getAllJobStatuses(jobId)
+        s = JobStatusStore().getJobStatuses(jobId)
         if s is not None:
             return ObjectSerializer.serialize(s)
         return ""
     except Exception:
-        LoggingStore().putLogging("ERROR", "Unable to /getStatusAll() for jobId: " + jobId)
+        LoggingStore().putLogging("ERROR", "Unable to /getStatusAll() for jobId: " + jobId,
+                                  "", jobId, "") # TODO context
         return ""
 
 
@@ -192,11 +229,41 @@ def emitLogging():
     try:
         level = request.form["level"]
         errorMsg = request.form["errorMsg"]
-        LoggingStore().putLogging(level, errorMsg)
+        site = request.form.get("site", "")
+        workflowId = request.form.get("workflowId", "")
+        jobId = request.form.get("jobId", "")
+        LoggingStore().putLogging(level, errorMsg, site, workflowId, jobId)
         return "", 200
     except Exception as ex:
-        LoggingStore().putLogging("ERROR", "emitLogging: " + str(ex))
+        LoggingStore().putLogging("ERROR", "emitLogging: " + str(ex),
+                                  "", "", "") # TODO context
         return "", 400
+
+
+@app.route("/logs/workflow/<workflow_id>")
+def getLogsByWorkflow(workflow_id: str):
+    try:
+        logs = LoggingStore().getLogsByWorkflow(workflow_id)
+        if logs is not None:
+            return ObjectSerializer.serialize(logs), 200
+        return "", 200
+    except Exception as ex:
+        LoggingStore().putLogging("ERROR", "getLogsByWorkflow: " + str(ex),
+                                    "", workflow_id, "") # TODO context
+        return "", 500
+
+@app.route("/logs/job/<job_id>")
+def getLogsByJob(job_id: str):
+    try:
+        logs = LoggingStore().getLogsByJob(job_id)
+        if logs is not None:
+            return ObjectSerializer.serialize(logs), 200
+        return "", 200
+    except Exception as ex:
+        LoggingStore().putLogging("ERROR", "getLogsByJob: " + str(ex),
+                                    "", "", job_id) # TODO context
+        return "", 500
+
 
 
 #************************************************************************
@@ -211,7 +278,8 @@ def setHandler():
             return "", 200
         return str(result), 200
     except Exception as ex:
-        LoggingStore().putLogging("ERROR", "setEvent: " + str(ex))
+        LoggingStore().putLogging("ERROR", "setEvent: " + str(ex),
+                                  "", "", "") # TODO context
         return "", 400
 
 
@@ -222,7 +290,7 @@ def unsetHandler(handlerId: str):
     return "", 200
 
 
-# list the ids of all active handlers
+# get all active workflow events (handlers)
 @app.route("/listEvents")
 def listHandlers():
     try:
@@ -230,11 +298,11 @@ def listHandlers():
         events = EventStore().getAllWfEvents(None)
         if events is None:
             return "", 200
-        # Return a list of handler IDs (assuming each event has getHandlerId())
         return ObjectSerializer.serialize(events), 200
     except Exception as ex:
         print(ex)
-        LoggingStore().putLogging("ERROR", "listHandlers: " + str(ex))
+        LoggingStore().putLogging("ERROR", "listHandlers: " + str(ex),
+                                  "", "", "") # TODO context
         return "", 500
 
 
@@ -249,7 +317,8 @@ def notate():
         MetasheetStore().putMetasheet(sheet)
         return "", 200
     except Exception as ex:
-        LoggingStore().putLogging("ERROR", "notate: " + str(ex))
+        LoggingStore().putLogging("ERROR", "notate: " + str(ex),
+                                  "", "", "") # TODO context
         return "", 400
 
 
@@ -257,8 +326,9 @@ def notate():
 def find():
     try:
         searchDict = json.loads(request.form["searchDict"])
-        sheets: List[Metasheet] = MetasheetStore().findMetasheet(searchDict)
+        sheets: List[Metasheet] = MetasheetStore().findMetasheets(searchDict)
         return ObjectSerializer.serialize(sheets), 200
     except Exception as ex:
-        LoggingStore().putLogging("ERROR", "find: " + str(ex))
+        LoggingStore().putLogging("ERROR", "find: " + str(ex),
+                                  "", "", "") # TODO context
         return "", 400

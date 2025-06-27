@@ -242,7 +242,7 @@ class LocalSiteRepo(SiteRepo):
         if success:
             if jobContext is None:
                 lwfManager.emitStatus(context, JobStatus.FINISHING)
-            # TODO lwfManager.notateGet(localPath, siteObjPath, context)
+            lwfManager._notateGet(self.getSiteName(), localPath, siteObjPath, context)
             if jobContext is None:
                 lwfManager.emitStatus(context, JobStatus.COMPLETE)
             return localPath

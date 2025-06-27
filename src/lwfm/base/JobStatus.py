@@ -155,4 +155,6 @@ class JobStatus:
 
 
     def __str__(self):
-        return f"[status ctx:{self._context} value:{self._status} info:{self._native_info}]"
+        return f"[status ctx:{self._context} value:{self._status} " + \
+            f"ts:{int(self._emit_time.timestamp())} " + \
+            f"info:{self._native_info}]"

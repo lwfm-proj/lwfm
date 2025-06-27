@@ -32,4 +32,5 @@ if __name__ == "__main__":
 
     # Let's show that we can also get the result of the job later on
     status = lwfManager.getStatus(status.getJobId())
-    logger.info("job status from persistence" + str(status))
+    # We can also optionally link the logging to the workflow / job context
+    logger.info("job status from persistence" + str(status), status.getJobContext())

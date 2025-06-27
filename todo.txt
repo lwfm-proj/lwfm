@@ -3,11 +3,14 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    - data events - ex3
-    - review job and middleware logging 
-    - site endpoints - return values 
     - meta notate, LocalSite:233, IBMQuantumSite.get; get and put notations
     - test data provenance (#78, #86)
+    - LoggingStore with context - write ticket to improve
+    - keywords, pillars
+    - use of json dumps
+    - test getLogsByJob
+
+    - site endpoints - return values 
     - IBM driver Repo put / get with non-optional jobContext, run submit, _submit
     - inline docs esp. for .base & .midware (#84)
     - import/export (#73)
