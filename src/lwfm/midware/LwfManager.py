@@ -11,7 +11,7 @@ import time
 import os
 import argparse
 
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Any
 
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.JobContext import JobContext
@@ -36,16 +36,114 @@ class LwfManager:
         self._context = None
 
 
+    #***********************************************************************
+    # private methods
+    # These methods are not intended to be used by workflow authors, but are
+    # used internally by the lwfm service and potentially Site drivers.
+
+    def _getClient(self):
+        """
+        Gets the client class which is a thin set of methods for invoking 
+        REST services.
+        """
+        return self._client
+
+
+    def _serialize(self, obj) -> str:
+        """
+        Serialize an object to string.
+        """
+        return ObjectSerializer.serialize(obj)
+
+
+    def _deserialize(self, s: str):
+        """
+        Deserialize a string to an object.
+        """
+        return ObjectSerializer.deserialize(s)
+
+
+    def _getJobContextFromEnv(self) -> Optional[JobContext]:
+        # see if we got passed in a job id in the os environment
+        if '_LWFM_JOB_ID' in os.environ:
+            _status = self.getStatus(os.environ['_LWFM_JOB_ID'])
+            if _status is not None:
+                return _status.getJobContext()
+            else:
+                context = JobContext()
+                context.setJobId(os.environ['_LWFM_JOB_ID'])
+                return context
+        return None
+
+
+    def _emitStatusFromEvent(self, context: JobContext,
+                   statusStr: str, nativeStatusStr: str,
+                   nativeInfo: str) -> None:
+        if nativeStatusStr is None:
+            nativeStatusStr = statusStr
+        return self._client.emitStatus(context, statusStr,
+            nativeStatusStr, nativeInfo, True)
+
+
+    def _emitRepoInfo(self, context: JobContext, _metasheet: Metasheet) -> None:
+        return self.emitStatus(context, "INFO", "INFO", str(_metasheet))
+
+
+    def _notate(self, siteName: str, localPath: str, siteObjPath: str,
+                jobContext: JobContext,
+                _metasheet: Metasheet,
+                isPut: bool = False) -> Metasheet:
+        """
+        Notate a metadata sheet with the given site name, local path, and site object path.
+        If a job context is provided, it will be set on the metasheet.
+        """
+        if jobContext is not None:
+            _metasheet.setJobId(jobContext.getJobId())
+        # now do the metadata notate
+        props = _metasheet.getProps()
+        props['_direction'] = 'put' if isPut else 'get'
+        props['_siteName'] = siteName
+        props['_localPath'] = localPath
+        props['_siteObjPath'] = siteObjPath
+        if jobContext is not None:
+            props['_workflowId'] = jobContext.getWorkflowId()
+            props['_jobId'] = jobContext.getJobId()
+        _metasheet.setProps(props)
+        # persist
+        self._client.notate(_metasheet)
+        # TODO technically the above notate() might be None if the notate fails - conisder
+        # now emit an INFO job status
+        self._emitRepoInfo(jobContext, _metasheet)
+        return _metasheet
+
+    def _notatePut(self, siteName: str, localPath: str, siteObjPath: str,
+        jobContext: JobContext,
+        _metasheet: Optional[Metasheet]) -> Metasheet:
+        if _metasheet is None:
+            _metasheet = Metasheet(siteName, localPath, siteObjPath)
+        return self._notate(siteName, localPath, siteObjPath, jobContext, _metasheet, True)
+
+    def _notateGet(self, siteName: str, localPath: str, siteObjPath: str,
+        jobContext: JobContext) -> Metasheet:
+        _metasheet = Metasheet(siteName, localPath, siteObjPath)
+        return self._notate(siteName, localPath, siteObjPath, jobContext, _metasheet, False)
+
+
+    #***********************************************************************
+    # public job context methods
+
     def isMidwareRunning(self) -> bool:
+        """
+        Is the middleware service running?
+        """
         return self._client.isMidwareRunning()
 
 
-    def generateId(self):
+    def generateId(self) -> str:
+        """
+        Generate a unique ID for a job or workflow, or any other purpose.
+        """
         return IdGenerator().generateId()
-
-
-    def _getClient(self):
-        return self._client
 
 
     def setContext(self, context: JobContext) -> None:
@@ -53,7 +151,8 @@ class LwfManager:
         Set the context for the lwfManager, which can be used to include job-related
         information in log messages and status updates.
         """
-        self._context = context
+        self._context = context # TODO are we using this everywhere correctly?
+
 
     def getContext(self) -> Optional[JobContext]:
         """
@@ -64,7 +163,11 @@ class LwfManager:
             self._context = self._getJobContextFromEnv()
         return self._context
 
+
     def getLogFilename(self, context: JobContext) -> str:
+        """
+        Construct and return a log file name for a job context.
+        """
         basename = SiteConfig.getLogFilename()
         logDir = os.path.expanduser(basename)
         os.makedirs(logDir, exist_ok=True)
@@ -72,7 +175,7 @@ class LwfManager:
 
 
     #***********************************************************************
-    # configuration methods
+    # public site configuration methods
 
     def getAllSiteProperties(self) -> dict:
         """
@@ -99,29 +202,25 @@ class LwfManager:
 
 
     #***********************************************************************
-    # serialization methods
-
-    def serialize(self, obj) -> str:
-        return ObjectSerializer.serialize(obj)
-
-    def deserialize(self, s: str):
-        return ObjectSerializer.deserialize(s)
-
-    #***********************************************************************
-    # workflow methods
+    # public workflow methods
 
     def putWorkflow(self, wflow: Workflow) -> Optional[str]:
+        """
+        Write a workflow object to store. Get back a workflow id.
+        """
         return self._client.putWorkflow(wflow)
 
+
     def getWorkflow(self, workflow_id: str) -> Optional[Workflow]:
+        """
+        Get a workflow by its ID.
+        """
         return self._client.getWorkflow(workflow_id)
+
 
     def getAllWorkflows(self) -> Optional[List[Workflow]]:
         """
-        Get all workflows stored in the middleware.
-        
-        Returns:
-            List of Workflow objects, or None if no workflows are found
+        Get all workflows stored. Workflows are relatively thin objects.
         """
         try:
             val = self._client.getAllWorkflows()
@@ -134,9 +233,11 @@ class LwfManager:
             logger.error(f"Error in LwfManager.getAllWorkflows: {e}")
             return None
 
+
     def getAllJobStatusesForWorkflow(self, workflow_id: str) -> Optional[List[JobStatus]]:
         """
         Get all job status messages for all jobs in a workflow, ordered by timestamp (newest first).
+        This might get large. Not tested for super large workflows.
         """
         if workflow_id is None:
             return None
@@ -148,51 +249,48 @@ class LwfManager:
 
 
     #***********************************************************************
-    # job & status methods
+    # public job & status methods
 
-    # given a job id, get back the current status
     def getStatus(self, jobId: str) -> JobStatus:
+        """
+        Get the status of a job by its lwfm id, returning only the most recent 
+        status message. This might end up doing a read on the store, or it might
+        end up calling the site to get the status.
+        """
         return self._client.getStatus(jobId) or None # type: ignore
 
 
     def getAllStatus(self, jobId: str) -> Optional[List[JobStatus]]:
+        """
+        Return all job status records in store for a given job, sorted by time.
+        This is useful for getting the full history of a job.
+        """
         return self._client.getAllStatus(jobId)
 
 
-    def _getJobContextFromEnv(self) -> Optional[JobContext]:
-        # see if we got passed in a job id in the os environment
-        if '_LWFM_JOB_ID' in os.environ:
-            _status = self.getStatus(os.environ['_LWFM_JOB_ID'])
-            if _status is not None:
-                return _status.getJobContext()
-            else:
-                context = JobContext()
-                context.setJobId(os.environ['_LWFM_JOB_ID'])
-                return context
-        return None
-
-    # emit a status message
     def emitStatus(self, context: JobContext,
                    statusStr: str, nativeStatusStr: Optional[str] = None,
                    nativeInfo: Optional[str] = None) -> None:
+        """
+        Emit a status message for a job, using the provided context.
+        Emitting a status will persist it in the lwfm store, potentially write it 
+        to running logs and/or console, and may trigger asynchronous events.
+        """
         if nativeStatusStr is None:
             nativeStatusStr = statusStr
         return self._client.emitStatus(context, statusStr,
             nativeStatusStr, nativeInfo or "", False)
 
 
-    def _emitStatusFromEvent(self, context: JobContext,
-                   statusStr: str, nativeStatusStr: str,
-                   nativeInfo: str) -> None:
-        if nativeStatusStr is None:
-            nativeStatusStr = statusStr
-        return self._client.emitStatus(context, statusStr,
-            nativeStatusStr, nativeInfo, True)
-
-
-    # Wait synchronously until the job reaches a terminal state, then return
-    # that state.  Uses a progressive sleep time to avoid polling too frequently.
     def wait(self, jobId: str) -> JobStatus:  # type: ignore
+        """
+        Wait synchronously until the job reaches a terminal state, then return
+        that state. Uses a progressive sleep time to avoid polling too frequently.
+        Jobs will run asynchronously and will record their results in store, however, 
+        some user workflows might wish to wait synchronously if they know the runtimes 
+        are short. This is not recommended for long-running jobs - use job triggers
+        instead.
+        """
         _status: JobStatus = self.getStatus(jobId)
         if _status is None:
             return None
@@ -225,11 +323,12 @@ class LwfManager:
 
 
     def execSiteEndpoint(self, jDefn: JobDefn, jobContext: Optional[JobContext] = None,
-        emitStatus: Optional[bool] = True):
+        emitStatus: Optional[bool] = True) -> Any:
         """
         Execute a method on a site pillar object, using venv if needed.
         In essence this is an alternative means to call "site.get-pillar.get-method"().
         We can handle the emitting of job status, or not.
+        This is a convenience method, and permits a bit of shorthand in workflows.
         """
         if jDefn is None:
             logger.error("lwfManager: can't execute site endpoint - is none")
@@ -282,6 +381,8 @@ class LwfManager:
                     _args = [_args[0], _args[1], jobContext]
                 elif len(_args) == 3:
                     _args = [_args[0], _args[1], jobContext, _args[3]]
+            # do the actual invocation of the site driver method here, passing the
+            # args and getting the return object
             result = method(*_args)
             if emitStatus:
                 self.emitStatus(jobContext, JobStatus.COMPLETE)
@@ -294,10 +395,9 @@ class LwfManager:
             return None
 
 
-
     def getLoggingByWorkflowId(self, workflowId: str) -> Optional[List[str]]:
         """
-        Retrieve logging entries for a given workflow ID.
+        Retrieve logging entries for a given workflow ID.  # TODO needs testing
         """
         if workflowId is None:
             return None
@@ -307,9 +407,10 @@ class LwfManager:
             logger.error(f"Error in LwfManager.getLoggingByWorkflowId: {e}")
             return None
 
+
     def getLoggingByJobId(self, jobId: str) -> Optional[List[str]]:
         """
-        Retrieve logging entries for a given job ID.
+        Retrieve logging entries for a given job ID.    # TODO needs testing
         """
         if jobId is None:
             return None
@@ -319,74 +420,49 @@ class LwfManager:
             logger.error(f"Error in LwfManager.getLoggingByJobId: {e}")
             return None
 
-    #***********************************************************************
-    # event methods
 
-    # register an event handler, get back the initial queued status of the future job
+    #***********************************************************************
+    # public event methods
+
     def setEvent(self, wfe: WorkflowEvent) -> Optional[JobStatus]:
+        """
+        Register a workflow event handler. This will return the initial status of the
+        future job.
+        """
         return self._client.setEvent(wfe)
 
+
     def unsetEvent(self, wfe: WorkflowEvent) -> None:
+        """
+        Unset a registered event.
+        """
         return self._client.unsetEvent(wfe)
 
-    # get all active event handlers
+
     def getActiveWfEvents(self) -> Optional[List[WorkflowEvent]]:
+        """
+        Return all active event handlers. This might be large for large workflows
+        but the WorkflowEvent is relatively thin.
+        """
         return self._client.getActiveWfEvents()
 
 
     #***********************************************************************
     # repo methods
 
-    def _emitRepoInfo(self, context: JobContext, _metasheet: Metasheet) -> None:
-        return self.emitStatus(context, "INFO", "INFO", str(_metasheet))
-
-    def _notate(self, siteName: str, localPath: str, siteObjPath: str,
-                jobContext: JobContext,
-                _metasheet: Metasheet,
-                isPut: bool = False) -> Metasheet:
-        if jobContext is not None:
-            _metasheet.setJobId(jobContext.getJobId())
-        # now do the metadata notate
-        props = _metasheet.getProps()
-        props['_direction'] = 'put' if isPut else 'get'
-        props['_siteName'] = siteName
-        props['_localPath'] = localPath
-        props['_siteObjPath'] = siteObjPath
-        if jobContext is not None:
-            props['_workflowId'] = jobContext.getWorkflowId()
-            props['_jobId'] = jobContext.getJobId()
-        _metasheet.setProps(props)
-        # persist
-        self._client.notate(_metasheet)
-        # TODO technically the above notate() might be None if the notate fails - conisder
-        # now emit an INFO job status
-        self._emitRepoInfo(jobContext, _metasheet)
-        return _metasheet
-
-    def _notatePut(self, siteName: str, localPath: str, siteObjPath: str,
-        jobContext: JobContext,
-        _metasheet: Optional[Metasheet]) -> Metasheet:
-        if _metasheet is None:
-            _metasheet = Metasheet(siteName, localPath, siteObjPath)
-        return self._notate(siteName, localPath, siteObjPath, jobContext, _metasheet, True)
-
-    def _notateGet(self, siteName: str, localPath: str, siteObjPath: str,
-        jobContext: JobContext) -> Metasheet:
-        _metasheet = Metasheet(siteName, localPath, siteObjPath)
-        return self._notate(siteName, localPath, siteObjPath, jobContext, _metasheet, False)
-
-
     def find(self, queryRegExs: dict) -> Optional[List[Metasheet]]:
         return self._client.find(queryRegExs)
 
 
 #***********************************************************************
+# exposed instances
 
 lwfManager = LwfManager()
 logger = Logger(lwfManager._getClient())
 
-#***********************************************************************
 
+#***********************************************************************
+# CLI interface for LwfManager
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LwfManager CLI")

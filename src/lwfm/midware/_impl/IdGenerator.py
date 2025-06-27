@@ -6,14 +6,28 @@ job sites.  Other objects in the system may also use this generator.
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
 
 import uuid
-import random
-import sys
 
 class IdGenerator:
-    def generateId(self) -> str:
-        return str(uuid.uuid4())[:8]  # short form
-        # return str(uuid.uuid4())        # long form
+    def _generateIdWorker(self, short: bool = True) -> str:
+        if short:
+            return str(uuid.uuid4())[:8]  # short form
+        return str(uuid.uuid4())        # long form
 
-    def generateInteger(self) -> int:
-        max_int = sys.maxsize
-        return random.randint(1, max_int)
+    def generateIdShort(self) -> str:
+        """
+        Generate a short-form unique id.
+        """
+        return self._generateIdWorker(short=True)
+
+    def generateIdLong(self) -> str:
+        """
+        Generate a long-form unique id.
+        """
+        return self._generateIdWorker(short=False)
+
+    def generateId(self) -> str:
+        """
+        Generate a unique ID for a job or workflow, or any other purpose.
+        This is the method called by default.
+        """
+        return self._generateIdWorker(short=True) # TODO get this from site.toml config

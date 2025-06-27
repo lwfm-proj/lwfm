@@ -3,11 +3,7 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    - test data provenance (#78) - new jobs & workflows being made under the hood...
-    - test get metasheets by jobId
     - site endpoints - return values 
-    - review lwfManager signatures & groupings
-    - reverse args of put & get
 
 + ibm site driver
     - repo put & get with notate of _vars
@@ -23,6 +19,8 @@ Todo & misc notes
     - inline docs esp. for .base & .midware (#84)
     - document keywords, pillars for metasheet search
     - import/export (#73)
+    - reverse args of put & get
+    - test get metasheets by jobId
 
 
 ******************************************************************************

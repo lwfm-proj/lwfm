@@ -571,11 +571,11 @@ class MetasheetStore(Store):
 
 
 
-if __name__ == "__main__":
-    store = JobStatusStore()
-    statuses = store._getAllJobStatuses()
-    if statuses:
-        for status in statuses:
-            print(status)
-    else:
-        print("No job statuses found.")
+# if __name__ == "__main__":
+#     store = JobStatusStore()
+#     statuses = store._getAllJobStatuses()
+#     if statuses:
+#         for status in statuses:
+#             print(status)
+#     else:
+#         print("No job statuses found.")
