@@ -8,7 +8,7 @@ Handles loading site configuration from TOML files and creating site instances.
 import os
 import tomllib
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 class SiteConfig:
     """

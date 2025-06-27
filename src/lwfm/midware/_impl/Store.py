@@ -29,9 +29,6 @@ import re
 from typing import List, Optional
 import sqlite3
 
-import argparse
-
-
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.Workflow import Workflow
@@ -507,7 +504,7 @@ class MetasheetStore(Store):
     def findMetasheets(self, queryRegExs: dict) -> List[Metasheet]:
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE) 
+            db = sqlite3.connect(_DB_FILE)
             db.create_function("REGEXP", 2, lambda expr,
                 val: re.search(expr, val or "") is not None)
             cur = db.cursor()

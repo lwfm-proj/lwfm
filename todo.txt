@@ -5,14 +5,19 @@ Todo & misc notes
 + lwfm
     - meta notate, LocalSite:233, IBMQuantumSite.get; get and put notations
     - test data provenance (#78, #86)
-    - LoggingStore with context - write ticket to improve
-    - keywords, pillars
-    - use of json dumps
-    - test getLogsByJob
 
     - site endpoints - return values 
+
+
+    - TODO items - many are for log context
+    - LoggingStore with context - write ticket to improve
+    - test get logs by job, workflow
+
+
     - IBM driver Repo put / get with non-optional jobContext, run submit, _submit
     - inline docs esp. for .base & .midware (#84)
+    - document keywords, pillars for metasheet search
+    
     - import/export (#73)
 
 

@@ -240,7 +240,7 @@ class LwfmEventClient:
                 return cast(List[str], ObjectSerializer.deserialize(response.text))
             if response.status_code == 404:
                 self.emitLogging("ERROR", f"getLoggingByWorkflowId error: {response.text}")
-            return None           
+            return None 
         except Exception as ex:
             self.emitLogging("ERROR", f"getLoggingByWorkflowId exception: {str(ex)}")
         return None
@@ -257,7 +257,7 @@ class LwfmEventClient:
                 return cast(List[str], ObjectSerializer.deserialize(response.text))
             if response.status_code == 404:
                 self.emitLogging("ERROR", f"getLoggingByJobId error: {response.text}")
-            return None       
+            return None
         except Exception as ex:
             self.emitLogging("ERROR", f"getLoggingByJobId exception: {str(ex)}")
         return None
