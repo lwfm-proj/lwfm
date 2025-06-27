@@ -268,13 +268,20 @@ class LwfManager:
                 if emitStatus:
                     self.emitStatus(jobContext, JobStatus.FAILED)
                 return None
+            if emitStatus:
+                self.emitStatus(jobContext, JobStatus.RUNNING)
             _args = jDefn.getJobArgs()
             if site_method == "submit":
                 newJobDefn = JobDefn(_args[0], JobDefn.ENTRY_TYPE_STRING, _args[1:])
                 _args = [newJobDefn, jobContext, jDefn.getComputeType(), _args[1:]]
-            # Call the method with the job arguments
-            if emitStatus:
-                self.emitStatus(jobContext, JobStatus.RUNNING)
+            elif site_method in ["get"]:
+                if len(_args) == 2:
+                    _args = [_args[0], _args[1], jobContext]
+            elif site_method in ["put"]:
+                if len(_args) == 2:
+                    _args = [_args[0], _args[1], jobContext]
+                elif len(_args) == 3:
+                    _args = [_args[0], _args[1], jobContext, _args[3]]
             result = method(*_args)
             if emitStatus:
                 self.emitStatus(jobContext, JobStatus.COMPLETE)

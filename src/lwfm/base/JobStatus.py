@@ -155,6 +155,12 @@ class JobStatus:
 
 
     def __str__(self):
-        return f"[status ctx:{self._context} value:{self._status} " + \
+        id_length = 9
+        p = self._status
+        if len(p) < id_length:
+            p = p.ljust(id_length)
+        else:
+            p = p[:id_length]
+        return f"[status ctx:{self._context} value:{p} " + \
             f"ts:{int(self._emit_time.timestamp())} " + \
             f"info:{self._native_info}]"

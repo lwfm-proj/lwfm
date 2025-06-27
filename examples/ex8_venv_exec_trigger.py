@@ -25,7 +25,8 @@ if __name__ == "__main__":
     logger.info(f"lwfm job {job_status_A.getJobId()} " + \
                 f"workflow {job_status_A.getJobContext().getWorkflowId()}")
 
-    # set a trigger to run when the above job completes
+    # set a trigger to run when the above job async completes but on a different site
+    # (the local venv site)
     job_status_B = lwfManager.setEvent(
         JobEvent(job_status_A.getJobId(),                       # when this job
                 JobStatus.COMPLETE,                             # hits this state
@@ -33,7 +34,9 @@ if __name__ == "__main__":
                     ["/tmp/ex8.in",                             # with these args
                     "/tmp/" + job_status_A.getJobId() + \
                     ".out"]),
-                "local-venv")                                   # on this site
+                "local-venv",                                   # on this site
+                None,                                           # with a new job id
+                job_status_A.getJobContext())                   # in this workflow
     )
     if job_status_B is None:
         logger.error("Failed to set job B event on job A")
@@ -49,10 +52,3 @@ if __name__ == "__main__":
         print(f"Contents of {out_file}:\n{contents}")
     except Exception as e:
         logger.error(f"Failed to read {out_file}: {e}")
-
-    # Find all the metadata sheets for the job
-    job_meta = lwfManager.find({"jobId": job_status_B.getJobId()})
-    if job_meta is None:
-        logger.error(f"Failed to find metadata for job {job_status_B.getJobId()}")
-        sys.exit(1)
-    logger.info(f"Metadata for job {job_status_B.getJobId()}: {job_meta}")

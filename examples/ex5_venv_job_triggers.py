@@ -18,7 +18,6 @@ from lwfm.midware.LwfManager import lwfManager, logger
 if __name__ == "__main__":
     # get the local site and "login"
     site = lwfManager.getSite("local-venv")
-    site.getAuthDriver().login()
 
     # define job A - sit-in for some kind of "real" pre-processing
     jobDefnA = JobDefn(">&2 echo hello world, job A output pwd = `pwd`")
@@ -39,7 +38,8 @@ if __name__ == "__main__":
     # when job A asynchronously reaches the COMPLETE state, fire job B
     statusB = lwfManager.setEvent(
         JobEvent(statusA.getJobId(), JobStatus.COMPLETE,
-                 JobDefn("echo date = `date` > " + dataFile), "local", None, wf.getWorkflowId())
+                 JobDefn("echo date = `date` > " + dataFile), "local", None,
+                 statusA.getJobContext())
     )
     if statusB is None:
         logger.error("Failed to set job B event on job A")
@@ -49,7 +49,8 @@ if __name__ == "__main__":
     # when job B asynchronously gets to the COMPLETE state, fire job C
     statusC = lwfManager.setEvent(
         JobEvent(statusB.getJobId(), JobStatus.COMPLETE,
-                 JobDefn(">&2 echo " + dataFile), "local", None, wf.getWorkflowId())
+                 JobDefn(">&2 echo " + dataFile), "local", None,
+                 statusB.getJobContext())
     )
     if statusC is None:
         logger.error("Failed to set job C event on job B")

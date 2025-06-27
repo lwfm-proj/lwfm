@@ -13,6 +13,7 @@ from typing import Optional
 
 from lwfm.midware._impl.IdGenerator import IdGenerator
 from lwfm.base.JobDefn import JobDefn
+from lwfm.base.JobContext import JobContext
 
 
 # ************************************************************************
@@ -21,18 +22,26 @@ class WorkflowEvent:
     Base class for workflow events.
     """
     def __init__(self, fireDefn: JobDefn, fireSite: str, fireJobId: Optional[str] = None,
-                 workflowId: Optional[str] = None):
+                 context: Optional[JobContext] = None):
         self._event_id: str = IdGenerator().generateId()
         self._fire_defn = fireDefn
         self._fire_site = fireSite
         self._fire_job_id = fireJobId or IdGenerator().generateId()
-        self._workflow_id = workflowId or IdGenerator().generateId()
+        self._context = context
+        if context is None:
+            context = JobContext()
+        self._workflow_id: str = context.getWorkflowId() if context.getWorkflowId() else \
+            IdGenerator().generateId()
+        self._parent = context.getJobId()
 
     def getEventId(self) -> str:
         return self._event_id
 
     def getWorkflowId(self) -> str:
         return self._workflow_id
+
+    def getParentId(self) -> Optional[str]:
+        return self._parent
 
     def setFireDefn(self, fireDefn):
         self._fire_defn = fireDefn
@@ -72,8 +81,8 @@ class JobEvent(WorkflowEvent):
     """
     def __init__(self, ruleJobId: str, ruleStatus: str,
                  fireDefn: JobDefn, fireSite: str, fireJobId: Optional[str] = None,
-                 workflowId: Optional[str] = None):
-        super().__init__(fireDefn, fireSite, fireJobId, workflowId)
+                 context: Optional[JobContext] = None):
+        super().__init__(fireDefn, fireSite, fireJobId, context)
         self._rule_job_id: str = ruleJobId
         self._rule_status: str = ruleStatus
         if fireDefn is not None:
@@ -112,8 +121,8 @@ class MetadataEvent(WorkflowEvent):
     """
     def __init__(self, queryRegExs: dict, fireDefn: JobDefn, fireSite: str,
                 fireJobId: Optional[str] = None,
-                workflowId: Optional[str] = None):
-        super().__init__(fireDefn, fireSite, fireJobId, workflowId)
+                context: Optional[JobContext] = None):
+        super().__init__(fireDefn, fireSite, fireJobId, context)
         self._query_regexs = queryRegExs
 
     def getQueryRegExs(self) -> dict:

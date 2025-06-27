@@ -390,6 +390,36 @@ class JobStatusStore(Store):
                   ObjectSerializer.serialize(datum))
 
 
+    def _getAllJobStatuses(self) -> Optional[List[JobStatus]]:
+        """
+        Get all job status messages, ordered by timestamp (newest first).
+        For developer debugging. 
+        """
+        db = None
+        try:
+            db = sqlite3.connect(_DB_FILE)
+            cur = db.cursor()
+            results = cur.execute(
+                "SELECT data FROM JobStatusStore WHERE pillar=? ORDER BY ts DESC",
+                ("run.status", )
+            )
+            rows = results.fetchall()
+            if rows:
+                result = [ObjectSerializer.deserialize(row[0]) for row in rows]
+            else:
+                result = None
+            db.close()
+            return result
+        except Exception as e:
+            # Optionally log error if you have a logging mechanism
+            print(f"Error in getAllJobStatuses: {e}")
+            return None
+        finally:
+            if db:
+                db.close()
+
+
+
     def getJobStatuses(self, jobId: str) -> Optional[List[JobStatus]]:
         """
         Get all job status messages for a specific job, ordered by timestamp (newest first).
@@ -524,9 +554,6 @@ class MetasheetStore(Store):
             if where_clauses:
                 sql += " WHERE " + " AND ".join(where_clauses)
 
-            print(sql)
-            print(pattern)
-
             cur.execute(sql, params)
             results = []
             for _, data in cur.fetchall():
@@ -541,3 +568,14 @@ class MetasheetStore(Store):
         finally:
             if db:
                 db.close()
+
+
+
+if __name__ == "__main__":
+    store = JobStatusStore()
+    statuses = store._getAllJobStatuses()
+    if statuses:
+        for status in statuses:
+            print(status)
+    else:
+        print("No job statuses found.")

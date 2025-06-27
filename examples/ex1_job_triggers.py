@@ -15,18 +15,18 @@ from lwfm.midware.LwfManager import lwfManager, logger
 if __name__ == "__main__":
     # get the local site and "login"
     site = lwfManager.getSite("local")
-    site.getAuthDriver().login()
 
     # define job A - sit-in for some kind of "real" pre-processing
     jobDefnA = JobDefn("echo hello world, job A output pwd = `pwd`")
     # a stand-in for some data file
     dataFile = "ex1_date.out"
 
-    # define workflow - [if one was not defined, a trivial one would be created under
-    # the hood on call to submit()]
+    # define workflow - if one was not defined, a trivial one would be created under
+    # the hood on call to submit(), but we want to capture some info up front about it
     wf = Workflow()
     wf.setName("A->B->C test")
     wf.setDescription("A test of chaining three jobs together asynchronously")
+    wf.setProps({}) # set any workflow metatadata properties, if desired
     lwfManager.putWorkflow(wf)
 
     # submit job A
@@ -36,7 +36,8 @@ if __name__ == "__main__":
     # when job A asynchronously reaches the COMPLETE state, fire job B
     statusB = lwfManager.setEvent(
         JobEvent(statusA.getJobId(), JobStatus.COMPLETE,
-                 JobDefn("echo date = `date` > " + dataFile), "local", None, wf.getWorkflowId())
+                 JobDefn("echo date = `date` > " + dataFile), "local", None,
+                 statusA.getJobContext())
     )
     if statusB is None:
         logger.error("Failed to set job B event on job A", statusA.getJobContext())
@@ -46,7 +47,8 @@ if __name__ == "__main__":
     # when job B asynchronously gets to the COMPLETE state, fire job C
     statusC = lwfManager.setEvent(
         JobEvent(statusB.getJobId(), JobStatus.COMPLETE,
-                 JobDefn("echo " + dataFile), "local", None, wf.getWorkflowId())
+                 JobDefn("echo " + dataFile), "local", None,
+                 statusB.getJobContext())
     )
     if statusC is None:
         logger.error("Failed to set job C event on job B", statusB.getJobContext())

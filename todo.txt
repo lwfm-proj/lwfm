@@ -3,31 +3,26 @@ Todo & misc notes
 
 ******************************************************************************
 + lwfm
-    - meta notate, LocalSite:233, IBMQuantumSite.get; get and put notations
-    - test data provenance (#78, #86)
-
+    - test data provenance (#78) - new jobs & workflows being made under the hood...
+    - test get metasheets by jobId
     - site endpoints - return values 
-
-
-    - TODO items - many are for log context
-    - LoggingStore with context - write ticket to improve
-    - test get logs by job, workflow
-
-
-    - IBM driver Repo put / get with non-optional jobContext, run submit, _submit
-    - inline docs esp. for .base & .midware (#84)
-    - document keywords, pillars for metasheet search
-    
-    - import/export (#73)
-
+    - review lwfManager signatures & groupings
+    - reverse args of put & get
 
 + ibm site driver
+    - repo put & get with notate of _vars
     - ibm site w qiskit run - allow 1 session for many circuits
     - sample vs estimation, etc. - what are the ways to run()
     - runArgs for backend args - shots, etc.
     - jobDefn gets circuit file from somewhere...
     - test circuit(s)
     - set job listener to mine the remote job results 
+
++ lwfm next priorities
+    - TODO items (many are for log context - separate ticket)
+    - inline docs esp. for .base & .midware (#84)
+    - document keywords, pillars for metasheet search
+    - import/export (#73)
 
 
 ******************************************************************************

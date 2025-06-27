@@ -173,6 +173,8 @@ class LwfmEventProcessor:
         newContext.setSiteName(trigger.getFireSite())
         newContext.setJobId(trigger.getFireJobId() or IdGenerator().generateId())
         newContext.setNativeId(trigger.getFireJobId() or newContext.getJobId())
+        newContext.setWorkflowId(trigger.getWorkflowId() or parentContext.getWorkflowId())
+        newContext.setParentJobId(trigger.getRuleJobId() or parentContext.getJobId())
         return newContext
 
     def _makeDataContext(self, trigger: MetadataEvent, infoContext: JobContext) -> JobContext:
@@ -283,7 +285,9 @@ class LwfmEventProcessor:
                         self.unsetEventHandler(e.getEventId())
                         # now launch it async
                         jobContext = self._makeJobContext(cast_e, status.getJobContext())
-                        self._runAsyncOnSite(e, jobContext)
+                        self._loggingStore.putLogging("INFO", f"*** {cast_e} {status} {jobContext}",
+                                                      "", "", "")
+                        self._runAsyncOnSite(cast_e, jobContext)
                         gotOne = True
                 except Exception as ex1:
                     self._loggingStore.putLogging("ERROR",
@@ -407,6 +411,8 @@ class LwfmEventProcessor:
     def _initMetadataJobHandler(self, wfe: MetadataEvent) -> JobContext:
         newJobContext = JobContext()
         newJobContext.setSiteName(wfe.getFireSite())
+        newJobContext.setWorkflowId(wfe.getWorkflowId())
+        newJobContext.setParentJobId(wfe.getParentId() or wfe.getFireJobId())
         # fire a status showing the new job ready on the shelf
         # Deferred import to avoid circular dependencies
         from lwfm.midware.LwfManager import lwfManager
