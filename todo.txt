@@ -2,8 +2,6 @@
 Todo & misc notes
 
 ******************************************************************************
-+ lwfm
-    - site endpoints - return values 
 
 + ibm site driver
     - repo put & get with notate of _vars
