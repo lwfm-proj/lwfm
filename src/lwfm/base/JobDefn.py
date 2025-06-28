@@ -7,7 +7,7 @@ args to instantiate a job from the definition.
 #pylint: disable = missing-function-docstring, invalid-name
 
 from typing import List
-from typing import Optional
+from typing import Optional, Union
 
 from lwfm.midware._impl.IdGenerator import IdGenerator
 
@@ -44,7 +44,7 @@ class JobDefn:
     def __init__(self,
                 entryPoint: Optional[str] = None,
                 entryPointType: Optional[str] = None,
-                args: Optional[List[str]] = None):
+                args: Optional[Union[List[str], dict]] = None):
         self._defn_id = IdGenerator().generateId()
         self.setEntryPoint(entryPoint)
         if entryPointType is None:
@@ -78,10 +78,10 @@ class JobDefn:
     def getEntryPointType(self) -> str:
         return self._entryPointType
 
-    def setJobArgs(self, args: List[str]) -> None:
+    def setJobArgs(self, args: Union[List[str], dict]) -> None:
         self._jobArgs = args
 
-    def getJobArgs(self) -> List[str]:
+    def getJobArgs(self) -> Union[List[str], dict]:
         return self._jobArgs
 
     def setSiteName(self, siteName: Optional[str]) -> None:

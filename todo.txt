@@ -4,13 +4,13 @@ Todo & misc notes
 ******************************************************************************
 
 + ibm site driver
-    - repo put & get with notate of _vars
+    - local simulator compute type (or site)
     - ibm site w qiskit run - allow 1 session for many circuits
     - sample vs estimation, etc. - what are the ways to run()
     - runArgs for backend args - shots, etc.
     - jobDefn gets circuit file from somewhere...
     - test circuit(s)
-    - set job listener to mine the remote job results 
+    - helper method to set job listener to mine the remote job results 
 
 + lwfm next priorities
     - TODO items (many are for log context - separate ticket)
