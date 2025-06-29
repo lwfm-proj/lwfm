@@ -90,15 +90,19 @@ class LwfManager:
 
 
     def _notate(self, siteName: str, localPath: str, siteObjPath: str,
-                jobContext: JobContext,
+                jobContext: Union[JobContext, str],
                 _metasheet: Metasheet,
                 isPut: bool = False) -> Metasheet:
         """
         Notate a metadata sheet with the given site name, local path, and site object path.
         If a job context is provided, it will be set on the metasheet.
         """
-        if jobContext is not None:
-            _metasheet.setJobId(jobContext.getJobId())
+        if jobContext is None:
+            jobContext = JobContext()
+        elif isinstance(jobContext, str):
+            jobContext = self._deserialize(jobContext)
+
+        _metasheet.setJobId(jobContext.getJobId())
         # now do the metadata notate
         props = _metasheet.getProps()
         props['_direction'] = 'put' if isPut else 'get'

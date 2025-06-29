@@ -65,7 +65,7 @@ class SiteConfigVenv():
             if process.returncode != 0:
                 # something bad happened in the subprocess
                 # we're going to give up the ghost - dump the stdout/err for debug
-                with open('/tmp/out.out', 'a', encoding='utf-8') as f:
+                with open('/tmp/out.out', 'a', encoding='utf-8') as f:   # TODO logging
                     f.write(stdout)
                     f.write(stderr)
                 raise RuntimeError("executeInProjectVenv: failed with code: " + \
