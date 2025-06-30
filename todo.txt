@@ -5,11 +5,14 @@ Todo & misc notes
 
 + ibm site driver
     - local simulator compute type (or site)
-    - ibm site w qiskit run - allow 1 session for many circuits
+    - notating get from IBM
+    - find all metasheet by workflow
+    - test circuit(s) - in files w notation
+    - notate update?
+
     - sample vs estimation, etc. - what are the ways to run()
-    - runArgs for backend args - shots, etc.
-    - jobDefn gets circuit file from somewhere...
-    - test circuit(s)
+
+    - ibm site w qiskit run - allow 1 session for many circuits
     - helper method to set job listener to mine the remote job results 
 
 + lwfm next priorities
