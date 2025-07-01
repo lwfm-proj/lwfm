@@ -1,31 +1,40 @@
 """
 test data triggers
 """
+#pylint: disable=invalid-name
 
 from lwfm.base.Site import Site
-from lwfm.base.Metasheet import Metasheet
-from lwfm.midware.Logger import logger
-from lwfm.midware.LwfManager import lwfManager
+from lwfm.midware.LwfManager import lwfManager, logger
 from lwfm.base.WorkflowEvent import MetadataEvent
 from lwfm.base.JobDefn import JobDefn
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.base.JobContext import JobContext
+from lwfm.base.JobStatus import JobStatus
 
 if __name__ == "__main__":
-    site: Site = Site.getSite("local")
-    site.getAuthDriver().login()
+    site: Site = lwfManager.getSite("local")
 
-    TS = IdGenerator.generateId()
+    # create a workflow context for this script and announce we're running
+    context = JobContext()
+    lwfManager.emitStatus(context, JobStatus.RUNNING)
+
+    # we can use the lwfManager to generate unique identifiers, for samples, etc.
+    sample_id = lwfManager.generateId()
     # when data is put into the repo with this sampleId in the metadata, fire the job
-    # on the site
+    # on the site as part of this workflow
     futureJobStatus = lwfManager.setEvent(
-        MetadataEvent({"sampleId": TS}, JobDefn("echo hello world"), "local")
+        MetadataEvent({"sampleId": sample_id}, JobDefn("echo hello world"), "local",
+                      None, context)
     )
-    logger.info(f"job {futureJobStatus.getJobId()} set as a data event trigger")
 
-    # now put the file with the metadata
-    site.getRepoDriver().put("ex1_date.out", "/tmp/someFile-ex3.dat", None,
-        Metasheet(site.getSiteName(), "/tmp/someFile-ex3.dat", {"sampleId": TS}))
+    # now put an example file somewhere and notate its use with our metadata
+    site.getRepoDriver().put("ex1_date.out", "/tmp/someFile-ex3.dat", context,
+        {"sampleId": sample_id})
 
     # if we want we can wait for the future job to finish
-    status = lwfManager.wait(futureJobStatus.getJobId())
-    logger.info("data-triggered job finished", status)
+    if futureJobStatus is not None:
+        futureJobStatus = lwfManager.wait(futureJobStatus.getJobId())
+        logger.info("data-triggered job finished")
+        lwfManager.emitStatus(context, JobStatus.COMPLETE)
+    else:
+        logger.info("data-triggered job not started, check the site for the job status")
+        lwfManager.emitStatus(context, JobStatus.FAILED)

@@ -1,5 +1,5 @@
 """
-print 'hello world' but as a Job on a local site
+print 'hello world' but as a Job on a local site within a virtual environment
 """
 
 from lwfm.base.JobDefn import JobDefn
@@ -7,22 +7,26 @@ from lwfm.midware.LwfManager import lwfManager, logger
 
 if __name__ == "__main__":
     # only using one site for this example - construct an interface to it
-    site = lwfManager.getSite("local")
+    site = lwfManager.getSite("local-venv")
 
-    print("got the site")
+    logger.info(f"site={site.getSiteName()} " + \
+        f"toml={lwfManager.getSiteProperties(site.getSiteName())}")
 
-    # a "local" site login is a no-op; real sites will have a login mechanism
+    # we expect a wrapper driver, buried within is the real auth driver which
+    # cannot be operated outside the venv - the wrapper handles this
+    logger.info(f"venv site auth driver is of type {type(site.getAuthDriver())}")
+
+    # call thru the wrapper to the driver in the venv to login
     site.getAuthDriver().login()
-
-    print("logged in")
+    logger.info(f"auth current {site.getAuthDriver().isAuthCurrent()}")
 
     # define the job - use all defaults except the actual command to execute
     jobDefn = JobDefn("echo 'hello world'")
 
     # submit the job to the site asynchronously, get back an initial status
     status = site.getRunDriver().submit(jobDefn)
-
-    print(f"submitted the job {status.getJobId()}")
+    logger.info(f"submitted job {status.getJobId()}, " + \
+        f"native: {status.getJobContext().getNativeId()}")
 
     # How could we tell the async job has finished? One way is to synchronously
     # wait on its end status. (Another way is asynchronous triggering, which
@@ -32,5 +36,4 @@ if __name__ == "__main__":
 
     # Let's show that we can also get the result of the job later on
     status = lwfManager.getStatus(status.getJobId())
-    # We can also optionally link the logging to the workflow / job context
-    logger.info("job status from persistence" + str(status), status.getJobContext())
+    logger.info(f"job {str(status)}")

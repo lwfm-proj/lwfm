@@ -8,18 +8,17 @@ from lwfm.base.JobDefn import JobDefn
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.Site import Site
-from lwfm.base.WorkflowEvent import WorkflowEvent
+from lwfm.base.WorkflowEvent import WorkflowEvent, JobEvent, MetadataEvent
 from lwfm.base.Workflow import Workflow
 
 # local Site implementation
-from lwfm.sites.LocalSite import LocalSite
+from lwfm.sites.LocalSite import LocalSiteAuth
+from lwfm.sites.LocalSite import LocalSiteRun
+from lwfm.sites.LocalSite import LocalSiteRepo
+from lwfm.sites.LocalSite import LocalSiteSpin
 
 # middleware
-from lwfm.midware.LwfManager import lwfManager
-from lwfm.midware.Logger import logger
-
-# utility
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.midware.LwfManager import lwfManager, logger
 
 
 __all__ = [
@@ -28,13 +27,16 @@ __all__ = [
     "JobStatus",
     "Metasheet",
     "Site",
+    "JobEvent",
+    "MetadataEvent",
     "WorkflowEvent",
     "Workflow",
 
-    "LocalSite",
+    "LocalSiteAuth",
+    "LocalSiteRun",
+    "LocalSiteRepo",
+    "LocalSiteSpin",
 
     "lwfManager",
-    "logger",
-
-    "IdGenerator"
+    "logger"
 ]

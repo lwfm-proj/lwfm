@@ -6,23 +6,12 @@ It is emitted within the job's context.
 #pylint: disable = missing-function-docstring, missing-class-docstring
 #pylint: disable = invalid-name, broad-exception-caught, line-too-long
 
-from enum import Enum
 import datetime
+from typing import Optional
 
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.midware._impl.IdGenerator import IdGenerator
 
 from lwfm.base.JobContext import JobContext
-
-class JobStatusValues(Enum):
-    UNKNOWN = "UNKNOWN"
-    READY = "READY"
-    PENDING = "PENDING"
-    RUNNING = "RUNNING"
-    INFO = "INFO"
-    FINISHING = "FINISHING"
-    COMPLETE = "COMPLETE"  # terminal state
-    FAILED = "FAILED"  # terminal state
-    CANCELLED = "CANCELLED"  # terminal state
 
 
 # ***********************************************************************
@@ -46,24 +35,35 @@ class JobStatus:
     status strings.  Native lwfm local jobs will use a pass-thru mapping.
     """
 
-    def __init__(self, jobContext: JobContext = None):
-        self._status_id = IdGenerator.generateId()
-        self._status = JobStatusValues.UNKNOWN
+    UNKNOWN = "UNKNOWN"
+    READY = "READY"
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    INFO = "INFO"
+    FINISHING = "FINISHING"
+    COMPLETE = "COMPLETE"  # terminal state
+    FAILED = "FAILED"  # terminal state
+    CANCELLED = "CANCELLED"  # terminal state
+
+
+    def __init__(self, jobContext: Optional[JobContext] = None):
+        self._status_id = IdGenerator().generateId()
+        self._status = JobStatus.UNKNOWN
         self._native_status = None
         self._emit_time = datetime.datetime.now(datetime.timezone.utc)
         self._received_time = None
         self._native_info = None
-        self._context = jobContext
+        self._context = jobContext if jobContext is not None else JobContext()
         self._status_map = {
-            "UNKNOWN": JobStatusValues.UNKNOWN,
-            "READY": JobStatusValues.READY,
-            "PENDING": JobStatusValues.PENDING,
-            "RUNNING": JobStatusValues.RUNNING,
-            "INFO": JobStatusValues.INFO,
-            "FINISHING": JobStatusValues.FINISHING,
-            "COMPLETE": JobStatusValues.COMPLETE,
-            "FAILED": JobStatusValues.FAILED,
-            "CANCELLED": JobStatusValues.CANCELLED,
+            "UNKNOWN": JobStatus.UNKNOWN,
+            "READY": JobStatus.READY,
+            "PENDING": JobStatus.PENDING,
+            "RUNNING": JobStatus.RUNNING,
+            "INFO": JobStatus.INFO,
+            "FINISHING": JobStatus.FINISHING,
+            "COMPLETE": JobStatus.COMPLETE,
+            "FAILED": JobStatus.FAILED,
+            "CANCELLED": JobStatus.CANCELLED,
         }
 
     def getStatusId(self) -> str:
@@ -76,20 +76,20 @@ class JobStatus:
         self._context = jobContext
 
     def getJobId(self) -> str:
+        if self._context is None:
+            return None # type: ignore
         return self._context.getJobId()
 
-    def setStatus(self, status: JobStatusValues) -> None:
+    def setStatus(self, status: str) -> None:
         self._status = status
 
-    def getStatus(self) -> JobStatusValues:
+    def getStatus(self) -> str:
         return self._status
 
     def setNativeStatusStr(self, status: str) -> None:
         self._native_status = status
-        # now map the native status to a canonical
-        self.mapNativeStatus()
 
-    def getNativeStatusStr(self) -> str:
+    def getNativeStatusStr(self) -> Optional[str]:
         return self._native_status
 
     def setNativeStatus(self, nativeStatus: str) -> None:
@@ -97,9 +97,12 @@ class JobStatus:
 
     def mapNativeStatus(self) -> None:
         try:
-            self._status = self._status_map[self._native_status]
+            if self._native_status is not None:
+                self._status = self._status_map[self._native_status]
+            else:
+                self._status = JobStatus.UNKNOWN
         except Exception:
-            self._status = JobStatusValues.UNKNOWN
+            self._status = JobStatus.UNKNOWN
 
     def getStatusMap(self) -> dict:
         return self._status_map
@@ -107,32 +110,32 @@ class JobStatus:
     def setStatusMap(self, statusMap: dict) -> None:
         self._status_map = statusMap
 
-    def setEmitTime(self, emitTime: datetime) -> None:
+    def setEmitTime(self, emitTime: datetime.datetime) -> None:
         self._emit_time = emitTime
 
-    def getEmitTime(self) -> datetime:
+    def getEmitTime(self) -> datetime.datetime:
         return self._emit_time
 
-    def setReceivedTime(self, receivedTime: datetime) -> None:
+    def setReceivedTime(self, receivedTime: datetime.datetime) -> None:
         self._received_time = receivedTime
 
-    def getReceivedTime(self) -> datetime:
+    def getReceivedTime(self) -> Optional[datetime.datetime]:
         return self._received_time
 
     def setNativeInfo(self, info: str) -> None:
         self._native_info = info
 
-    def getNativeInfo(self) -> str:
+    def getNativeInfo(self) -> Optional[str]:
         return self._native_info
 
     def isTerminalSuccess(self) -> bool:
-        return self._status == JobStatusValues.COMPLETE
+        return self._status == JobStatus.COMPLETE
 
     def isTerminalFailure(self) -> bool:
-        return self._status == JobStatusValues.FAILED
+        return self._status == JobStatus.FAILED
 
     def isTerminalCancelled(self) -> bool:
-        return self._status == JobStatusValues.CANCELLED
+        return self._status == JobStatus.CANCELLED
 
     def isTerminal(self) -> bool:
         return (
@@ -141,5 +144,23 @@ class JobStatus:
             or self.isTerminalCancelled()
         )
 
+    def isInfo(self) -> bool:
+        return self._status == JobStatus.INFO
+
+    def isPreRun(self) -> bool:
+        return self._status == JobStatus.READY or self._status == JobStatus.PENDING
+
+    def isRunning(self) -> bool:
+        return self._status == JobStatus.RUNNING
+
+
     def __str__(self):
-        return f"[status ctx:{self._context} value:{self._status.value} info:{self._native_info}]"
+        id_length = 9
+        p = self._status
+        if len(p) < id_length:
+            p = p.ljust(id_length)
+        else:
+            p = p[:id_length]
+        return f"[status ctx:{self._context} value:{p} " + \
+            f"ts:{int(self._emit_time.timestamp())} " + \
+            f"info:{self._native_info}]"

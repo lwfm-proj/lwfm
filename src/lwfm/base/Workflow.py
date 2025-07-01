@@ -4,15 +4,16 @@ A collection of jobs and their associated (meta)information.
 
 #pylint: disable = invalid-name, missing-function-docstring
 
-from lwfm.util.IdGenerator import IdGenerator
+from typing import Optional
+from lwfm.midware._impl.IdGenerator import IdGenerator
 
 class Workflow:
     """
     A collection of jobs and their associated (meta)information.
     """
 
-    def __init__(self, name: str = None, description: str = None):
-        self._workflow_id = IdGenerator.generateId()
+    def __init__(self, name: Optional[str] = None, description: Optional[str] = None):
+        self._workflow_id = IdGenerator().generateId()
         self._name = name
         self._description = description
         self._props = {}
@@ -26,13 +27,13 @@ class Workflow:
     def setName(self, name: str) -> None:
         self._name = name
 
-    def getName(self) -> str:
+    def getName(self) -> Optional[str]:
         return self._name
 
     def setDescription(self, description: str) -> None:
         self._description = description
 
-    def getDescription(self) -> str:
+    def getDescription(self) -> Optional[str]:
         return self._description
 
     def getProps(self) -> dict:
@@ -40,3 +41,7 @@ class Workflow:
 
     def setProps(self, props: dict) -> None:
         self._props = props
+
+    def __str__(self) -> str:
+        return f"[wf id: {self._workflow_id} name:{self._name} " + \
+            f"description:{self._description} props:{self._props}]"

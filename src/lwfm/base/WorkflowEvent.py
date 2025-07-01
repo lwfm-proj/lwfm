@@ -9,21 +9,39 @@ in these cases, a user-provided handler is fired
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
 
 from enum import Enum
+from typing import Optional
 
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.midware._impl.IdGenerator import IdGenerator
 from lwfm.base.JobDefn import JobDefn
+from lwfm.base.JobContext import JobContext
 
 
 # ************************************************************************
 class WorkflowEvent:
-    def __init__(self, fireDefn=None, fireSite=None, fireJobId=None):
-        self._event_id = IdGenerator.generateId()
+    """
+    Base class for workflow events.
+    """
+    def __init__(self, fireDefn: JobDefn, fireSite: str, fireJobId: Optional[str] = None,
+                 context: Optional[JobContext] = None):
+        self._event_id: str = IdGenerator().generateId()
         self._fire_defn = fireDefn
         self._fire_site = fireSite
-        self._fire_job_id = fireJobId
+        self._fire_job_id = fireJobId or IdGenerator().generateId()
+        self._context = context
+        if context is None:
+            context = JobContext()
+        self._workflow_id: str = context.getWorkflowId() if context.getWorkflowId() else \
+            IdGenerator().generateId()
+        self._parent = context.getJobId()
 
-    def getEventId(self):
+    def getEventId(self) -> str:
         return self._event_id
+
+    def getWorkflowId(self) -> str:
+        return self._workflow_id
+
+    def getParentId(self) -> Optional[str]:
+        return self._parent
 
     def setFireDefn(self, fireDefn):
         self._fire_defn = fireDefn
@@ -44,23 +62,12 @@ class WorkflowEvent:
         return self._fire_job_id
 
     def __str__(self):
-        return f"[event defn:{str(self.getFireDefn())} site:{str(self.getFireSite())} jobId:{str(self.getFireJobId())}]"
+        return f"[event defn:{str(self.getFireDefn())} " + \
+            f"site:{str(self.getFireSite())} jobId:{str(self.getFireJobId())}]"
 
     def getKey(self):
         return self.getEventId()
 
-# ***************************************************************************
-
-class RemoteJobEvent(WorkflowEvent):
-    def __init__(self, context):
-        super().__init__(JobDefn(), context.getSiteName(), context.getJobId())
-        self._native_job_id = context.getNativeId()
-
-    def getNativeJobId(self):
-        return self._native_job_id
-
-    def __str__(self):
-        return super().__str__() + f"+[remote nativeId:{self.getNativeJobId()}]"
 
 # ***************************************************************************
 
@@ -69,14 +76,17 @@ class JobEvent(WorkflowEvent):
     Jobs emit status, including informational status.  Some status events are terminal -
     "finished", "cancelled" - and some are interim states. Status strings in lwfm are
     normalized by the Site driver from the native Site status name set into the
-    lwfm canonical set. We can set event triggers - on canonical status strings -
+    lwfm canonical set. We can set event triggers - on canonical status strings, job ids:
         "when job <j1> reaches <state>, execute job <j2> on Site <s>"
     """
-    def __init__(self, ruleJobId=None, ruleStatus=None, fireDefn=None, fireSite=None,
-        fireJobId=None):
-        super().__init__(fireDefn, fireSite, fireJobId)
-        self._rule_job_id = ruleJobId
-        self._rule_status = ruleStatus
+    def __init__(self, ruleJobId: str, ruleStatus: str,
+                 fireDefn: JobDefn, fireSite: str, fireJobId: Optional[str] = None,
+                 context: Optional[JobContext] = None):
+        super().__init__(fireDefn, fireSite, fireJobId, context)
+        self._rule_job_id: str = ruleJobId
+        self._rule_status: str = ruleStatus
+        if fireDefn is not None:
+            fireDefn.setSiteName(fireSite)
 
     def setRuleJobId(self, ruleJobId):
         self._rule_job_id = ruleJobId
@@ -91,10 +101,11 @@ class JobEvent(WorkflowEvent):
         return self._rule_status
 
     def __str__(self):
-        return super().__str__() + f"+[rule jobId:{self.getRuleJobId()} status:{self.getRuleStatus()}]"
+        return super().__str__() + \
+            f"+[rule jobId:{self.getRuleJobId()} status:{self.getRuleStatus()}]"
 
     def getKey(self):
-        return str("" + self.getRuleJobId() + "." + str(self.getRuleStatus()))
+        return str(str(self.getRuleJobId()) + "." + str(self.getRuleStatus()))
 
     @staticmethod
     def getJobEventKey(jobId: str, status: Enum) -> str:
@@ -102,9 +113,16 @@ class JobEvent(WorkflowEvent):
 
 
 # ***************************************************************************
+
 class MetadataEvent(WorkflowEvent):
-    def __init__(self, queryRegExs: dict, fireDefn: 'JobDefn', fireSite: str):
-        super().__init__(fireDefn, fireSite)
+    """
+    When a data element is put with a given metadata profile, fire the 
+    JobDefn at the site. 
+    """
+    def __init__(self, queryRegExs: dict, fireDefn: JobDefn, fireSite: str,
+                fireJobId: Optional[str] = None,
+                context: Optional[JobContext] = None):
+        super().__init__(fireDefn, fireSite, fireJobId, context)
         self._query_regexs = queryRegExs
 
     def getQueryRegExs(self) -> dict:
@@ -112,5 +130,6 @@ class MetadataEvent(WorkflowEvent):
 
     def __str__(self):
         return super().__str__() + f"+[meta dict:{self.getQueryRegExs()}]"
+
 
 # ***************************************************************************

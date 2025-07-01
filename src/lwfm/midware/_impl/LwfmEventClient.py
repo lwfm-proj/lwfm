@@ -7,7 +7,7 @@ where its not running on the same machine as the workflow
 #pylint: disable = invalid-name, missing-class-docstring, missing-function-docstring
 #pylint: disable = broad-exception-caught, logging-not-lazy, logging-fstring-interpolation
 
-from typing import List
+from typing import List, Optional, cast
 import os
 import datetime
 
@@ -21,22 +21,36 @@ from lwfm.base.JobContext import JobContext
 from lwfm.base.Metasheet import Metasheet
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.Workflow import Workflow
-from lwfm.midware.impl.ObjectSerializer import ObjectSerializer
+from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
+from lwfm.midware._impl.SiteConfig import SiteConfig
+from lwfm.midware._impl.SvcLauncher import SvcLauncher
 
 class LwfmEventClient:
-    _SERVICE_URL = "http://127.0.0.1:3000"
     _REST_TIMEOUT = 100
 
-    if os.getenv("LWFM_SERVICE_URL") is not None:
-        _SERVICE_URL = os.getenv("LWFM_SERVICE_URL")
 
-    def getUrl(self):
+    def getUrl(self) -> str:
         return self._SERVICE_URL
+
+
+    # is the middleware running?
+    def isMidwareRunning(self) -> bool:
+        return SvcLauncher.isMidwareRunning(self.getUrl())
+
+
+    def __init__(self) -> None:
+        if os.getenv("LWFM_SERVICE_URL") is not None:
+            self._SERVICE_URL: str = os.getenv("LWFM_SERVICE_URL", "127.0.0.1")
+        else:
+            host = SiteConfig.getSiteProperties("lwfm").get("host") or "127.0.0.1"
+            port = SiteConfig.getSiteProperties("lwfm").get("port") or "3000"
+            self._SERVICE_URL = f"http://{host}:{port}"
+
 
     #***********************************************************************
     # workflow methods
 
-    def getWorkflow(self, workflow_id: str) -> Workflow:
+    def getWorkflow(self, workflow_id: str) -> Optional[Workflow]:
         response = requests.get(f"{self.getUrl()}/workflow/{workflow_id}",
             timeout=self._REST_TIMEOUT)
         try:
@@ -51,7 +65,25 @@ class LwfmEventClient:
             self.emitLogging("ERROR", "getWorkflow error: " + str(ex))
             return None
 
-    def putWorkflow(self, workflow: Workflow) -> str:
+    def getAllWorkflows(self) -> Optional[List[Workflow]]:
+        """
+        Get all workflows from the service.
+        """
+        try:
+            response = requests.get(f"{self.getUrl()}/workflows",
+                timeout=self._REST_TIMEOUT)
+            if response.ok:
+                if (response.text is not None) and (len(response.text) > 0):
+                    workflows = ObjectSerializer.deserialize(response.text)
+                    return cast(List[Workflow], workflows)
+                return None
+            self.emitLogging("ERROR", f"getAllWorkflows error: {response.text}")
+            return None
+        except Exception as ex:
+            self.emitLogging("ERROR", "getAllWorkflows error: " + str(ex))
+            return None
+
+    def putWorkflow(self, workflow: Workflow) -> Optional[str]:
         payload = {}
         payload["workflowObj"] = ObjectSerializer.serialize(workflow)
         response = requests.post(f"{self.getUrl()}/workflow", payload,
@@ -62,10 +94,28 @@ class LwfmEventClient:
         return workflow.getWorkflowId()
 
 
+
+    def getAllJobStatusesForWorkflow(self, workflow_id: str) -> Optional[List[JobStatus]]:
+        """
+        Get all job status messages for all jobs in a workflow.
+        """
+        try:
+            url = f"{self.getUrl()}/workflow/{workflow_id}/statuses"
+            response = requests.get(url, timeout=self._REST_TIMEOUT)
+            if response.status_code == 200:
+                return ObjectSerializer.deserialize(response.text)
+            elif response.status_code == 404:
+                return None
+            else:
+                return None
+        except Exception:
+            return None
+
+
     #***********************************************************************
     # status methods
 
-    def getStatus(self, jobId: str) -> JobStatus:
+    def getStatus(self, jobId: str) -> Optional[JobStatus]:
         response = requests.get(f"{self.getUrl()}/status/{jobId}",
             timeout=self._REST_TIMEOUT)
         try:
@@ -81,7 +131,7 @@ class LwfmEventClient:
             return None
 
 
-    def getAllStatus(self, jobId: str) -> [JobStatus]:
+    def getAllStatus(self, jobId: str) -> Optional[List[JobStatus]]:
         response = requests.get(f"{self.getUrl()}/statusAll/{jobId}",
             timeout=self._REST_TIMEOUT)
         try:
@@ -98,16 +148,17 @@ class LwfmEventClient:
 
 
     # emit a status message, perhaps triggering event handlers
-    def emitStatus(self, context: JobContext, statusClass: type,
-                   nativeStatus: str, nativeInfo: str = None) -> None:
+    def emitStatus(self, context: JobContext,
+                   statusStr: str, nativeStatusStr: str, nativeInfo: str = "",
+                   fromEvent: bool = False) -> None:
         try:
-            status: JobStatus = statusClass(context)
-            # forces call on setStatus() producing a mapped native status -> status
-            status.setNativeStatus(nativeStatus)
+            status: JobStatus = JobStatus(context)
+            status.setStatus(statusStr)
+            status.setNativeStatus(nativeStatusStr)
             status.setNativeInfo(nativeInfo)
             status.setEmitTime(datetime.datetime.now(datetime.UTC))
             statusBlob = ObjectSerializer.serialize(status)
-            data = {"statusBlob": statusBlob}
+            data = {"statusBlob": statusBlob, "fromEvent": str(fromEvent)}
             response = requests.post(f"{self.getUrl()}/emitStatus", data=data,
                 timeout=self._REST_TIMEOUT)
             if response.ok:
@@ -121,7 +172,7 @@ class LwfmEventClient:
     #***********************************************************************
     # event methods
 
-    def setEvent(self, wfe: WorkflowEvent) -> JobStatus:
+    def setEvent(self, wfe: WorkflowEvent) -> Optional[JobStatus]:
         payload = {}
         payload["eventObj"] = ObjectSerializer.serialize(wfe)
         response = requests.post(f"{self.getUrl()}/setEvent", payload,
@@ -133,9 +184,10 @@ class LwfmEventClient:
         return None
 
     def unsetEvent(self, wfe: WorkflowEvent) -> None:
-        payload = {}
-        payload["eventObj"] = wfe.serialize()
-        response = requests.post(f"{self.getUrl()}/unsetEvent", payload,
+        if wfe is None or wfe.getEventId() is None:
+            self.emitLogging("ERROR", "unsetEvent called with None or empty eventId")
+            return
+        response = requests.get(f"{self.getUrl()}/unsetEvent/{wfe.getEventId()}",
             timeout=self._REST_TIMEOUT)
         if response.ok:
             # TODO should return a terminal status
@@ -143,23 +195,28 @@ class LwfmEventClient:
         self.emitLogging("ERROR", "unsetEvent error: " + response.text)
         return
 
-    def getActiveWfEvents(self) -> List[WorkflowEvent]:
+    def getActiveWfEvents(self) -> Optional[List[WorkflowEvent]]:
         response = requests.get(f"{self.getUrl()}/listEvents",
             timeout=self._REST_TIMEOUT)
-        if response.ok:
-            l = json.loads(response.text)
-            return [ObjectSerializer.deserialize(blob) for blob in l]
-        self.emitLogging("ERROR", "getActiveWfEvents error: " + str(response.text))
+        if response.ok and response.text is not None and len(response.text) > 0:
+            # deserialize the list of WorkflowEvent objects
+            return ObjectSerializer.deserialize(response.text)
         return None
 
 
     #***********************************************************************
     # logging methods
 
-    def emitLogging(self, level: str, doc: str) -> None:
+    def emitLogging(self, level: str, doc: str,
+                    site: Optional[str] = "",
+                    workflowId: Optional[str] = "",
+                    jobId: Optional[str] = "") -> None:
         try:
             data = {"level": level,
-                    "errorMsg": doc}
+                    "errorMsg": doc,
+                    "site": site,
+                    "workflowId": workflowId,
+                    "jobId": jobId}
             response = requests.post(f"{self.getUrl()}/emitLogging", data,
                 timeout=self._REST_TIMEOUT)
             if response.ok:
@@ -172,15 +229,49 @@ class LwfmEventClient:
             logging.error("error emitting logging: " + str(ex))
 
 
+    def getLoggingByWorkflowId(self, workflowId: str) -> Optional[List[str]]:
+        """
+        Retrieve logging entries for a given workflow ID.
+        """
+        try:
+            response = requests.get(f"{self.getUrl()}/logs/workflow/{workflowId}",
+                                    timeout=self._REST_TIMEOUT)
+            if response.ok and response.text:
+                return cast(List[str], ObjectSerializer.deserialize(response.text))
+            if response.status_code == 404:
+                self.emitLogging("ERROR", f"getLoggingByWorkflowId error: {response.text}")
+            return None 
+        except Exception as ex:
+            self.emitLogging("ERROR", f"getLoggingByWorkflowId exception: {str(ex)}")
+        return None
+
+
+    def getLoggingByJobId(self, jobId: str) -> Optional[List[str]]:
+        """
+        Retrieve logging entries for a given job ID.
+        """
+        try:
+            response = requests.get(f"{self.getUrl()}/logs/job/{jobId}",
+                                    timeout=self._REST_TIMEOUT)
+            if response.ok and response.text:
+                return cast(List[str], ObjectSerializer.deserialize(response.text))
+            if response.status_code == 404:
+                self.emitLogging("ERROR", f"getLoggingByJobId error: {response.text}")
+            return None
+        except Exception as ex:
+            self.emitLogging("ERROR", f"getLoggingByJobId exception: {str(ex)}")
+        return None
+
+
+
     #***********************************************************************
     # repo methods
 
 
-    def notate(self, jobId: str, metasheet: Metasheet = None) -> Metasheet:
+    def notate(self, metasheet: Optional[Metasheet]):
         # call to the service to put metasheet for this put
         try:
-            data = {"jobId": jobId,
-                    "data": ObjectSerializer.serialize(metasheet)}
+            data = {"data": ObjectSerializer.serialize(metasheet)}
             response = requests.post(f"{self.getUrl()}/notate", data,
                 timeout=self._REST_TIMEOUT)
             if response.ok:
@@ -193,7 +284,7 @@ class LwfmEventClient:
             logging.error("error notating: " + str(ex))
         return metasheet
 
-    def find(self, queryRegExs: dict) -> List[Metasheet]:
+    def find(self, queryRegExs: dict) -> Optional[List[Metasheet]]:
         # call to the service to find metasheets
         try:
             data = {"searchDict": json.dumps(queryRegExs)}
@@ -208,6 +299,3 @@ class LwfmEventClient:
             # use the plain logger when logging logging errors
             logging.error("error finding: " + str(ex))
         return None
-
-
-    #***********************************************************************

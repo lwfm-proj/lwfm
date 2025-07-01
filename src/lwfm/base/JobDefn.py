@@ -7,8 +7,9 @@ args to instantiate a job from the definition.
 #pylint: disable = missing-function-docstring, invalid-name
 
 from typing import List
+from typing import Optional, Union
 
-from lwfm.util.IdGenerator import IdGenerator
+from lwfm.midware._impl.IdGenerator import IdGenerator
 
 
 class JobDefn:
@@ -35,11 +36,26 @@ class JobDefn:
         at runtime
     """
 
-    def __init__(self, entryPoint: str = None):
-        self._defn_id = IdGenerator.generateId()
+    ENTRY_TYPE_SHELL  = "SHELL"     # the entry point is a shell command (eg. bash, python)
+    ENTRY_TYPE_SITE   = "SITE"      # the entry point is an lwfm site method
+    ENTRY_TYPE_STRING = "STRING"    # the entry point is a site/app-specific string
+
+
+    def __init__(self,
+                entryPoint: Optional[str] = None,
+                entryPointType: Optional[str] = None,
+                args: Optional[Union[List[str], dict]] = None):
+        self._defn_id = IdGenerator().generateId()
         self.setEntryPoint(entryPoint)
+        if entryPointType is None:
+            entryPointType = JobDefn.ENTRY_TYPE_SHELL
+        self.setEntryPointType(entryPointType)
         self.setName("")
-        self.setJobArgs([])
+        if args is None:
+            args = []
+        self.setJobArgs(args)
+        self.setSiteName(None)
+        self.setComputeType(None)
 
     def getDefnId(self) -> str:
         return self._defn_id
@@ -50,17 +66,41 @@ class JobDefn:
     def getName(self) -> str:
         return self._name
 
-    def setEntryPoint(self, entryPoint: str) -> None:
+    def setEntryPoint(self, entryPoint: Optional[str]) -> None:
         self._entryPoint = entryPoint
 
-    def getEntryPoint(self) -> str:
+    def getEntryPoint(self) -> Optional[str]:
         return self._entryPoint
 
-    def setJobArgs(self, args: List[str]) -> None:
+    def setEntryPointType(self, entryPointType: str) -> None:
+        self._entryPointType = entryPointType
+
+    def getEntryPointType(self) -> str:
+        return self._entryPointType
+
+    def setJobArgs(self, args: Union[List[str], dict]) -> None:
         self._jobArgs = args
 
-    def getJobArgs(self) -> List[str]:
+    def getJobArgs(self) -> Union[List[str], dict]:
         return self._jobArgs
+
+    def setSiteName(self, siteName: Optional[str]) -> None:
+        self._siteName = siteName
+
+    def getSiteName(self) -> Optional[str]:
+        return self._siteName
+
+    def setComputeType(self, computeType: Optional[str]) -> None:
+        self._computeType = computeType
+
+    def getComputeType(self) -> Optional[str]:
+        return self._computeType
+
+    def __str__(self) -> str:
+        return f"[name:{self.getName()} " + \
+            f"entryPoint:{self.getEntryPoint()} entryPointType:{self.getEntryPointType()} " + \
+            f"args:{self.getJobArgs()} siteName:{self.getSiteName()} " + \
+            f"computeType:{self.getComputeType()}]"
 
 
 #****************************************************************************
