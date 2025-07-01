@@ -5,8 +5,6 @@ Todo & misc notes
 
 + ibm site driver
     - notating get from IBM by doing a local put?
-    - workflow info updates
-    - find all metasheet by workflow
 
     - test circuit(s) - in files w notation
 
