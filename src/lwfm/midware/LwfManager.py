@@ -39,7 +39,7 @@ class LwfManager:
     #***********************************************************************
     # private methods
     # These methods are not intended to be used by workflow authors, but are
-    # used internally by the lwfm service and potentially Site drivers.
+    # used internally by the lwfm service, and potentially Site drivers.
 
     def _getClient(self):
         """
@@ -98,11 +98,15 @@ class LwfManager:
         If a job context is provided, it will be set on the metasheet.
         """
         if jobContext is None:
-            jobContext = JobContext()
+            jCtx: JobContext = JobContext()
         elif isinstance(jobContext, str):
-            jobContext = self._deserialize(jobContext)
+            jCtx: JobContext = self._deserialize(jobContext)
+            if jCtx is None:
+                jCtx = JobContext()
+        else:
+            jCtx: JobContext = jobContext
 
-        _metasheet.setJobId(jobContext.getJobId())
+        _metasheet.setJobId(jCtx.getJobId())
         # now do the metadata notate
         props = _metasheet.getProps()
         props['_direction'] = 'put' if isPut else 'get'
@@ -110,14 +114,14 @@ class LwfManager:
         props['_localPath'] = localPath
         props['_siteObjPath'] = siteObjPath
         if jobContext is not None:
-            props['_workflowId'] = jobContext.getWorkflowId()
-            props['_jobId'] = jobContext.getJobId()
+            props['_workflowId'] = jCtx.getWorkflowId()
+            props['_jobId'] = jCtx.getJobId()
         _metasheet.setProps(props)
         # persist
         self._client.notate(_metasheet)
         # TODO technically the above notate() might be None if the notate fails - conisder
         # now emit an INFO job status
-        self._emitRepoInfo(jobContext, _metasheet)
+        self._emitRepoInfo(jCtx, _metasheet)
         return _metasheet
 
     def _notatePut(self, siteName: str, localPath: str, siteObjPath: str,

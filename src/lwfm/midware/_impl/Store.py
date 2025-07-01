@@ -206,8 +206,10 @@ class WorkflowStore(Store):
             if db:
                 db.close()
 
-    # set the site-specific auth blob for this site
+
     def putWorkflow(self, workflow: Workflow) -> None:
+        if workflow is None:
+            return
         self._put("WorkflowStore", "local", "run.wf", workflow.getWorkflowId(),
                 workflow.getWorkflowId(), ObjectSerializer.serialize(workflow))
 
