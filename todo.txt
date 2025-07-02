@@ -4,22 +4,23 @@ Todo & misc notes
 ******************************************************************************
 
 + ibm site driver
-    - notating get from IBM by doing a local put?
+    - lwfManager.serialize is not protected!
+    - wciscc test circuit(s) - in files w notation
 
-    - test circuit(s) - in files w notation
-
-    - sample vs estimation, etc. - what are the ways to run()
-
-    - ibm site w qiskit run - allow 1 session for many circuits
-    - helper method to set job listener to mine the remote job results 
-
-+ lwfm next priorities
     - TODO items (many are for log context - separate ticket)
     - inline docs esp. for .base & .midware (#84)
     - document keywords, pillars for metasheet search
+    - document ibm driver
     - import/export (#73)
+
+    - notating get from IBM by doing a local put?
+    - unpacking results
+
+
++ lwfm next priorities
     - reverse args of put & get
     - test get metasheets by jobId
+    - ibm site w qiskit run - allow 1 session for many circuits
 
 
 ******************************************************************************
