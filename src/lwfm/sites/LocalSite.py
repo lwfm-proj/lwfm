@@ -111,11 +111,11 @@ class LocalSiteRun(SiteRun):
                 runArgs: Optional[Union[dict, str]]=None) -> JobStatus:
         # if we are passed a string, assume it is a job definition
         if isinstance(jobDefn, str):
-            jobDefn = lwfManager._deserialize(jobDefn)
+            jobDefn = lwfManager.deserialize(jobDefn)
         if isinstance(parentContext, str):
-            parentContext = lwfManager._deserialize(parentContext)
+            parentContext = lwfManager.deserialize(parentContext)
         if isinstance(runArgs, str):
-            runArgs = lwfManager._deserialize(runArgs)
+            runArgs = lwfManager.deserialize(runArgs)
         try:
             # this is the local Run driver - there is not (as yet) any concept of
             # "computeType" or "runArgs" as there might be on another more complex
@@ -194,9 +194,9 @@ class LocalSiteRepo(SiteRepo):
             jobContext: Optional[Union[JobContext, str]] = None,
             metasheet: Optional[Union[Metasheet, dict, str]] = None) -> Optional[Metasheet]:
         if isinstance(jobContext, str):
-            jobContext = lwfManager._deserialize(jobContext)
+            jobContext = lwfManager.deserialize(jobContext)
         if isinstance(metasheet, str):
-            metasheet = lwfManager._deserialize(metasheet)
+            metasheet = lwfManager.deserialize(metasheet)
         if isinstance(metasheet, dict):
             metasheet = Metasheet(self.getSiteName(), localPath, siteObjPath, metasheet)
         context: JobContext = jobContext  #type: ignore
@@ -206,7 +206,7 @@ class LocalSiteRepo(SiteRepo):
             # we drive job state, else we are already part of some other job
             lwfManager.emitStatus(context, JobStatus.RUNNING)
         if isinstance(metasheet, str):
-            metasheet = lwfManager._deserialize(metasheet)
+            metasheet = lwfManager.deserialize(metasheet)
         success = True
         if (localPath is not None) and (siteObjPath is not None):
             # copy the file from localPath to siteObjPath
@@ -227,7 +227,7 @@ class LocalSiteRepo(SiteRepo):
     def get(self, siteObjPath: str, localPath: str,
             jobContext: Optional[Union[JobContext, str]] = None) -> Optional[str]:
         if isinstance(jobContext, str):
-            jobContext = lwfManager._deserialize(jobContext)
+            jobContext = lwfManager.deserialize(jobContext)
         context = jobContext
         if context is None:
             context = JobContext()

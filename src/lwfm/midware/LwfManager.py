@@ -56,11 +56,25 @@ class LwfManager:
         return ObjectSerializer.serialize(obj)
 
 
+    def serialize(self, obj) -> str:
+        """
+        Serialize an object to string.
+        """
+        return self._serialize(obj)
+
+
     def _deserialize(self, s: str):
         """
         Deserialize a string to an object.
         """
         return ObjectSerializer.deserialize(s)
+
+
+    def deserialize(self, s: str):
+        """
+        Deserialize a string to an object.
+        """
+        return self._deserialize(s)
 
 
     def _getJobContextFromEnv(self) -> Optional[JobContext]:
@@ -100,7 +114,7 @@ class LwfManager:
         if jobContext is None:
             jCtx: JobContext = JobContext()
         elif isinstance(jobContext, str):
-            jCtx: JobContext = self._deserialize(jobContext)
+            jCtx: JobContext = self.deserialize(jobContext)
             if jCtx is None:
                 jCtx = JobContext()
         else:

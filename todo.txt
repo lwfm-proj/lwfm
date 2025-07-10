@@ -4,20 +4,25 @@ Todo & misc notes
 ******************************************************************************
 
 + ibm site driver
-    - lwfManager.serialize is not protected!
     - wciscc test circuit(s) - in files w notation
+    - unpacking results
 
+
+
+    - lwfManager.serialize is not protected!
+    - logging provenance (#107)
     - TODO items (many are for log context - separate ticket)
     - inline docs esp. for .base & .midware (#84)
     - document keywords, pillars for metasheet search
     - document ibm driver
     - import/export (#73)
 
-    - notating get from IBM by doing a local put?
-    - unpacking results
-
+Your initial transpile_remote.py has three inputs: circuits, backend_name, and optimization_level. Serverless is currently limited to only accept serializable inputs and outputs.
+vendor specific 
+job.logs()
 
 + lwfm next priorities
+    - notating get from IBM by doing a local put?
     - reverse args of put & get
     - test get metasheets by jobId
     - ibm site w qiskit run - allow 1 session for many circuits
