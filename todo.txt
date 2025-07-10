@@ -9,7 +9,6 @@ Todo & misc notes
 
 
 
-    - lwfManager.serialize is not protected!
     - logging provenance (#107)
     - TODO items (many are for log context - separate ticket)
     - inline docs esp. for .base & .midware (#84)

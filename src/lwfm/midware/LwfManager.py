@@ -150,6 +150,27 @@ class LwfManager:
         _metasheet = Metasheet(siteName, localPath, siteObjPath)
         return self._notate(siteName, localPath, siteObjPath, jobContext, _metasheet, False)
 
+    def notatePut(self, localPath: str, workflowId: Optional[str] = None,
+        _metasheet: Optional[Metasheet] = None) -> Metasheet:
+        if workflowId is not None:
+            jobContext = JobContext()
+            jobContext.setWorkflowId(workflowId)
+        else:
+            jobContext = self.getContext()
+            if jobContext is None:
+                jobContext = JobContext()
+        return self._notatePut("local", localPath, "", jobContext, _metasheet)
+
+    def notateGet(self, localPath: str, workflowId: Optional[str] = None) -> Metasheet:
+        if workflowId is not None:
+            jobContext = JobContext()
+            jobContext.setWorkflowId(workflowId)
+        else:
+            jobContext = self.getContext()
+            if jobContext is None:
+                jobContext = JobContext()
+        return self._notateGet("local", localPath, "", jobContext)
+
 
     #***********************************************************************
     # public job context methods
