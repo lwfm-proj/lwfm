@@ -11,7 +11,7 @@ import time
 import os
 import argparse
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, cast
 
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.JobContext import JobContext
@@ -151,7 +151,7 @@ class LwfManager:
         return self._notate(siteName, localPath, siteObjPath, jobContext, _metasheet, False)
 
     def notatePut(self, localPath: str, workflowId: Optional[str] = None,
-        _metasheet: Optional[Metasheet] = None) -> Metasheet:
+        _metasheet: Optional[Union[Metasheet, dict]] = None) -> Metasheet:
         if workflowId is not None:
             jobContext = JobContext()
             jobContext.setWorkflowId(workflowId)
@@ -159,6 +159,12 @@ class LwfManager:
             jobContext = self.getContext()
             if jobContext is None:
                 jobContext = JobContext()
+        if _metasheet is None:
+            _metasheet = Metasheet("local", localPath, "", {})
+            _metasheet.setJobId(jobContext.getJobId())
+        if isinstance(_metasheet, dict):
+            _metasheet = Metasheet("local", localPath, "", cast(dict, _metasheet))
+            _metasheet.setJobId(jobContext.getJobId())
         return self._notatePut("local", localPath, "", jobContext, _metasheet)
 
     def notateGet(self, localPath: str, workflowId: Optional[str] = None) -> Metasheet:
