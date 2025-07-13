@@ -1,36 +1,62 @@
 
 Todo & misc notes
+=================
 
 ******************************************************************************
 
-+ ibm site driver
-    - wciscc test circuit(s) - in files w notation
-    - unpacking results
++ lwfm etc
+    + examples
+        - qtsuite wciscc test circuit(s) - in files w notation, qtsuite example 01, test 02
+        - lwfManager.getLoggingByWorkflowId - qtsuite example 01, test 01
+        - unpacking qiskit results - show in qtsuite cfd
+        - notating get from IBM by doing a local put?
+        - sending email notification?
 
+    - IBM site driver
+        - ibm site w qiskit run - allow 1 session for many circuits
+        - noise model, from backend
+        - capture of current machine state
+        - gpu device
+        - custom pass manager steps
+        - see qiskit function quick-pde
+        - sqd example
 
-
-    - logging provenance (#107)
+    - logging provenance, metasheets/jobs by xxx (#107)
     - TODO items (many are for log context - separate ticket)
     - inline docs esp. for .base & .midware (#84)
     - document keywords, pillars for metasheet search
     - document ibm driver
     - import/export (#73)
-
-Your initial transpile_remote.py has three inputs: circuits, backend_name, and optimization_level. Serverless is currently limited to only accept serializable inputs and outputs.
-vendor specific 
-job.logs()
-
-+ lwfm next priorities
-    - notating get from IBM by doing a local put?
     - reverse args of put & get
-    - test get metasheets by jobId
-    - ibm site w qiskit run - allow 1 session for many circuits
+    - submit & jobDefn take dict, list, or serialized string of either
+
+
++ qml 
+    - Havlicek et al 2019
+    - pennylane vs. ibm 
+
+
++ materials
+    - read: DFT, DMFT, CALPHAD, JARVIS
+
+
++ AI IDEs
+    - making the same mistakes
+    - speed of responses - too fast sometimes
+    - not following author style
+    - making suggestions which don't pass linting
+    - making suggestions which don't work
+    - getting wrapped around the axle 
 
 
 ******************************************************************************
 
 + ornl site
     - PNLL simulator, tensor sim (see also https://github.com/tencent-quantum-lab/tensorcircuit)
+    + heterogeneous scheduling    
+        - strace for logging file access - output could be parsed perhaps...
+        - Slurm plugins as Site, deployable in-situ - "slurm heterogeneous interop"
+        - Pilot 
 
 
 + lwfm agent - general wf agent
@@ -43,13 +69,6 @@ job.logs()
         - IBM 4-part quantum framework vs. more granular steps (see below)
         - e.g. swap out transpilation pipelines for target QCs
         - a2a scenario - Assistant & QA test agents? ("ai4sci", agent surfing arxiv, etc.)
-
-
-+ quantum_linear_solvers
-    - upgrade to qiskit 2.0, and wciscc
-    - remove qiskit-algorithms: AlgorithmResult 
-    - stamp before & after as releases & update ornl code w/ pr 
-    - other fork: https://github.com/richard7990/quantum_linear_solvers, ORNL forked me
 
 
 + wciscc2025

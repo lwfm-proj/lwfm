@@ -118,7 +118,7 @@ class LocalSiteRun(SiteRun):
             runArgs = lwfManager.deserialize(runArgs)
         try:
             # this is the local Run driver - there is not (as yet) any concept of
-            # "computeType" or "runArgs" as there might be on another more complex
+            # "computeType" as there might be on another more complex
             # site (e.g. HPC scheduler, cloud, etc.)
             if isinstance(parentContext, JobContext):
                 useContext = parentContext
@@ -135,6 +135,12 @@ class LocalSiteRun(SiteRun):
                     useContext = JobContext()
                     # assert readiness
                     lwfManager.emitStatus(useContext, JobStatus.READY)
+
+            # if we have runArgs, append them to the entryPoint space delimited
+            if runArgs is not None:
+                if isinstance(runArgs, dict):
+                    runArgs = " ".join([f"{k}={v}" for k, v in sorted(runArgs.items())])
+                jobDefn.setEntryPoint(jobDefn.getEntryPoint() + " " + runArgs)
 
             # horse at the gate...
             lwfManager.emitStatus(useContext, JobStatus.PENDING)
