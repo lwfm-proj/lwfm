@@ -11,6 +11,7 @@ Todo & misc notes
         - unpacking qiskit results - show in qtsuite cfd
         - notating get from IBM by doing a local put?
         - sending email notification?
+        - metadata sheet dump
 
     - IBM site driver
         - ibm site w qiskit run - allow 1 session for many circuits
