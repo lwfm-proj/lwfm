@@ -282,6 +282,39 @@ class LwfManager:
             logger.error(f"Error in LwfManager.getAllWorkflows: {e}")
             return None
 
+    def getJobStatusesForWorkflow(self, workflow_id: str) -> Optional[List[JobStatus]]:
+        """
+        Get the final (or current) job status messages for all jobs in a workflow, ordered by timestamp (newest first).
+        This is useful for getting the final state of all jobs in a workflow or latest status
+        of a workflow in flight.
+        """
+        if workflow_id is None:
+            return None
+        try:
+            # Get all job statuses for the workflow
+            all_statuses = self._client.getAllJobStatusesForWorkflow(workflow_id)
+            if all_statuses is None:
+                return None
+
+            # Group statuses by job ID and keep only the latest (newest) for each job
+            latest_statuses = {}
+            for job_status in all_statuses:
+                job_id = job_status.getJobContext().getJobId()
+                if job_id not in latest_statuses:
+                    latest_statuses[job_id] = job_status
+                else:
+                    # Compare timestamps and keep the newer one
+                    if job_status.getEmitTime() > latest_statuses[job_id].getEmitTime():
+                        latest_statuses[job_id] = job_status
+
+            # Return the latest statuses as a list, sorted by timestamp (newest first)
+            result = list(latest_statuses.values())
+            result.sort(key=lambda x: x.getEmitTime(), reverse=True)
+            return result
+        except Exception as e:
+            logger.error(f"Error in LwfManager.getFinalJobStatusesForWorkflow: {e}")
+            return None
+
 
     def getAllJobStatusesForWorkflow(self, workflow_id: str) -> Optional[List[JobStatus]]:
         """

@@ -6,12 +6,14 @@ Todo & misc notes
 
 + lwfm etc
     + examples
+        - lwfManager.getLoggingByWorkflowId(wf.getWorkflowId())
         - qtsuite wciscc test circuit(s) - in files w notation, qtsuite example 01, test 02
-        - lwfManager.getLoggingByWorkflowId - qtsuite example 01, test 01
         - unpacking qiskit results - show in qtsuite cfd
         - notating get from IBM by doing a local put?
         - sending email notification?
         - metadata sheet dump
+        - pennylane to IBM backend
+        - magic state distillation
 
     - IBM site driver
         - ibm site w qiskit run - allow 1 session for many circuits
@@ -30,7 +32,7 @@ Todo & misc notes
     - import/export (#73)
     - reverse args of put & get
     - submit & jobDefn take dict, list, or serialized string of either
-
+    - slurm interop?
 
 + qml 
     - Havlicek et al 2019

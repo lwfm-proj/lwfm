@@ -137,10 +137,11 @@ class LocalSiteRun(SiteRun):
                     lwfManager.emitStatus(useContext, JobStatus.READY)
 
             # if we have runArgs, append them to the entryPoint space delimited
+            jobDefn = cast(JobDefn, jobDefn)
             if runArgs is not None:
                 if isinstance(runArgs, dict):
                     runArgs = " ".join([f"{k}={v}" for k, v in sorted(runArgs.items())])
-                jobDefn.setEntryPoint(jobDefn.getEntryPoint() + " " + runArgs)
+                jobDefn.setEntryPoint(str(jobDefn.getEntryPoint()) + " " + runArgs)
 
             # horse at the gate...
             lwfManager.emitStatus(useContext, JobStatus.PENDING)
