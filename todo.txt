@@ -6,7 +6,6 @@ Todo & misc notes
 
 + lwfm etc
     + examples
-        - lwfManager.getLoggingByWorkflowId(wf.getWorkflowId())
         - qtsuite wciscc test circuit(s) - in files w notation, qtsuite example 01, test 02
         - unpacking qiskit results - show in qtsuite cfd
         - notating get from IBM by doing a local put?
@@ -24,7 +23,10 @@ Todo & misc notes
         - see qiskit function quick-pde
         - sqd example
 
-    - logging provenance, metasheets/jobs by xxx (#107)
+    - logging provenance - workflow level, job level - how to divine the context?
+    
+    
+    , metasheets/jobs by xxx (#107)
     - TODO items (many are for log context - separate ticket)
     - inline docs esp. for .base & .midware (#84)
     - document keywords, pillars for metasheet search
@@ -34,22 +36,8 @@ Todo & misc notes
     - submit & jobDefn take dict, list, or serialized string of either
     - slurm interop?
 
-+ qml 
-    - Havlicek et al 2019
-    - pennylane vs. ibm 
 
 
-+ materials
-    - read: DFT, DMFT, CALPHAD, JARVIS
-
-
-+ AI IDEs
-    - making the same mistakes
-    - speed of responses - too fast sometimes
-    - not following author style
-    - making suggestions which don't pass linting
-    - making suggestions which don't work
-    - getting wrapped around the axle 
 
 
 ******************************************************************************

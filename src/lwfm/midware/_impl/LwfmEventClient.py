@@ -263,6 +263,23 @@ class LwfmEventClient:
         return None
 
 
+    def getAllLogging(self) -> Optional[List[str]]:
+        """
+        Retrieve all logging entries from the system.
+        """
+        try:
+            response = requests.get(f"{self.getUrl()}/logs/all",
+                                    timeout=self._REST_TIMEOUT)
+            if response.ok and response.text:
+                return cast(List[str], ObjectSerializer.deserialize(response.text))
+            if response.status_code == 404:
+                self.emitLogging("ERROR", f"getAllLogging error: {response.text}")
+            return None
+        except Exception as ex:
+            self.emitLogging("ERROR", f"getAllLogging exception: {str(ex)}")
+        return None
+
+
 
     #***********************************************************************
     # repo methods

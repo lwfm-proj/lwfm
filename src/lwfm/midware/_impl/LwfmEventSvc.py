@@ -257,11 +257,24 @@ def getLogsByJob(job_id: str):
     try:
         logs = LoggingStore().getLogsByJob(job_id)
         if logs is not None:
+            print("*** got logs")
             return ObjectSerializer.serialize(logs), 200
         return "", 200
     except Exception as ex:
         LoggingStore().putLogging("ERROR", "getLogsByJob: " + str(ex),
                                     "", "", job_id) # TODO context
+        return "", 500
+
+@app.route("/logs/all")
+def getAllLogs():
+    try:
+        logs = LoggingStore().getAllLogs()
+        if logs is not None:
+            return ObjectSerializer.serialize(logs), 200
+        return "", 200
+    except Exception as ex:
+        LoggingStore().putLogging("ERROR", "getAllLogs: " + str(ex),
+                                    "", "", "") # TODO context
         return "", 500
 
 

@@ -16,7 +16,6 @@ if __name__ == "__main__":
     context = JobContext()
     context.setSiteName(site.getSiteName())
     lwfManager.setContext(context)
-    logger.setContext(context)
 
     ts = lwfManager.generateId()
     metadata = {"foo": "bar", "hello": "world", "sampleId": ts}

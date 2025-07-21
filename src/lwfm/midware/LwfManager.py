@@ -505,6 +505,17 @@ class LwfManager:
             return None
 
 
+    def getAllLogging(self) -> Optional[List[str]]:
+        """
+        Retrieve all logging entries from the system.
+        """
+        try:
+            return self._client.getAllLogging()
+        except Exception as e:
+            logger.error(f"Error in LwfManager.getAllLogging: {e}")
+            return None
+
+
     #***********************************************************************
     # public event methods
 
@@ -562,6 +573,8 @@ if __name__ == "__main__":
                         help="Get logs by workflow ID")
     parser.add_argument("--logs-by-job", metavar="JOB_ID", type=str,
                         help="Get logs by job ID")
+    parser.add_argument("--all-logs", action="store_true",
+                        help="Dump all logs from the system")
     parser.add_argument("--active-events", action="store_true",
                         help="Return all active workflow events")
     parser.add_argument("--metasheets", metavar="WORKFLOW_ID", type=str,
@@ -620,6 +633,13 @@ if __name__ == "__main__":
                 print(log)
         else:
             print(f"No logs found for job {args.logs_by_job}")
+    elif args.all_logs:
+        logs = lwfManager.getAllLogging()
+        if logs:
+            for log in logs:
+                print(log)
+        else:
+            print("No logs found in the system")
     elif args.active_events:
         events = lwfManager.getActiveWfEvents()
         if events:

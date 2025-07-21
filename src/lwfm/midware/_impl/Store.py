@@ -118,13 +118,14 @@ class Store:
         """
         Generalized write method for all stores.
         """
+        print(f"Store._put: {store} {siteName} {pillar} {workflowId} {key}")
         max_retries = 5
         delay = 0.1  # seconds
         ts = _time.perf_counter_ns()
         if (key is None) or (key == ""):
             key = str(ts)
         if workflowId is None:
-            workflowId = IdGenerator().generateId()
+            workflowId = "" # IdGenerator().generateId()
         if data is None:
             data = ""
         db = None
@@ -233,7 +234,7 @@ class LoggingStore(Store):
         :return: None
         """
         if self._ECHO_STDIO:
-            print(f"{datetime.datetime.now()} {level} {mydoc}")
+            print(f"{datetime.datetime.now()} {site} {jobId} {level} {mydoc}")
         self._put("LoggingStore", site, "run.log." + level, workflowId, jobId, mydoc)
 
 
@@ -277,7 +278,7 @@ class LoggingStore(Store):
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
             results = cur.execute(
-                "SELECT data FROM LoggingStore WHERE pillar='run.log' AND key=? ORDER BY ts DESC",
+                "SELECT data FROM LoggingStore WHERE key=? ORDER BY ts DESC",
                 (jobId,)
             )
             rows = results.fetchall()
@@ -289,6 +290,39 @@ class LoggingStore(Store):
             return result
         except Exception as e:
             print(f"Error in getAllLogsByJob: {e}")
+            return None
+        finally:
+            if db:
+                db.close()
+
+
+    def getAllLogs(self) -> Optional[List[str]]:
+        """
+        Get all log messages from the system, ordered by timestamp (newest first).
+        :return: List of all log messages or None if no logs found
+        """
+        db = None
+        try:
+            db = sqlite3.connect(_DB_FILE)
+            cur = db.cursor()
+            results = cur.execute(
+                "SELECT ts, site, pillar, workflowId, key, data FROM LoggingStore ORDER BY ts DESC"
+            )
+            rows = results.fetchall()
+            if rows:
+                result = []
+                for row in rows:
+                    ts, site, pillar, workflowId, key, data = row
+                    # Convert timestamp to readable format
+                    readable_time = datetime.datetime.fromtimestamp(ts / 1e9).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                    log_entry = f"{readable_time} | {site} | {pillar} | WF:{workflowId} | Job:{key} | {data}"
+                    result.append(log_entry)
+            else:
+                result = None
+            db.close()
+            return result
+        except Exception as e:
+            print(f"Error in getAllLogs: {e}")
             return None
         finally:
             if db:
