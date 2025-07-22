@@ -17,10 +17,11 @@ from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.Site import SiteRun
-from lwfm.base.WorkflowEvent import WorkflowEvent, JobEvent, MetadataEvent
+from lwfm.base.WorkflowEvent import WorkflowEvent, JobEvent, MetadataEvent, NotificationEvent
 from lwfm.midware._impl.Store import EventStore, JobStatusStore, LoggingStore
 from lwfm.midware._impl.SiteConfig import SiteConfig
 from lwfm.midware._impl.IdGenerator import IdGenerator
+from lwfm.midware.LwfManager import lwfManager
 
 # ***************************************************************************
 
@@ -267,7 +268,10 @@ class LwfmEventProcessor:
                 return False
             for e in events:
                 try:
-                    cast_e = cast(JobEvent, e)
+                    if isinstance(e, NotificationEvent):
+                        cast_e = cast(NotificationEvent, e)
+                    else:
+                        cast_e = cast(JobEvent, e)
                     status = self.checkJobEvent(cast_e)
                     if status:
                         self._loggingStore.putLogging("INFO",
@@ -287,7 +291,12 @@ class LwfmEventProcessor:
                         jobContext = self._makeJobContext(cast_e, status.getJobContext())
                         self._loggingStore.putLogging("INFO", f"*** {cast_e} {status} {jobContext}",
                                                       "", "", "")
-                        self._runAsyncOnSite(cast_e, jobContext)
+                        # treat NotificationEvent differently
+                        if isinstance(cast_e, NotificationEvent):
+                            lwfManager.sendEmail(cast_e.getTo(), cast_e.getSubject(),
+                                                 cast_e.getBody())
+                        else:
+                            self._runAsyncOnSite(cast_e, jobContext)
                         gotOne = True
                 except Exception as ex1:
                     self._loggingStore.putLogging("ERROR",

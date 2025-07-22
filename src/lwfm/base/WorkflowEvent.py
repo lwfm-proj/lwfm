@@ -145,7 +145,7 @@ class NotificationEvent(JobEvent):
         self._to = to
         self._subject = subject
         self._body = body
-    
+
     def getTo(self) -> str:
         return self._to
 

@@ -5,24 +5,27 @@ Todo & misc notes
 ******************************************************************************
 
 + examples
-    - test02: ibm site driver circuit formats incl. .qasm file; job result to file
-    - sending email notification?
-    - wciscc - case file example see email
-    - sqd
-    - cascading metadata sheet dump
-    - pennylane to IBM backend - 2 venv
+    + test02
+        - job result to qpy
+        - sending email notification - test job status lifecycle & link to workflow
+    - test03: wciscc - case file example see email
+    - test04: sqd
+    - test05: pennylane to IBM backend - 2 venv
+    - test01 - find by metadata, workflowId
 
 
 + lwfm
-    - example/test_01 - find by metadata, workflowId
-    - explicit workflow saving - lwfManager.saveWorkflow()
+    + top
+        - throttle background polling wait time
+        - cascading metadata sheet dump
+        - explicit workflow saving - lwfManager.saveWorkflow()
+    - import/export (#73)
     - site.toml injection
     - submit & jobDefn take dict, list, or serialized string of either
     - metasheets/jobs by xxx (#107)
     - reverse args of put & get
     - logging provenance - workflow level, job level - how to divine the context?
     - todo items (many are for log context - separate ticket)
-    - import/export (#73)
     - inline docs esp. for .base & .midware (#84), document keywords, pillars for metasheet search
     - slurm interop?
 
