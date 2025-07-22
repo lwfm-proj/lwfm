@@ -13,6 +13,8 @@ import argparse
 
 from typing import List, Optional, Union, Any, cast
 
+import requests
+
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobStatus import JobStatus
@@ -150,33 +152,6 @@ class LwfManager:
         _metasheet = Metasheet(siteName, localPath, siteObjPath)
         return self._notate(siteName, localPath, siteObjPath, jobContext, _metasheet, False)
 
-    def notatePut(self, localPath: str, workflowId: Optional[str] = None,
-        _metasheet: Optional[Union[Metasheet, dict]] = None) -> Metasheet:
-        if workflowId is not None:
-            jobContext = JobContext()
-            jobContext.setWorkflowId(workflowId)
-        else:
-            jobContext = self.getContext()
-            if jobContext is None:
-                jobContext = JobContext()
-        if _metasheet is None:
-            _metasheet = Metasheet("local", localPath, "", {})
-            _metasheet.setJobId(jobContext.getJobId())
-        if isinstance(_metasheet, dict):
-            _metasheet = Metasheet("local", localPath, "", cast(dict, _metasheet))
-            _metasheet.setJobId(jobContext.getJobId())
-        return self._notatePut("local", localPath, "", jobContext, _metasheet)
-
-    def notateGet(self, localPath: str, workflowId: Optional[str] = None) -> Metasheet:
-        if workflowId is not None:
-            jobContext = JobContext()
-            jobContext.setWorkflowId(workflowId)
-        else:
-            jobContext = self.getContext()
-            if jobContext is None:
-                jobContext = JobContext()
-        return self._notateGet("local", localPath, "", jobContext)
-
 
     #***********************************************************************
     # public job context methods
@@ -224,6 +199,7 @@ class LwfManager:
 
     def getStdoutFilename(self, context: JobContext) -> str:
         return self.getLogFilename(context)
+
 
     #***********************************************************************
     # public site configuration methods
@@ -286,7 +262,8 @@ class LwfManager:
 
     def getJobStatusesForWorkflow(self, workflow_id: str) -> Optional[List[JobStatus]]:
         """
-        Get the final (or current) job status messages for all jobs in a workflow, ordered by timestamp (newest first).
+        Get the final (or current) job status messages for all jobs in a workflow, ordered by
+        timestamp (newest first).
         This is useful for getting the final state of all jobs in a workflow or latest status
         of a workflow in flight.
         """
@@ -545,8 +522,74 @@ class LwfManager:
     #***********************************************************************
     # repo methods
 
+
+    def notatePut(self, localPath: str, workflowId: Optional[str] = None,
+        _metasheet: Optional[Union[Metasheet, dict]] = None) -> Metasheet:
+        if workflowId is not None:
+            jobContext = JobContext()
+            jobContext.setWorkflowId(workflowId)
+        else:
+            jobContext = self.getContext()
+            if jobContext is None:
+                jobContext = JobContext()
+        if _metasheet is None:
+            _metasheet = Metasheet("local", localPath, "", {})
+            _metasheet.setJobId(jobContext.getJobId())
+        if isinstance(_metasheet, dict):
+            _metasheet = Metasheet("local", localPath, "", cast(dict, _metasheet))
+            _metasheet.setJobId(jobContext.getJobId())
+        return self._notatePut("local", localPath, "", jobContext, _metasheet)
+
+
+    def notateGet(self, localPath: str, workflowId: Optional[str] = None) -> Metasheet:
+        if workflowId is not None:
+            jobContext = JobContext()
+            jobContext.setWorkflowId(workflowId)
+        else:
+            jobContext = self.getContext()
+            if jobContext is None:
+                jobContext = JobContext()
+        return self._notateGet("local", localPath, "", jobContext)
+
+
     def find(self, queryRegExs: dict) -> Optional[List[Metasheet]]:
         return self._client.find(queryRegExs)
+
+
+
+    #***********************************************************************
+    # misc methods
+
+    def sendEmail(self, subject: str, body: str, to: str) -> bool:
+        """
+        Send an email with the given subject and body. This is a convenience method
+        for sending emails from workflows. 
+        TODO this is not end-state, a demo hack
+        """
+        try:
+            session = requests.Session()
+            session.verify = False  # Use system certificate store
+            response = session.post(
+                "https://api.mailgun.net/v3/sandbox884a84ded0f443569fd09c93dcc28aa2.mailgun.org/messages",
+                auth=("api", SiteConfig.getSiteProperties("lwfm").get("emailKey") or ""),
+                data={"from": "Mailgun Sandbox <postmaster@sandbox884a84ded0f443569fd09c93dcc28aa2.mailgun.org>",
+                    "to": to,
+                    "subject": subject,
+                    "text": body},
+                timeout=30  # 30 second timeout
+            )
+            return True
+        except requests.exceptions.Timeout:
+            logger.error("Email request timed out after 30 seconds")
+            return False
+        except requests.exceptions.SSLError as e:
+            logger.error(f"SSL Error (corporate firewall?): {e}")
+            return False
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            return False
+
+
 
 
 #***********************************************************************

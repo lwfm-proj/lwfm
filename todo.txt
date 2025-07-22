@@ -4,40 +4,39 @@ Todo & misc notes
 
 ******************************************************************************
 
-+ lwfm etc
-    + examples
-        - qtsuite wciscc test circuit(s) - in files w notation, qtsuite example 01, test 02
-        - unpacking qiskit results - show in qtsuite cfd
-        - notating get from IBM by doing a local put?
-        - sending email notification?
-        - metadata sheet dump
-        - pennylane to IBM backend
-        - magic state distillation
++ examples
+    - test02: ibm site driver circuit formats incl. .qasm file; job result to file
+    - sending email notification?
+    - wciscc - case file example see email
+    - sqd
+    - cascading metadata sheet dump
+    - pennylane to IBM backend - 2 venv
 
-    - IBM site driver
-        - ibm site w qiskit run - allow 1 session for many circuits
-        - noise model, from backend
-        - capture of current machine state
-        - gpu device
-        - custom pass manager steps
-        - see qiskit function quick-pde
-        - sqd example
 
-    - logging provenance - workflow level, job level - how to divine the context?
-    
-    
-    , metasheets/jobs by xxx (#107)
-    - TODO items (many are for log context - separate ticket)
-    - inline docs esp. for .base & .midware (#84)
-    - document keywords, pillars for metasheet search
-    - document ibm driver
-    - import/export (#73)
-    - reverse args of put & get
++ lwfm
+    - example/test_01 - find by metadata, workflowId
+    - explicit workflow saving - lwfManager.saveWorkflow()
+    - site.toml injection
     - submit & jobDefn take dict, list, or serialized string of either
+    - metasheets/jobs by xxx (#107)
+    - reverse args of put & get
+    - logging provenance - workflow level, job level - how to divine the context?
+    - todo items (many are for log context - separate ticket)
+    - import/export (#73)
+    - inline docs esp. for .base & .midware (#84), document keywords, pillars for metasheet search
     - slurm interop?
 
 
-
++ IBM site driver
+    - unpacking qiskit results - show in qtsuite cfd
+    - ibm site w qiskit run options - which besides those below?
+    - notating get from IBM by doing a local put?
+    - allow 1 session for many circuits
+    - noise model, from backend
+    - capture of current machine state
+    - gpu device
+    - custom pass manager steps
+    - document driver
 
 
 ******************************************************************************
