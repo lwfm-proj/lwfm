@@ -133,3 +133,30 @@ class MetadataEvent(WorkflowEvent):
 
 
 # ***************************************************************************
+
+class NotificationEvent(WorkflowEvent):
+    """
+    A notification event is fired when a user-defined event occurs, such as
+    a job reaching a certain status or a data element being put into the repository.
+    """
+    def __init__(self, to: str, subject: str, body: str, context: Optional[JobContext] = None):
+        super().__init__(JobDefn(), "local", None, context)
+        self._to = to
+        self._subject = subject
+        self._body = body
+
+    def getTo(self) -> str:
+        return self._to
+
+    def getSubject(self) -> str:
+        return self._subject
+
+    def getBody(self) -> str:
+        return self._body
+
+    def __str__(self):
+        return super().__str__() + \
+            f"+[to:{self.getTo()} subject:{self.getSubject()} body:{self.getBody()}]"
+
+
+# ***************************************************************************
