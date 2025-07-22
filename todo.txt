@@ -5,13 +5,14 @@ Todo & misc notes
 ******************************************************************************
 
 + examples
-    + test02
-        - job result to qpy
-        - sending email notification - test job status lifecycle & link to workflow
+    + test02:
+        - sending email notification
+        - job results
+        - email job status lifecycle & link to workflow
     - test03: wciscc - case file example see email
     - test04: sqd
     - test05: pennylane to IBM backend - 2 venv
-    - test01 - find by metadata, workflowId
+    - test01: find by metadata, workflowId
 
 
 + lwfm
@@ -31,6 +32,8 @@ Todo & misc notes
 
 
 + IBM site driver
+    - proper job status emits
+    - VSCode linting
     - unpacking qiskit results - show in qtsuite cfd
     - ibm site w qiskit run options - which besides those below?
     - notating get from IBM by doing a local put?

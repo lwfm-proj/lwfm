@@ -566,6 +566,8 @@ class LwfManager:
         for sending emails from workflows. 
         TODO this is not end-state, a demo hack
         """
+        logger.info(f"Sending email to {to} with subject: {subject}")
+        logger.info(f"api key: {SiteConfig.getSiteProperties('lwfm').get('emailKey')}")
         try:
             session = requests.Session()
             session.verify = False  # Use system certificate store

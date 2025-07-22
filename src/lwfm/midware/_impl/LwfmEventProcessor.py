@@ -293,8 +293,8 @@ class LwfmEventProcessor:
                                                       "", "", "")
                         # treat NotificationEvent differently
                         if isinstance(cast_e, NotificationEvent):
-                            lwfManager.sendEmail(cast_e.getTo(), cast_e.getSubject(),
-                                                 cast_e.getBody())
+                            lwfManager.sendEmail(cast_e.getSubject(), cast_e.getBody(),
+                                                 cast_e.getTo())
                         else:
                             self._runAsyncOnSite(cast_e, jobContext)
                         gotOne = True
