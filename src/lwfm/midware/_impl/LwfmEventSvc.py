@@ -126,6 +126,19 @@ def getWorkflowStatuses(workflow_id: str):
         return "", 500
 
 
+
+@app.route("/workflow/find", methods=["POST"])
+def findWorkflow():
+    try:
+        searchDict = json.loads(request.form["searchDict"])
+        workflows: List[Workflow] = WorkflowStore().findWorkflows(searchDict)
+        return ObjectSerializer.serialize(workflows), 200
+    except Exception as ex:
+        LoggingStore().putLogging("ERROR", "findWorkflow: " + str(ex),
+                                  "", "", "") # TODO context
+        return "", 400
+
+
 #************************************************************************
 # status endpoints
 

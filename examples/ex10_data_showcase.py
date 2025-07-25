@@ -128,6 +128,19 @@ if __name__ == "__main__":
 
 
     # *****************************************************************************
+    # similarly we can find workflows by their metadata, clauses also AND
+    # lwfm tries to keep data history, so actually there is a record for each time
+    # the workflow was saved, but this find will return the latest version
+
+    workflows = lwfManager.findWorkflows({"metaprop1": "value1"})
+    if not workflows:
+        print("\n* out10: No workflows found with the given metadata")
+    else:
+        for wf in workflows:
+            print(f"\n* out10: Found workflow: {wf.getWorkflowId()} with props: {wf.getProps()}")
+
+
+    # *****************************************************************************
     # data triggers - when some data with a certain metadata profile / search clause
     # is "put", a job can be triggered to run
 
@@ -138,14 +151,14 @@ if __name__ == "__main__":
         MetadataEvent({"sampleId": sample_id}, trigger_job_defn, "local", None, wfContext)
     )
     # now put a file somewhere and notate it with our triggering metadata
-    site.getRepoDriver().put("/etc/passwd", "/tmp/someFile-ex10-10.dat", wfContext,
+    site.getRepoDriver().put("/etc/passwd", "/tmp/someFile-ex10-11.dat", wfContext,
         {"sampleId": sample_id}
     )
     if trigger_job is None:
         print("Failed to set data trigger job")
     else:
         trigger_job = lwfManager.wait(trigger_job.getJobId())
-        print(f"\n* out10: Data trigger executed: {trigger_job}")
+        print(f"\n* out11: Data trigger executed: {trigger_job}")
 
 
     # ****************************************************************************

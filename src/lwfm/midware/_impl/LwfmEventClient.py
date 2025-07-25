@@ -112,6 +112,26 @@ class LwfmEventClient:
             return None
 
 
+
+    def findWorkflows(self, queryRegExs: dict) -> Optional[List[Workflow]]:
+        # call to the service to find workflows
+        try:
+            data = {"searchDict": json.dumps(queryRegExs)}
+            response = requests.post(f"{self.getUrl()}/workflow/find", data,
+                timeout=self._REST_TIMEOUT)
+            if response.ok:
+                workflows: List[Workflow] = ObjectSerializer.deserialize(response.text)
+                return workflows
+            # use the plain logger when logging logging errors
+            logging.error(f"find error: {response.text}")
+        except Exception as ex:
+            # use the plain logger when logging logging errors
+            logging.error("error finding: " + str(ex))
+        return None
+
+
+
+
     #***********************************************************************
     # status methods
 

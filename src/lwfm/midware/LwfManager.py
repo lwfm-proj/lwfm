@@ -332,6 +332,9 @@ class LwfManager:
             return None
 
 
+    def findWorkflows(self, queryRegExs: dict) -> Optional[List[Workflow]]:
+        return self._client.findWorkflows(queryRegExs)
+
 
 
 

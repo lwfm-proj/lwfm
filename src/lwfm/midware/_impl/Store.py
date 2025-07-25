@@ -117,11 +117,10 @@ class Store:
         """
         Generalized write method for all stores.
         """
-        print(f"Store._put: {store} {siteName} {pillar} {workflowId} {key}")
         max_retries = 5
         delay = 0.1  # seconds
         ts = _time.perf_counter_ns()
-        if (key is None) or (key == ""):
+        if (key is None) or (key == "") or not key:
             key = str(ts)
         if workflowId is None:
             workflowId = "" # Default to empty string if no workflowId provided
@@ -164,8 +163,8 @@ class WorkflowStore(Store):
         try:
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
-            results = cur.execute(f"SELECT data FROM WorkflowStore WHERE pillar='run.wf' and " \
-                f"key='{workflow_id}' order by ts desc")
+            results = cur.execute("SELECT data FROM WorkflowStore WHERE pillar='run.wf' and " \
+                "workflowId=? order by ts desc", (workflow_id,))
             result = results.fetchone()
             if result is not None:
                 result = ObjectSerializer.deserialize(result[0])
@@ -211,7 +210,61 @@ class WorkflowStore(Store):
         if workflow is None:
             return
         self._put("WorkflowStore", "local", "run.wf", workflow.getWorkflowId(),
-                workflow.getWorkflowId(), ObjectSerializer.serialize(workflow))
+                json.dumps(workflow.getProps()), ObjectSerializer.serialize(workflow))
+
+
+
+    def findWorkflows(self, queryRegExs: dict) -> List[Workflow]:
+        db = None
+        try:
+            db = sqlite3.connect(_DB_FILE)
+            db.create_function("REGEXP", 2, lambda expr,
+                val: re.search(expr, val or "") is not None)
+            cur = db.cursor()
+
+            # Build SQL WHERE clause
+            where_clauses = []
+            params = []
+            pattern = ""
+            for k, regex in queryRegExs.items():
+                # This pattern matches the JSON key and value as a substring
+                # e.g. "jobId": "abc123"
+                pattern = f'"{k}"\\s*:\\s*"[^"]*{regex}[^"]*"'
+                where_clauses.append('key REGEXP ?')
+                params.append(pattern)
+
+            # Use a subquery to get only the most recent version of each workflow
+            # by grouping by workflowId and selecting MAX(ts)
+            sql = """SELECT w1.workflowId, w1.data 
+                     FROM WorkflowStore w1 
+                     INNER JOIN (
+                         SELECT workflowId, MAX(ts) as max_ts 
+                         FROM WorkflowStore 
+                         WHERE pillar='run.wf'
+                         GROUP BY workflowId
+                     ) w2 ON w1.workflowId = w2.workflowId AND w1.ts = w2.max_ts
+                     WHERE w1.pillar='run.wf'"""
+            
+            if where_clauses:
+                sql += " AND " + " AND ".join([f"w1.{clause}" for clause in where_clauses])
+
+            print(f"SQL Query: {sql}")
+            print(f"Parameters: {params}")
+
+            cur.execute(sql, params)
+            results = []
+            for _, data in cur.fetchall():
+                # Deserialize the workflow object
+                wf = ObjectSerializer.deserialize(data)
+                results.append(wf)
+            return results
+        except Exception as e:
+            LoggingStore().putLogging("ERROR", f"Error in findWorkflows: {e}",
+                                      "", "", "")
+            return []
+        finally:
+            if db:
+                db.close()
 
 
 

@@ -10,12 +10,6 @@ Todo & misc notes
         - job trigger workflow reference is wrong
         - workflow dump job list, metasheets
 
-        + find 
-            - find workflow by metadata
-
-        + logging 
-
-
     + slides
         - goals
         - history
@@ -28,7 +22,7 @@ Todo & misc notes
 
 + lwfm
     + top
-        - lwfManager / logger set context
+        - lwfManager / logger set context, logging provenance
         - cascading metadata sheet dump
         - test01: find by metadata, workflowId
         - email job status lifecycle & link to workflow
