@@ -6,9 +6,6 @@ Todo & misc notes
 
 + examples
     + lwfm
-        - metadata notate on get?
-        - job trigger workflow reference is wrong
-        - workflow dump job list, metasheets
 
     + slides
         - goals
@@ -22,6 +19,9 @@ Todo & misc notes
 
 + lwfm
     + top
+        - job trigger workflow reference is wrong
+        - capture runArgs, jobDefn in job status, show in workflow dump
+        - metadata notate on get?
         - lwfManager / logger set context, logging provenance
         - cascading metadata sheet dump
         - test01: find by metadata, workflowId

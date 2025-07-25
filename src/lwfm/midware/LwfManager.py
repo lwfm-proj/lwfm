@@ -323,9 +323,11 @@ class LwfManager:
             if workflow is None:
                 return None
             jobs = self.getJobStatusesForWorkflow(workflow_id)
+            metasheets = self.find({"_workflowId": workflow_id}) or []
             return {
                 "workflow": str(workflow),
-                "jobs": jobs
+                "jobs": jobs,
+                "metasheets": metasheets
             }
         except Exception as e:
             logger.error(f"Error in LwfManager.dumpWorkflow: {e}")
