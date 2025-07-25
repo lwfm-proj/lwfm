@@ -27,8 +27,8 @@ if __name__ == "__main__":
     wf.setName("A->B->C test")
     wf.setDescription("A test of chaining three jobs together asynchronously")
     wf.setProps({}) # set any workflow metatadata properties, if desired
-    wf_id = lwfManager.putWorkflow(wf)
-    if wf_id is None:
+    wf = lwfManager.putWorkflow(wf)
+    if wf is None:
         logger.error("Failed to put workflow")
         sys.exit(1)
 
@@ -75,14 +75,9 @@ if __name__ == "__main__":
     logger.info(f"job C {str(statusC)}")
 
     # now let's update the workflow with some additional metadata
-    wf = lwfManager.getWorkflow(wf_id)
-    if wf is None:
-        logger.error("Failed to get workflow")
-        sys.exit(1)
     props = wf.getProps()
     props["allDone"] = True
     wf.setProps(props)
-    lwfManager.putWorkflow(wf)
-    wf = lwfManager.getWorkflow(wf_id)
+    wf = lwfManager.putWorkflow(wf)
     if wf is not None:
         logger.info(f"Workflow {wf.getWorkflowId()} updated with props: {wf.getProps()}")

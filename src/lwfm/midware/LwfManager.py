@@ -231,12 +231,14 @@ class LwfManager:
     #***********************************************************************
     # public workflow methods
 
-    def putWorkflow(self, wflow: Workflow) -> Optional[str]:
+    def putWorkflow(self, wflow: Workflow) -> Optional[Workflow]:
         """
         Write a workflow object to store. Get back a workflow id.
         """
-        return self._client.putWorkflow(wflow)
-
+        workflowId = self._client.putWorkflow(wflow)
+        if workflowId is None:
+            return None
+        return self.getWorkflow(workflowId)
 
     def getWorkflow(self, workflow_id: str) -> Optional[Workflow]:
         """
@@ -307,6 +309,30 @@ class LwfManager:
         except Exception as e:
             logger.error(f"Error in LwfManager.getAllJobStatusesForWorkflow: {e}")
             return None
+
+
+    def dumpWorkflow(self, workflow_id: str) -> Optional[dict]:
+        """
+        Dump the workflow and its jobs, including their statuses, to a dictionary.
+        This is useful for debugging and understanding the state of a workflow.
+        """
+        if workflow_id is None:
+            return None
+        try:
+            workflow = self.getWorkflow(workflow_id)
+            if workflow is None:
+                return None
+            jobs = self.getJobStatusesForWorkflow(workflow_id)
+            return {
+                "workflow": str(workflow),
+                "jobs": jobs
+            }
+        except Exception as e:
+            logger.error(f"Error in LwfManager.dumpWorkflow: {e}")
+            return None
+
+
+
 
 
     #***********************************************************************

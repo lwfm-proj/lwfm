@@ -34,7 +34,6 @@ from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.Workflow import Workflow
 from lwfm.base.Metasheet import Metasheet
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
-from lwfm.midware._impl.IdGenerator import IdGenerator
 
 
 # ****************************************************************************
@@ -125,7 +124,7 @@ class Store:
         if (key is None) or (key == ""):
             key = str(ts)
         if workflowId is None:
-            workflowId = "" # IdGenerator().generateId()
+            workflowId = "" # Default to empty string if no workflowId provided
         if data is None:
             data = ""
         db = None

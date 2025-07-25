@@ -5,23 +5,37 @@ Todo & misc notes
 ******************************************************************************
 
 + examples
-    + test02:
-        - sending email notification
-        - job results
-        - email job status lifecycle & link to workflow
-    - test03: wciscc - case file example see email
+    + lwfm
+        - metadata notate on get?
+        - job trigger workflow reference is wrong
+        - workflow dump job list, metasheets
+
+        + find 
+            - find workflow by metadata
+
+        + logging 
+
+
+    + slides
+        - goals
+        - history
+        - framework: 3 tiers, 4 pillars
+        - many similar to - nat lab round & round, FAIR
+        - future work: import/export, full trigger impl, gui; ibm-specific
+
     - test04: sqd
-    - test05: pennylane to IBM backend - 2 venv
-    - test01: find by metadata, workflowId
 
 
 + lwfm
     + top
-        - throttle background polling wait time
+        - lwfManager / logger set context
         - cascading metadata sheet dump
+        - test01: find by metadata, workflowId
+        - email job status lifecycle & link to workflow
         - explicit workflow saving - lwfManager.saveWorkflow()
+        - move test cases to qtsuite?
+    - remove hardcoded site.toml
     - import/export (#73)
-    - site.toml injection
     - submit & jobDefn take dict, list, or serialized string of either
     - metasheets/jobs by xxx (#107)
     - reverse args of put & get
@@ -29,9 +43,11 @@ Todo & misc notes
     - todo items (many are for log context - separate ticket)
     - inline docs esp. for .base & .midware (#84), document keywords, pillars for metasheet search
     - slurm interop?
+    - better error message when site name is bum on getSite()
 
 
 + IBM site driver
+    - get without a file involved - just a string return
     - proper job status emits
     - VSCode linting
     - unpacking qiskit results - show in qtsuite cfd
@@ -44,32 +60,6 @@ Todo & misc notes
     - custom pass manager steps
     - document driver
 
-
-******************************************************************************
-
-+ ornl site
-    - PNLL simulator, tensor sim (see also https://github.com/tencent-quantum-lab/tensorcircuit)
-    + heterogeneous scheduling    
-        - strace for logging file access - output could be parsed perhaps...
-        - Slurm plugins as Site, deployable in-situ - "slurm heterogeneous interop"
-        - Pilot 
-
-
-+ lwfm agent - general wf agent
-    - "write the docs first"
-    - how does the LLM track workflows, how can we mine the logging artifacts - do we trust them?
-    - Google Codex use of Agents.md to understand the codebase / guardrails 
-    - .base & .midware signatures for mcp wrapper - copiously document
-    - mcp async abilities - how to use relative to lwfm triggers - w. example
-    + qwf-agent - quantum wf agent built on lwfm agent
-        - IBM 4-part quantum framework vs. more granular steps (see below)
-        - e.g. swap out transpilation pipelines for target QCs
-        - a2a scenario - Assistant & QA test agents? ("ai4sci", agent surfing arxiv, etc.)
-
-
-+ wciscc2025
-    - IBM, IQM, Quantinuum, IonQ machines w lwfm venv 
-    - ibm_sherbrooke going end of life  
 
 
 ******************************************************************************
@@ -112,17 +102,6 @@ uv
 node, npm, npx 
 <my project> 
 fast-agent, API key in fastagent.secrets.yaml, servers in fastagent.config.yaml 
-
-
-******************************************************************************
-other notes
-
-- AFRL needs to juggle qc backends for their algorithm benchmarking w DARPA 
-- lwfm roadmap - ORNL DD?
-+ algorithms
-    - zoo impls?
-    - AFRL impls?
-    - tutorials?
 
 
 ******************************************************************************
