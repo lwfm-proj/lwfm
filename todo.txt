@@ -5,15 +5,6 @@ Todo & misc notes
 ******************************************************************************
 
 + examples
-    + lwfm
-
-    + slides
-        - goals
-        - history
-        - framework: 3 tiers, 4 pillars
-        - many similar to - nat lab round & round, FAIR
-        - future work: import/export, full trigger impl, gui; ibm-specific
-
     - test04: sqd
 
 
