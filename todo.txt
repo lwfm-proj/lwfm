@@ -4,12 +4,9 @@ Todo & misc notes
 
 ******************************************************************************
 
-+ examples
-    - test04: sqd
-
-
 + lwfm
     + top
+        - remove hardcoded site.toml
         - job trigger workflow reference is wrong
         - capture runArgs, jobDefn in job status, show in workflow dump
         - metadata notate on get?
@@ -19,7 +16,10 @@ Todo & misc notes
         - email job status lifecycle & link to workflow
         - explicit workflow saving - lwfManager.saveWorkflow()
         - move test cases to qtsuite?
-    - remove hardcoded site.toml
+    + qtsuite
+        - test04: sqd
+        - qoblib - independent set
+    - "data site" interface
     - import/export (#73)
     - submit & jobDefn take dict, list, or serialized string of either
     - metasheets/jobs by xxx (#107)
@@ -27,9 +27,8 @@ Todo & misc notes
     - logging provenance - workflow level, job level - how to divine the context?
     - todo items (many are for log context - separate ticket)
     - inline docs esp. for .base & .midware (#84), document keywords, pillars for metasheet search
-    - slurm interop?
+    - slurm site driver / altair?
     - better error message when site name is bum on getSite()
-
 
 + IBM site driver
     - get without a file involved - just a string return
@@ -44,7 +43,6 @@ Todo & misc notes
     - gpu device
     - custom pass manager steps
     - document driver
-
 
 
 ******************************************************************************
