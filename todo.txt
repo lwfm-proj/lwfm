@@ -6,7 +6,6 @@ Todo & misc notes
 
 + lwfm
     + top
-        - remove hardcoded site.toml
         - job trigger workflow reference is wrong
         - capture runArgs, jobDefn in job status, show in workflow dump
         - metadata notate on get?
@@ -27,7 +26,7 @@ Todo & misc notes
     - logging provenance - workflow level, job level - how to divine the context?
     - todo items (many are for log context - separate ticket)
     - inline docs esp. for .base & .midware (#84), document keywords, pillars for metasheet search
-    - slurm site driver / altair?
+    - slurm site driver
     - better error message when site name is bum on getSite()
 
 + IBM site driver

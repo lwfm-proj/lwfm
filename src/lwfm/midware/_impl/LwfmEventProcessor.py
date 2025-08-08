@@ -112,11 +112,24 @@ class LwfmEventProcessor:
                     "lwfManager.execSiteEndpoint(job_defn, context, True)"
                 # Execute in the venv
                 site_venv = SiteConfigVenv()
-                self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}", siteName,
+                venv_path = site_venv.makeVenvPath(siteName)
+                self._loggingStore.putLogging("INFO",
+                                              f"Executing in venv at '{venv_path}': {cmd}",
+                                              siteName,
                                               context.getWorkflowId(),
                                               context.getJobId())
-                # TODO result
-                result = site_venv.executeInProjectVenv(siteName, cmd)
+                try:
+                    # TODO result
+                    result = site_venv.executeInProjectVenv(siteName, cmd)
+                except Exception as ex:
+                    self._loggingStore.putLogging(
+                        "ERROR",
+                        f"Venv execution failed for site '{siteName}' at '{venv_path}': {ex}",
+                        siteName,
+                        context.getWorkflowId(),
+                        context.getJobId()
+                    )
+                    raise
             else:
                 # venv Site - use SiteConfigVenv to execute in the venv
                 from lwfm.midware._impl.SiteConfigVenv import SiteConfigVenv
@@ -137,12 +150,24 @@ class LwfmEventProcessor:
                     "run_driver.submit(job_defn, context)"
                 # Execute in the venv
                 site_venv = SiteConfigVenv()
-                self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}",
+                venv_path = site_venv.makeVenvPath(siteName)
+                self._loggingStore.putLogging("INFO",
+                                              f"Executing in venv at '{venv_path}': {cmd}",
                                               siteName,
                                               context.getWorkflowId(),
                                               context.getJobId())
-                # TODO result
-                result = site_venv.executeInProjectVenv(siteName, cmd)
+                try:
+                    # TODO result
+                    result = site_venv.executeInProjectVenv(siteName, cmd)
+                except Exception as ex:
+                    self._loggingStore.putLogging(
+                        "ERROR",
+                        f"Venv execution failed for site '{siteName}' at '{venv_path}': {ex}",
+                        siteName,
+                        context.getWorkflowId(),
+                        context.getJobId()
+                    )
+                    raise
         else:
             if entryPointType == JobDefn.ENTRY_TYPE_SITE:
                 # Non-venv Site - use the run driver directly

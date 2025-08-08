@@ -40,6 +40,18 @@ class SiteConfigVenv():
         else:   # a real OS
             python_executable = os.path.join(venv_path, "bin", "python")
 
+        # Validate venv path and python executable early with actionable guidance
+        if not os.path.isdir(venv_path):
+            raise FileNotFoundError(
+                f"Venv not found for site '{siteName}' at '{venv_path}'. "
+                "Create it (e.g., `python -m venv <path>`) and install required packages."
+            )
+        if not os.path.isfile(python_executable):
+            raise FileNotFoundError(
+                f"Python exe not found in venv for site '{siteName}' at '{python_executable}'. "
+                "Ensure the venv is correctly created and accessible."
+            )
+
         try:
             # Execute the command, making sure to capture only the last line as the
             # serialized return value
@@ -63,13 +75,17 @@ class SiteConfigVenv():
             stdout, stderr = process.communicate()
 
             if process.returncode != 0:
-                # something bad happened in the subprocess
-                # we're going to give up the ghost - dump the stdout/err for debug
+                # something bad happened in the subprocess; surface context and stderr
                 with open('/tmp/out.out', 'a', encoding='utf-8') as f:   # TODO logging
-                    f.write(stdout)
-                    f.write(stderr)
-                raise RuntimeError("executeInProjectVenv: failed with code: " + \
-                            f"{process.returncode}")
+                    f.write(stdout or "")
+                    f.write(stderr or "")
+                err_tail = (stderr or "").strip().splitlines()[-1] if (stderr or "").strip() else ""
+                raise RuntimeError(
+                    "executeInProjectVenv failed: "
+                    f"site='{siteName}', venv='{venv_path}', code={process.returncode}. "
+                    f"Hint: ensure required drivers/packages are installed in this venv. "
+                    f"Last error: {err_tail}"
+                )
 
             if stdout:
                 # Check if we marked the result
@@ -82,8 +98,10 @@ class SiteConfigVenv():
 
             return None
         except Exception as ex:
-            # something really bad happened
-            raise Exception(f"executeInProjectVenv: an error occurred: {ex}") from ex
+            # something really bad happened; annotate with site and venv path
+            raise Exception(
+                f"executeInProjectVenv: site='{siteName}', venv='{venv_path}' error: {ex}"
+            ) from ex
 
 
     def makeSerializeReturnString(self, argName: str = "obj") -> str:
