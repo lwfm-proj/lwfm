@@ -31,7 +31,7 @@ log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
 
 # Get the singleton instance of the event processor
-wfProcessor = LwfmEventProcessor()
+wfProcessor = LwfmEventProcessor.get_instance()
 
 
 def halt():
@@ -201,6 +201,12 @@ def emitStatus():
                 LoggingStore().putLogging("INFO",
                     f"Data trigger event(s) processed for job {statusObj.getJobId()}",
                     "", "", "") # TODO context
+
+        # Wake the event processor so it reacts immediately to newly emitted status
+        try:
+            wfProcessor.wake()
+        except Exception as ex:
+            LoggingStore().putLogging("ERROR", f"wake() failed: {ex}", "", "", "")
 
         return "", 200
     except Exception as ex:

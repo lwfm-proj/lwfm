@@ -9,6 +9,7 @@ to a Site when an event of interest occurs.
 #pylint: disable = eval-used
 
 import re
+import time
 import threading
 from typing import List, Optional, cast
 import atexit
@@ -43,6 +44,8 @@ class RemoteJobEvent(WorkflowEvent):
 class LwfmEventProcessor:
     _timer = None
     _eventHandlerMap = dict()
+    _instance = None
+    _instance_lock = threading.Lock()
 
     _infoQueue: List[JobStatus] = []
 
@@ -52,13 +55,29 @@ class LwfmEventProcessor:
     _statusCheckIntervalSeconds = STATUS_CHECK_INTERVAL_SECONDS_MIN
 
 
+    def __new__(cls, *args, **kwargs):
+        # Ensure only one instance exists
+        with cls._instance_lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+            return cls._instance
+
+    @classmethod
+    def get_instance(cls) -> "LwfmEventProcessor":
+        # Prefer explicit accessor for clarity at call sites
+        return cls()
+
     def __init__(self):
+        # Idempotent init: guard against re-initialization if constructor is called again
+        if getattr(self, "_initialized", False):
+            return
         # Initialize instance variables
         self._timer_lock = threading.Lock()
         self._timer = None
         self._eventHandlerMap = {}
         self._infoQueue = []
         self._statusCheckIntervalSeconds = self.STATUS_CHECK_INTERVAL_SECONDS_MIN
+        self._last_wake: float = 0.0
 
         # Register cleanup to happen at exit
         atexit.register(self.exit)
@@ -71,6 +90,7 @@ class LwfmEventProcessor:
             (self,),
         )
         self._timer.start()
+        self._initialized = True
 
 
     def exit(self):
@@ -270,8 +290,8 @@ class LwfmEventProcessor:
             return None
         except Exception as ex:
             self._loggingStore.putLogging("ERROR",
-                "Exception checking job event: " + jobEvent.getRuleJobId() + " " + str(ex),
-                "", "", "") # TODO: add context info
+                "Exception checking job event: " + str(ex),
+                "", "", "") # TODO add context info
 
 
     def checkJobEvents(self) -> bool:
@@ -406,6 +426,29 @@ class LwfmEventProcessor:
             # Timers only run once, so re-trigger it
             self._timer = threading.Timer(
                 self._statusCheckIntervalSeconds,
+                LwfmEventProcessor.checkEventHandlers,
+                (self,),
+            )
+            self._timer.start()
+
+
+    def wake(self) -> None:
+        """
+        Wake the processor immediately and reset the sleep interval
+        to the minimum so subsequent loops stay fast for a bit.
+        """
+        with self._timer_lock:
+            now = time.time()
+            if (now - getattr(self, "_last_wake", 0.0)) < 15.0:
+                return
+            self._last_wake = now
+            # Reset interval first so the next scheduled run uses the min
+            self._statusCheckIntervalSeconds = self.STATUS_CHECK_INTERVAL_SECONDS_MIN
+            # Cancel any pending timer and trigger a near-immediate check
+            if self._timer:
+                self._timer.cancel()
+            self._timer = threading.Timer(
+                0.01,  # wake almost immediately
                 LwfmEventProcessor.checkEventHandlers,
                 (self,),
             )

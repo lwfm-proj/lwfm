@@ -85,6 +85,7 @@ class Logger:
             msg = msg % args
         out = self._generateLog("INFO", msg, context)
         self._logger.info(out)
+        
 
     def warning(self, msg: str, *args, context: Optional[JobContext] = None, **kwargs) -> None:
         if args:

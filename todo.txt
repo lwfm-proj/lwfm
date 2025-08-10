@@ -8,28 +8,23 @@ Todo & misc notes
     + top
         - job trigger workflow reference is wrong
         - capture runArgs, jobDefn in job status, show in workflow dump
-        - metadata notate on get?
-        - lwfManager / logger set context, logging provenance
+        - lwfManager / logger set context (109), logging provenance (107)
         - cascading metadata sheet dump
         - test01: find by metadata, workflowId
-        - email job status lifecycle & link to workflow
         - explicit workflow saving - lwfManager.saveWorkflow()
-        - if a status message is emitted, wake up the processor
-    + qtsuite
-        - test04: sqd
-        - qoblib - independent set
-    - "data site" interface
-    - import/export (#73)
-    - submit & jobDefn take dict, list, or serialized string of either
-    - metasheets/jobs by xxx (#107)
-    - reverse args of put & get
-    - logging provenance - workflow level, job level - how to divine the context?
-    - todo items (many are for log context - separate ticket)
-    - inline docs esp. for .base & .midware (#84), document keywords, pillars for metasheet search
-    - slurm site driver
-    - better error message when site name is bum on getSite()
+    + 2nd
+        - metadata notate on get?
+        - import/export (#73)
+        - submit & jobDefn take dict, list, or serialized string of either
+        - logging provenance - workflow level, job level - how to divine the context?
+        - todo items (many are for log context - separate ticket)
+        - inline docs esp. for .base & .midware (#84), keywords, pillars for metasheet search
+    + other
+        - qtsuite test04: sqd
+        - "data site" interface
+        - reverse args of put & get
 
-+ IBM site driver
++ IBM site driver, quantum info
     - get without a file involved - just a string return
     - proper job status emits
     - VSCode linting

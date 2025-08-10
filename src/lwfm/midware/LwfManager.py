@@ -225,7 +225,11 @@ class LwfManager:
         """
         if site is None or site == "":
             site = "local"
-        return SiteConfigBuilder.getSite(site)
+        try:
+            return SiteConfigBuilder.getSite(site)
+        except Exception as ex:
+            logger.error(f"Error getting site '{site}': {ex} - returning none")
+            return None
 
 
     #***********************************************************************
