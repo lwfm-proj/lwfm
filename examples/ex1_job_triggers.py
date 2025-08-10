@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     # submit job A
     statusA = site.getRunDriver().submit(jobDefnA, wf)
-    logger.info("job A submitted", statusA.getJobContext())
+    logger.info("job A submitted", context=statusA.getJobContext())
 
     # when job A asynchronously reaches the COMPLETE state, fire job B
     statusB = lwfManager.setEvent(
@@ -43,9 +43,9 @@ if __name__ == "__main__":
                  statusA.getJobContext())
     )
     if statusB is None:
-        logger.error("Failed to set job B event on job A", statusA.getJobContext())
+        logger.error("Failed to set job B event on job A", context=statusA.getJobContext())
         sys.exit(1)
-    logger.info(f"job B {statusB.getJobId()} set as a job event on A", statusB.getJobContext())
+    logger.info(f"job B {statusB.getJobId()} set as a job event on A", context=statusB.getJobContext())
 
     # when job B asynchronously gets to the COMPLETE state, fire job C
     statusC = lwfManager.setEvent(
@@ -54,17 +54,16 @@ if __name__ == "__main__":
                  statusB.getJobContext())
     )
     if statusC is None:
-        logger.error("Failed to set job C event on job B", statusB.getJobContext())
+        logger.error("Failed to set job C event on job B", context=statusB.getJobContext())
         sys.exit(1)
-    logger.info(f"job C {statusC.getJobId()} set as a job event on B", statusC.getJobContext())
+    logger.info(f"job C {statusC.getJobId()} set as a job event on B", context=statusC.getJobContext())
 
 
     # for the purposes of this example, let's wait synchronously on the
     # conclusion of job C, which implies B and A also finished
     print(f"Let's wait synchronously for the chain to end on job C {statusC.getJobId()}...")
     statusC = lwfManager.wait(statusC.getJobId())
-    logger.info(f"job C {statusC.getJobId()} finished, implying B and A also finished",
-                statusC.getJobContext())
+    logger.info(f"job C {statusC.getJobId()} finished, implying B and A also finished", context=statusC.getJobContext())
 
     # poll the final status for A, B, & C
     statusA = lwfManager.getStatus(statusA.getJobId())

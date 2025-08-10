@@ -62,7 +62,8 @@ def discover_examples(examples_dir: Path) -> List[Example]:
 
 
 def run_example(example: Example, cwd: Path) -> int:
-    print(f"\n=== Running {example.name} (index {example.index}) ===", flush=True)
+    print(f"\n\033[96m▶️  === Running {example.name} (index {example.index}) ===\033[0m",
+        flush=True)
     # Use current interpreter
     cmd = [sys.executable, str(example.path)]
     try:
@@ -75,7 +76,9 @@ def run_example(example: Example, cwd: Path) -> int:
     except Exception as e:
         print(f"Error executing {example.name}: {e}", flush=True)
         return 1
-    print(f"--- Finished {example.name} with exit code {rc} ---", flush=True)
+    color = "\033[92m" if rc == 0 else "\033[91m"
+    status_icon = "✅" if rc == 0 else "❌"
+    print(f"{color}{status_icon} --- Finished {example.name} with exit code {rc} ---\033[0m", flush=True)
     return rc
 
 

@@ -19,8 +19,9 @@ from lwfm.midware.LwfManager import lwfManager, logger
 if __name__ == "__main__":
     site = lwfManager.getSite("local")
 
-    # run some job
-    job_defn = JobDefn("echo 'hello world'")
+    # run some job - use tee instead of > since the Local site will capture 
+    # all stdout/err
+    job_defn = JobDefn("echo 'hello world' | tee /tmp/ex8.in")
     job_status_A = site.getRunDriver().submit(job_defn)
     logger.info(f"lwfm job {job_status_A.getJobId()} " + \
                 f"workflow {job_status_A.getJobContext().getWorkflowId()}")
