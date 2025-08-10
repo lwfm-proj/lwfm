@@ -27,7 +27,7 @@ if __name__ == "__main__":
     )
 
     # now put an example file somewhere and notate its use with our metadata
-    site.getRepoDriver().put("ex1_date.out", "/tmp/someFile-ex3.dat", context,
+    site.getRepoDriver().put("/tmp/ex1_date.out", "/tmp/someFile-ex3.dat", context,
         {"sampleId": sample_id})
 
     # if we want we can wait for the future job to finish

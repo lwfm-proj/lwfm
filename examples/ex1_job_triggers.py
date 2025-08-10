@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # define job A - sit-in for some kind of "real" pre-processing
     jobDefnA = JobDefn("echo hello world, job A output pwd = `pwd`")
     # a stand-in for some data file
-    dataFile = "ex1_date.out"
+    dataFile = "/tmp/ex1_date.out"
 
     # define workflow - if one was not defined, a trivial one would be created under
     # the hood on call to submit(), but we want to capture some info up front about it

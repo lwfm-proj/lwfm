@@ -5,6 +5,7 @@ It persists to the lwfm store.
 """
 
 #pylint: disable = missing-class-docstring, invalid-name, missing-function-docstring
+#pylint: disable = unused-argument
 
 import logging
 import datetime
@@ -73,22 +74,32 @@ class Logger:
         self._lwfmClient.emitLogging(level, out, site or "", workflowId or "", jobId or "")
         return out
 
-    def debug(self, msg: str, context: Optional[JobContext] = None) -> None:
+    def debug(self, msg: str, *args, context: Optional[JobContext] = None, **kwargs) -> None:
+        if args:
+            msg = msg % args
         out = self._generateLog("DEBUG", msg, context)
         self._logger.debug(out)
 
-    def info(self, msg: str, context: Optional[JobContext] = None) -> None:
+    def info(self, msg: str, *args, context: Optional[JobContext] = None, **kwargs) -> None:
+        if args:
+            msg = msg % args
         out = self._generateLog("INFO", msg, context)
         self._logger.info(out)
 
-    def warning(self, msg: str, context: Optional[JobContext] = None) -> None:
+    def warning(self, msg: str, *args, context: Optional[JobContext] = None, **kwargs) -> None:
+        if args:
+            msg = msg % args
         out = self._generateLog("WARNING", msg, context)
         self._logger.warning(out)
 
-    def error(self, msg: str, context: Optional[JobContext] = None) -> None:
+    def error(self, msg: str, *args, context: Optional[JobContext] = None, **kwargs) -> None:
+        if args:
+            msg = msg % args  # or msg.format(...) depending on style
         out = self._generateLog("ERROR", msg, context)
         self._logger.error(out)
 
-    def critical(self, msg: str, context: Optional[JobContext] = None) -> None:
+    def critical(self, msg: str, *args, context: Optional[JobContext] = None, **kwargs) -> None:
+        if args:
+            msg = msg % args
         out = self._generateLog("CRITICAL", msg, context)
         self._logger.critical(out)

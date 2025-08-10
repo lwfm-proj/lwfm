@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     ts = lwfManager.generateId()
     metadata = {"foo": "bar", "hello": "world", "sampleId": ts}
-    site.getRepoDriver().put("ex1_date.out", "/tmp/someFile.dat", None, metadata)
+    site.getRepoDriver().put("/tmp/ex1_date.out", "/tmp/someFile.dat", None, metadata)
 
     clause = {"sampleId": ts}
     logger.info(f"finding {clause}")

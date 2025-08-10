@@ -464,7 +464,8 @@ class LwfManager:
             _args = jDefn.getJobArgs()
             if site_method == "submit":
                 newJobDefn = JobDefn(_args[0], JobDefn.ENTRY_TYPE_STRING, _args[1:])
-                _args = [newJobDefn, jobContext, jDefn.getComputeType(), _args[1:]]
+                runArgs = _args[1:] if len(_args) > 1 else None
+                _args = [newJobDefn, jobContext, jDefn.getComputeType(), runArgs]
             elif site_method in ["get"]:
                 if len(_args) == 2:
                     _args = [_args[0], _args[1], jobContext]

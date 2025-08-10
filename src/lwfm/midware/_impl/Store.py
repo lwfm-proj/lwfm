@@ -244,12 +244,9 @@ class WorkflowStore(Store):
                          GROUP BY workflowId
                      ) w2 ON w1.workflowId = w2.workflowId AND w1.ts = w2.max_ts
                      WHERE w1.pillar='run.wf'"""
-            
+
             if where_clauses:
                 sql += " AND " + " AND ".join([f"w1.{clause}" for clause in where_clauses])
-
-            print(f"SQL Query: {sql}")
-            print(f"Parameters: {params}")
 
             cur.execute(sql, params)
             results = []
@@ -613,7 +610,6 @@ class MetasheetStore(Store):
         if keys is None:
             keys = {}
         keys["_sheetId"] = datum.getSheetId()
-        print(f"MetasheetStore.putMetasheet: {keys}")
         self._put("MetasheetStore", datum.getSiteName(), "repo.meta",
             datum.getProps().get("_workflowId", ""),
             json.dumps(keys), ObjectSerializer.serialize(datum))

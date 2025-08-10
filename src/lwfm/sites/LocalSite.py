@@ -108,7 +108,7 @@ class LocalSiteRun(SiteRun):
     def submit(self, jobDefn: Union[JobDefn, str],
                 parentContext: Optional[Union[JobContext, Workflow, str]]=None,
                 computeType: Optional[str]=None,
-                runArgs: Optional[Union[dict, str]]=None) -> JobStatus:
+                runArgs: Optional[Union[dict, str, list, tuple]]=None) -> JobStatus:
         # if we are passed a string, assume it is a job definition
         if isinstance(jobDefn, str):
             jobDefn = lwfManager.deserialize(jobDefn)
@@ -141,6 +141,10 @@ class LocalSiteRun(SiteRun):
             if runArgs is not None:
                 if isinstance(runArgs, dict):
                     runArgs = " ".join([f"{k}={v}" for k, v in sorted(runArgs.items())])
+                elif isinstance(runArgs, (list, tuple)):
+                    runArgs = " ".join(str(x) for x in runArgs)
+                else:
+                    runArgs = str(runArgs)
                 jobDefn.setEntryPoint(str(jobDefn.getEntryPoint()) + " " + runArgs)
 
             # horse at the gate...

@@ -14,7 +14,7 @@ Todo & misc notes
         - test01: find by metadata, workflowId
         - email job status lifecycle & link to workflow
         - explicit workflow saving - lwfManager.saveWorkflow()
-        - move test cases to qtsuite?
+        - if a status message is emitted, wake up the processor
     + qtsuite
         - test04: sqd
         - qoblib - independent set

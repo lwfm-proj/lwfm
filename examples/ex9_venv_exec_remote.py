@@ -28,6 +28,7 @@ if __name__ == "__main__":
 
     # list the compute types (quantum machines) at this site
     qcTypes = site.getSpinDriver().listComputeTypes()
+    logger.info(f"{qcTypes}")
     if not qcTypes:
         logger.error("No quantum machines found - bad login credentials?")
         sys.exit(1)
