@@ -6,23 +6,22 @@ Todo & misc notes
 
 + lwfm
     + top
-        - site put & get need Workflow or JobContext like submit() - see also venv wrapper
-        - capture runArgs, jobDefn in job status, show in workflow dump
-        - lwfManager / logger set context (109), logging provenance (107)
-        - cascading metadata sheet dump
-        - test01: find by metadata, workflowId
-        - explicit workflow saving - lwfManager.saveWorkflow()
-    + 2nd
+        - site put & get need Workflow like submit() - see also venv wrapper, Local, IBM
+        - reverse args of put & get
         - metadata notate on get?
+        - test01: find by metadata, workflowId
+
+        - capture runArgs, jobDefn in job status; show in workflow dump
+        - lwfManager / logger set context (109)
+        - logging provenance (107) - workflow level, job level - how to divine the context?
+    + 2nd
         - import/export (#73)
         - submit & jobDefn take dict, list, or serialized string of either
-        - logging provenance - workflow level, job level - how to divine the context?
         - todo items (many are for log context - separate ticket)
         - inline docs esp. for .base & .midware (#84), keywords, pillars for metasheet search
     + other
         - qtsuite test04: sqd
         - "data site" interface
-        - reverse args of put & get
 
 + IBM site driver, quantum info
     - get without a file involved - just a string return

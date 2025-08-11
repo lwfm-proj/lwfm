@@ -170,24 +170,6 @@ class LwfManager:
         return IdGenerator().generateId()
 
 
-    def setContext(self, context: JobContext) -> None:
-        """
-        Set the context for the lwfManager, which can be used to include job-related
-        information in log messages and status updates.
-        """
-        self._context = context # TODO are we using this everywhere correctly?
-
-
-    def getContext(self) -> Optional[JobContext]:
-        """
-        Get the current context of the lwfManager.
-        """
-        if self._context is None:
-            # try to get it from the environment
-            self._context = self._getJobContextFromEnv()
-        return self._context
-
-
     def getLogFilename(self, context: JobContext) -> str:
         """
         Construct and return a log file name for a job context.
@@ -565,9 +547,7 @@ class LwfManager:
             jobContext = JobContext()
             jobContext.setWorkflowId(workflowId)
         else:
-            jobContext = self.getContext()
-            if jobContext is None:
-                jobContext = JobContext()
+            jobContext = JobContext()
         if _metasheet is None:
             _metasheet = Metasheet("local", localPath, "", {})
             _metasheet.setJobId(jobContext.getJobId())
@@ -582,9 +562,7 @@ class LwfManager:
             jobContext = JobContext()
             jobContext.setWorkflowId(workflowId)
         else:
-            jobContext = self.getContext()
-            if jobContext is None:
-                jobContext = JobContext()
+            jobContext = JobContext()
         return self._notateGet("local", localPath, "", jobContext)
 
 

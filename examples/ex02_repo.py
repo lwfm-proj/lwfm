@@ -5,14 +5,10 @@ example of data management
 #pylint: disable = invalid-name
 
 from lwfm.base.Site import Site
-from lwfm.base.JobContext import JobContext
 from lwfm.midware.LwfManager import logger, lwfManager
 
 if __name__ == "__main__":
     site: Site = lwfManager.getSite("local")
-
-    # treat this script's activities like a traceable job
-    lwfManager.setContext(JobContext(site.getSiteName() + "-example"))
 
     ts = lwfManager.generateId()
     metadata = {"foo": "bar", "hello": "world", "sampleId": ts}
