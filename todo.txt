@@ -6,7 +6,7 @@ Todo & misc notes
 
 + lwfm
     + top
-        - job trigger workflow reference is wrong
+        - site put & get need Workflow or JobContext like submit() - see also venv wrapper
         - capture runArgs, jobDefn in job status, show in workflow dump
         - lwfManager / logger set context (109), logging provenance (107)
         - cascading metadata sheet dump

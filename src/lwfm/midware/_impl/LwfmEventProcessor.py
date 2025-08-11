@@ -215,11 +215,17 @@ class LwfmEventProcessor:
 
     def _makeJobContext(self, trigger: JobEvent, parentContext: JobContext) -> JobContext:
         newContext = JobContext()
+        # Inherit all relevant ancestry first
         newContext.addParentContext(parentContext)
+        # Target site as requested by the event
         newContext.setSiteName(trigger.getFireSite())
-        newContext.setJobId(trigger.getFireJobId() or IdGenerator().generateId())
-        newContext.setNativeId(trigger.getFireJobId() or newContext.getJobId())
-        newContext.setWorkflowId(trigger.getWorkflowId() or parentContext.getWorkflowId())
+        # Preserve the preassigned job id (from setEventHandler) if provided
+        assigned_job_id = trigger.getFireJobId() or IdGenerator().generateId()
+        newContext.setJobId(assigned_job_id)
+        newContext.setNativeId(assigned_job_id)
+        # Always inherit the parent's workflow id; do NOT take workflow from the event
+        newContext.setWorkflowId(parentContext.getWorkflowId())
+        # Parent linkage: prefer rule job id from the event if present
         newContext.setParentJobId(trigger.getRuleJobId() or parentContext.getJobId())
         return newContext
 
