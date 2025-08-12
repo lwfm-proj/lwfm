@@ -280,10 +280,14 @@ class LocalSiteRepo(SiteRepo):
         return True
 
     def put(self, localPath: str, siteObjPath: str,
-            jobContext: Optional[Union[JobContext, str]] = None,
+            jobContext: Optional[Union[JobContext, Workflow, str]] = None,
             metasheet: Optional[Union[Metasheet, dict, str]] = None) -> Optional[Metasheet]:
         if isinstance(jobContext, str):
             jobContext = lwfManager.deserialize(jobContext)
+        if isinstance(jobContext, Workflow):
+            _jobContext = JobContext()
+            _jobContext.setWorkflowId(jobContext.getWorkflowId())
+            jobContext = _jobContext
         if isinstance(metasheet, str):
             metasheet = lwfManager.deserialize(metasheet)
         if isinstance(metasheet, dict):
@@ -314,10 +318,14 @@ class LocalSiteRepo(SiteRepo):
         return None
 
     def get(self, siteObjPath: str, localPath: str,
-            jobContext: Optional[Union[JobContext, str]] = None,
+            jobContext: Optional[Union[JobContext, Workflow, str]] = None,
             metasheet: Optional[Union[Metasheet, dict, str]] = None) -> Optional[str]:
         if isinstance(jobContext, str):
             jobContext = lwfManager.deserialize(jobContext)
+        if isinstance(jobContext, Workflow):
+            _jobContext = JobContext()
+            _jobContext.setWorkflowId(jobContext.getWorkflowId())
+            jobContext = _jobContext
         if isinstance(metasheet, str):
             metasheet = lwfManager.deserialize(metasheet)
         context = jobContext

@@ -464,7 +464,7 @@ class _VenvSiteRepoWrapper(SiteRepo):
         self,
         localPath: str,
         siteObjPath: str,
-        jobContext: Optional[Union[JobContext, str]] = None,
+        jobContext: Optional[Union[JobContext, Workflow, str]] = None,
         metasheet: Optional[Union[Metasheet, dict, str]] = None
     ) -> Optional[Metasheet]:
         retVal = self._siteConfigVenv.executeInProjectVenv(
@@ -484,7 +484,7 @@ class _VenvSiteRepoWrapper(SiteRepo):
         self,
         siteObjPath: str,
         localPath: str,
-        jobContext: Optional[Union[JobContext, str]] = None,
+        jobContext: Optional[Union[JobContext, Workflow, str]] = None,
         metasheet: Optional[Union[Metasheet, dict, str]] = None
     ) -> Optional[str]:
         retVal = self._siteConfigVenv.executeInProjectVenv(

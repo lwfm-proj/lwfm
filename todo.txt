@@ -6,8 +6,7 @@ Todo & misc notes
 
 + lwfm
     + top
-        - site put & get need Workflow like submit() - see also venv wrapper, Local, IBM
-        - test01: find by metadata, workflowId
+        - test01: find by metadata, workflowId, provenance tests
 
     + 2nd
         - import/export (#73) - after ORNL DD
@@ -24,7 +23,7 @@ Todo & misc notes
         - "data site" interface
 
 + IBM site driver, quantum info
-    - new signature on get()
+    - metadata on get(), Workflow on get()/put()
     - set logger context, submit/put/get
     - get without a file involved - just a string return
     - proper job status emits
