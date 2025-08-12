@@ -6,21 +6,20 @@ Todo & misc notes
 
 + lwfm
     + top
+        - capture runArgs, jobDefn in job status; show in workflow dump
+        - submit & jobDefn take dict, list, or serialized string of either
+
         - site put & get need Workflow like submit() - see also venv wrapper, Local, IBM
         - reverse args of put & get
         - metadata notate on get?
         - test01: find by metadata, workflowId
 
-        - #77: LocalSite cancel
-
-        - capture runArgs, jobDefn in job status; show in workflow dump
-        - submit & jobDefn take dict, list, or serialized string of either
-        - LocalSite logging use context
 
     + 2nd
         - import/export (#73)
         - todo items (many are for log context - separate ticket)
         - inline docs esp. for .base & .midware (#84), keywords, pillars for metasheet search
+        - full trigger impl & bugs
     + other
         - qtsuite test04: sqd
         - "data site" interface

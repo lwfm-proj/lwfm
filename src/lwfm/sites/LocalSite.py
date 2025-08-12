@@ -87,8 +87,8 @@ class LocalSiteRun(SiteRun):
             lwfManager.emitStatus(jobContext, JobStatus.FINISHING)
             lwfManager.emitStatus(jobContext, JobStatus.COMPLETE)
         except Exception as ex:
-            logger.error(f"*** {jDefn}")
-            logger.error(f"ERROR: Job failed: {ex}")
+            logger.error(f"*** {jDefn}", context=jobContext)
+            logger.error(f"ERROR: Job failed: {ex}", context=jobContext)
             # Emit FAILED status
             lwfManager.emitStatus(jobContext, JobStatus.FAILED)
 
@@ -163,7 +163,8 @@ class LocalSiteRun(SiteRun):
 
             # Run the job in a new thread so we can wrap it in a bit more code
             # this will kick the status the rest of the way to a terminal state
-            logger.info(f"LocalSite: submitting job {useContext.getJobId()}")
+            logger.info(f"LocalSite: submitting job {useContext.getJobId()}",
+                context=useContext)
             proc = multiprocessing.Process(
                 target=self._run_with_redirect,
                 args=[jobDefn, useContext, logFilename]
@@ -177,7 +178,7 @@ class LocalSiteRun(SiteRun):
                 pass
             return lwfManager.getStatus(useContext.getJobId())
         except Exception as ex:
-            logger.error(f"ERROR: Could not submit job {ex}")
+            logger.error(f"ERROR: Could not submit job {ex}", context=useContext)
             raise ex
 
 
@@ -199,12 +200,13 @@ class LocalSiteRun(SiteRun):
             except Exception:
                 pass
         if not job_id:
-            logger.error("LocalSite.cancel(): no job id provided")
+            logger.error("LocalSite.cancel(): no job id provided", context=ctx)
             return False
         try:
             pid = self._pendingJobs.get(job_id)
             if not pid:
-                logger.error(f"LocalSite.cancel(): no running process found for job {job_id}")
+                logger.error(f"LocalSite.cancel(): no running process found for job {job_id}",
+                    context=ctx)
                 return False
             # Attempt graceful termination of the whole process group
             try:
@@ -214,7 +216,8 @@ class LocalSiteRun(SiteRun):
                 # Already exited
                 pass
             except Exception as ex:
-                logger.error(f"LocalSite.cancel(): SIGTERM failed for job {job_id}: {ex}")
+                logger.error(f"LocalSite.cancel(): SIGTERM failed for job {job_id}: {ex}",
+                    context=ctx)
 
             # Small grace period, then force kill if still alive
             time.sleep(5)
@@ -246,7 +249,8 @@ class LocalSiteRun(SiteRun):
                 pass
             return True
         except Exception as ex:
-            logger.error(f"LocalSite.cancel(): error cancelling job {job_id}: {ex}")
+            logger.error(f"LocalSite.cancel(): error cancelling job {job_id}: {ex}",
+                context=ctx)
             return False
 
 # ************************************************************************

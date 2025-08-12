@@ -150,6 +150,17 @@ def main(argv: List[str]) -> int:
     failed = len(failures)
     passed = total - failed
     print(f"Total: {total}, Passed: {passed}, Failed: {failed}")
+    # Color-coded chart of example results
+    print("Results:")
+    for ex in examples:
+        ok = True
+        for f, _rc in failures:
+            if f.index == ex.index and f.name == ex.name:
+                ok = False
+                break
+        color = "\033[32m" if ok else "\033[31m"
+        status = "PASS" if ok else "FAIL"
+        print(f"  {color}{status}\033[0m  ex{ex.index}: {ex.name}")
     if failures:
         print("Failures:")
         for ex, rc in failures:
