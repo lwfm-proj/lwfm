@@ -98,7 +98,7 @@ if __name__ == "__main__":
     job = site.getRunDriver().submit(jobDefn, wf)
     print(f"\n* out6: {job}")
     trigger_job_defn = JobDefn("repo.put", JobDefn.ENTRY_TYPE_SITE,
-                               [temp_file, "hello_output_triggered.txt"])
+                               [temp_file, "/tmp/hello_output_triggered.txt"])
     trigger_status = lwfManager.setEvent(JobEvent(job.getJobId(), JobStatus.COMPLETE,
                                                   trigger_job_defn, "local"))
     if trigger_status is None:

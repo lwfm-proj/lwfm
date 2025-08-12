@@ -124,6 +124,7 @@ class LocalSiteRun(SiteRun):
             parentContext = lwfManager.deserialize(parentContext)
         if isinstance(runArgs, str):
             runArgs = lwfManager.deserialize(runArgs)
+        useContext = None
         try:
             # this is the local Run driver - there is not (as yet) any concept of
             # "computeType" as there might be on another more complex
@@ -189,7 +190,7 @@ class LocalSiteRun(SiteRun):
 
     def cancel(self, jobContext: Union[JobContext, str]) -> bool:
         # Resolve job id and optional context (avoid recursion on bad setJobId usage)
-        ctx: Optional[JobContext] = None
+        ctx = None
         job_id: Optional[str] = None
         if isinstance(jobContext, JobContext):
             ctx = jobContext
@@ -207,6 +208,11 @@ class LocalSiteRun(SiteRun):
         if not job_id:
             logger.error("LocalSite.cancel(): no job id provided", context=ctx)
             return False
+
+        # Small grace period, then force kill if still alive
+        logger.info("LocalSite.cancel(): waiting 5s to avoid a race condition", context=ctx)
+        time.sleep(5)
+
         try:
             pid = self._pendingJobs.get(job_id)
             if not pid:
@@ -224,8 +230,7 @@ class LocalSiteRun(SiteRun):
                 logger.error(f"LocalSite.cancel(): SIGTERM failed for job {job_id}: {ex}",
                     context=ctx)
 
-            # Small grace period, then force kill if still alive
-            time.sleep(5)
+            # force kill if still alive
             try:
                 os.kill(pid, 0)
                 # still alive; force kill the group
@@ -241,8 +246,9 @@ class LocalSiteRun(SiteRun):
             # Emit CANCELLED status
             try:
                 status = lwfManager.getStatus(job_id)
-                cancel_ctx = status.getJobContext() if status is not None else ctx
-                lwfManager.emitStatus(cancel_ctx, JobStatus.CANCELLED)
+                if status is None:
+                    raise Exception("Could not retrieve job status")
+                lwfManager.emitStatus(status.getJobContext(), JobStatus.CANCELLED)
             except Exception:
                 # Best-effort status emit
                 pass

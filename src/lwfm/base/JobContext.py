@@ -16,7 +16,7 @@ class JobContext:
     and then augment it with updated job status information.
     """
 
-    def __init__(self, name: str = None):
+    def __init__(self, name: str = ""):
         self._job_id = IdGenerator().generateId()
         self._native_id = self._job_id      # important: can be set later
         self._parent_job_id = None

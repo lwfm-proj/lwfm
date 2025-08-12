@@ -207,7 +207,7 @@ class LwfManager:
             return SiteConfigBuilder.getSite(site)
         except Exception as ex:
             logger.error(f"Error getting site '{site}': {ex} - returning none")
-            return None
+            return None # type: ignore
 
 
     #***********************************************************************
