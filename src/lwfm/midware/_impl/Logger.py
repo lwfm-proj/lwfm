@@ -9,9 +9,10 @@ It persists to the lwfm store.
 
 import logging
 import datetime
-from typing import Optional
+from typing import Optional, Union
 
 from lwfm.base.JobContext import JobContext
+from lwfm.base.Workflow import Workflow
 from lwfm.midware._impl.LwfmEventClient import LwfmEventClient
 
 
@@ -41,14 +42,14 @@ class Logger:
             out += f" jobId={jobId}"
         return out
 
-    def setContext(self, context: JobContext) -> None:
+    def setContext(self, context: Union[JobContext, Workflow]) -> None:
         """
         Set the context for the logger, which can be used to include job-related
         information in log messages.
         """
         self._context = context
 
-    def getContext(self) -> Optional[JobContext]:
+    def getContext(self) -> Optional[Union[JobContext, Workflow]]:
         """
         Get the current context of the logger.
         """
@@ -57,49 +58,57 @@ class Logger:
     def setLevel(self, level) -> None:
         self._logger.setLevel(level)
 
-    def _generateLog(self, level: str, msg: str, context: Optional[JobContext] = None) -> str:
+    def _generateLog(self, level: str, msg: str,
+        context: Optional[Union[JobContext, Workflow]] = None) -> str:
+        if context is None:
+            context = self._context
+        site = None
+        workflowId = None
+        jobId = None
         if context is not None:
-            site = context.getSiteName()
-            workflowId = context.getWorkflowId()
-            jobId = context.getJobId()
-        elif self._context is not None:
-            site = self._context.getSiteName()
-            workflowId = self._context.getWorkflowId()
-            jobId = self._context.getJobId()
-        else:
-            site = None
-            workflowId = None
-            jobId = None
+            if isinstance(context, JobContext):
+                site = context.getSiteName()
+                workflowId = context.getWorkflowId()
+                jobId = context.getJobId()
+            elif isinstance(context, Workflow):
+                site = None
+                workflowId = context.getWorkflowId()
+                jobId = context.getWorkflowId()
         out = self._buildMsg(msg, site, workflowId, jobId)
         self._lwfmClient.emitLogging(level, out, site or "", workflowId or "", jobId or "")
         return out
 
-    def debug(self, msg: str, *args, context: Optional[JobContext] = None, **kwargs) -> None:
+
+    def debug(self, msg: str, *args, context: Optional[Union[JobContext, Workflow]] = None,
+        **kwargs) -> None:
         if args:
             msg = msg % args
         out = self._generateLog("DEBUG", msg, context)
         self._logger.debug(out)
 
-    def info(self, msg: str, *args, context: Optional[JobContext] = None, **kwargs) -> None:
+    def info(self, msg: str, *args, context: Optional[Union[JobContext, Workflow]] = None,
+        **kwargs) -> None:
         if args:
             msg = msg % args
         out = self._generateLog("INFO", msg, context)
         self._logger.info(out)
-        
 
-    def warning(self, msg: str, *args, context: Optional[JobContext] = None, **kwargs) -> None:
+    def warning(self, msg: str, *args, context: Optional[Union[JobContext, Workflow]] = None,
+        **kwargs) -> None:
         if args:
             msg = msg % args
         out = self._generateLog("WARNING", msg, context)
         self._logger.warning(out)
 
-    def error(self, msg: str, *args, context: Optional[JobContext] = None, **kwargs) -> None:
+    def error(self, msg: str, *args, context: Optional[Union[JobContext, Workflow]] = None,
+        **kwargs) -> None:
         if args:
             msg = msg % args  # or msg.format(...) depending on style
         out = self._generateLog("ERROR", msg, context)
         self._logger.error(out)
 
-    def critical(self, msg: str, *args, context: Optional[JobContext] = None, **kwargs) -> None:
+    def critical(self, msg: str, *args, context: Optional[Union[JobContext, Workflow]] = None,
+        **kwargs) -> None:
         if args:
             msg = msg % args
         out = self._generateLog("CRITICAL", msg, context)

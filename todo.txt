@@ -12,8 +12,10 @@ Todo & misc notes
         - test01: find by metadata, workflowId
 
         - capture runArgs, jobDefn in job status; show in workflow dump
-        - lwfManager / logger set context (109)
-        - logging provenance (107) - workflow level, job level - how to divine the context?
+        
+        - logging provenance (107) - workflow level, job level - how to divine the context?,
+            how should IBM.submit() handle logging; file logging vs. logger logging; how does
+            the user set the logger context? do they, or do only site drivers reliably do so?
     + 2nd
         - import/export (#73)
         - submit & jobDefn take dict, list, or serialized string of either

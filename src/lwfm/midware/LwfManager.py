@@ -179,9 +179,6 @@ class LwfManager:
         os.makedirs(logDir, exist_ok=True)
         return os.path.join(logDir, f"{context.getJobId()}.log")
 
-    def getStdoutFilename(self, context: JobContext) -> str:
-        return self.getLogFilename(context)
-
 
     #***********************************************************************
     # public site configuration methods
