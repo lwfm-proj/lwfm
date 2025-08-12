@@ -7,7 +7,6 @@ Todo & misc notes
 + lwfm
     + top
         - submit & jobDefn take dict, list, or serialized string of either
-        - other uses of logger with context
 
         - site put & get need Workflow like submit() - see also venv wrapper, Local, IBM
         - reverse args of put & get
@@ -21,7 +20,8 @@ Todo & misc notes
         - inline docs esp. for .base & .midware (#84), keywords, pillars for metasheet search
         - full trigger impl & bugs
         - normalize INFO logging data structure for job provenance, data provenance
-        - workflow dumper - all meta info of all kinds
+        - lwfManager exec inline needs a way to handle runArgs for submit
+        - lwfManager.dumpWorkflow() - all meta info of all kinds
     + other
         - qtsuite test04: sqd
         - "data site" interface

@@ -27,8 +27,7 @@ from lwfm.midware._impl.LwfmEventClient import LwfmEventClient
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 from lwfm.midware._impl.SiteConfig import SiteConfig
 from lwfm.midware._impl.SiteConfigBuilder import SiteConfigBuilder
-from lwfm.midware._impl.Logger import Logger
-
+from lwfm.midware._impl.Logger import Logger  # see below where we instantiate little-l logger
 
 # ***************************************************************************
 class LwfManager:
@@ -418,10 +417,13 @@ class LwfManager:
         if jobContext is None:
             jobContext = JobContext()
 
-        logger.info(f"lwfManager: exec site endpoint {entry_point} job {jobContext.getJobId()}")
+        logger.info(f"lwfManager: exec site endpoint {entry_point} job {jobContext.getJobId()}",
+            context=jobContext)
 
         if emitStatus:
             self.emitStatus(jobContext, JobStatus.PENDING)
+            self.emitStatus(jobContext, JobStatus.INFO, None,
+                str({"jobDefn": str(jDefn), "jobContext": str(jobContext)}))
 
         siteName = jDefn.getSiteName()
         site_pillar, site_method = entry_point.split('.', 1)
@@ -438,7 +440,8 @@ class LwfManager:
                 site_pillar = site.getSpinDriver()
             method = getattr(site_pillar, site_method, None)
             if not callable(method):
-                logger.error(f"lwfManager: method {site_method} not found or not callable")
+                logger.error(f"lwfManager: method {site_method} not found or not callable",
+                    context=jobContext)
                 if emitStatus:
                     self.emitStatus(jobContext, JobStatus.FAILED)
                 return None
@@ -467,7 +470,7 @@ class LwfManager:
             if emitStatus:
                 self.emitStatus(jobContext, JobStatus.FAILED)
             logger.error("lwfManager: error executing site endpoint " + \
-                f"{jDefn.getEntryPoint()}: {str(ex)}")
+                f"{jDefn.getEntryPoint()}: {str(ex)}", context=jobContext)
             return None
 
 
