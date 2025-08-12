@@ -113,7 +113,8 @@ if __name__ == "__main__":
     # Use repo.get to retrieve a well-known Unix file and copy it to /tmp with a new name
     wfContext = JobContext()
     wfContext.setWorkflowId(wf.getWorkflowId())
-    destPath = site.getRepoDriver().get("/etc/passwd", "/tmp/system_users.txt", wfContext)
+    destPath = site.getRepoDriver().get("/etc/passwd", "/tmp/system_users.txt", wfContext, 
+                                        {"download-reason": "giggles", "foo": "bar"})
     print(f"\n* out8: {destPath}")
 
 

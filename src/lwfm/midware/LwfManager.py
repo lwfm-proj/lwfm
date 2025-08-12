@@ -147,9 +147,12 @@ class LwfManager:
         return self._notate(siteName, localPath, siteObjPath, jobContext, _metasheet, True)
 
     def _notateGet(self, siteName: str, localPath: str, siteObjPath: str,
-        jobContext: JobContext) -> Metasheet:
-        _metasheet = Metasheet(siteName, localPath, siteObjPath)
+        jobContext: JobContext,
+        _metasheet: Optional[Metasheet]) -> Metasheet:
+        if _metasheet is None:
+            _metasheet = Metasheet(siteName, localPath, siteObjPath)
         return self._notate(siteName, localPath, siteObjPath, jobContext, _metasheet, False)
+
 
 
     #***********************************************************************
@@ -557,13 +560,20 @@ class LwfManager:
         return self._notatePut("local", localPath, "", jobContext, _metasheet)
 
 
-    def notateGet(self, localPath: str, workflowId: Optional[str] = None) -> Metasheet:
+    def notateGet(self, localPath: str, workflowId: Optional[str] = None,
+                  metasheet: Optional[Union[Metasheet, dict]] = None) -> Metasheet:
         if workflowId is not None:
             jobContext = JobContext()
             jobContext.setWorkflowId(workflowId)
         else:
             jobContext = JobContext()
-        return self._notateGet("local", localPath, "", jobContext)
+        if metasheet is None:
+            metasheet = Metasheet("local", localPath, "", {})
+            metasheet.setJobId(jobContext.getJobId())
+        if isinstance(metasheet, dict):
+            metasheet = Metasheet("local", localPath, "", cast(dict, metasheet))
+            metasheet.setJobId(jobContext.getJobId())
+        return self._notateGet("local", localPath, "", jobContext, metasheet)
 
 
     def find(self, queryRegExs: dict) -> Optional[List[Metasheet]]:

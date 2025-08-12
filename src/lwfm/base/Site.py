@@ -234,7 +234,8 @@ class SiteRepo(SitePillar):
         self,
         siteObjPath: str,
         localPath: str,
-        jobContext: Optional[Union[JobContext, str]] = None
+        jobContext: Optional[Union[JobContext, str]] = None,
+        metasheet: Optional[Union[Metasheet, dict, str]] = None
     ) -> Optional[str]:
         pass
 
@@ -483,14 +484,16 @@ class _VenvSiteRepoWrapper(SiteRepo):
         self,
         siteObjPath: str,
         localPath: str,
-        jobContext: Optional[Union[JobContext, str]] = None
+        jobContext: Optional[Union[JobContext, str]] = None,
+        metasheet: Optional[Union[Metasheet, dict, str]] = None
     ) -> Optional[str]:
         retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"driver = ObjectSerializer.deserialize('{self._realRepoDriver}'); " + \
             f"obj = driver.get('{siteObjPath}', '{localPath}', " + \
-            f"{self._siteConfigVenv.makeArgWrapper(jobContext)}); " + \
+            f"{self._siteConfigVenv.makeArgWrapper(jobContext)}, " + \
+            f"{self._siteConfigVenv.makeArgWrapper(metasheet)}); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
         if retVal is not None:
@@ -512,7 +515,7 @@ class _NoopSiteRepoWrapper(SiteRepo):
     def put(self, localPath, siteObjPath, jobContext=None, metasheet=None):
         return None
 
-    def get(self, siteObjPath, localPath, jobContext=None):
+    def get(self, siteObjPath, localPath, jobContext=None, metasheet=None):
         return None
 
 # *********************************************************************************

@@ -6,13 +6,8 @@ Todo & misc notes
 
 + lwfm
     + top
-        - submit & jobDefn take dict, list, or serialized string of either
-
         - site put & get need Workflow like submit() - see also venv wrapper, Local, IBM
-        - reverse args of put & get
-        - metadata notate on get?
         - test01: find by metadata, workflowId
-
 
     + 2nd
         - import/export (#73) - after ORNL DD
@@ -22,11 +17,14 @@ Todo & misc notes
         - normalize INFO logging data structure for job provenance, data provenance
         - lwfManager exec inline needs a way to handle runArgs for submit
         - lwfManager.dumpWorkflow() - all meta info of all kinds
+        - test: do we handle jobDefn.getJobArgs() correctly for both data types? 
+        - do we need submit() to take a list[str] in addition to dict for args?
     + other
         - qtsuite test04: sqd
         - "data site" interface
 
 + IBM site driver, quantum info
+    - new signature on get()
     - set logger context, submit/put/get
     - get without a file involved - just a string return
     - proper job status emits

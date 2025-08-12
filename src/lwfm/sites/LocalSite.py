@@ -314,9 +314,12 @@ class LocalSiteRepo(SiteRepo):
         return None
 
     def get(self, siteObjPath: str, localPath: str,
-            jobContext: Optional[Union[JobContext, str]] = None) -> Optional[str]:
+            jobContext: Optional[Union[JobContext, str]] = None,
+            metasheet: Optional[Union[Metasheet, dict, str]] = None) -> Optional[str]:
         if isinstance(jobContext, str):
             jobContext = lwfManager.deserialize(jobContext)
+        if isinstance(metasheet, str):
+            metasheet = lwfManager.deserialize(metasheet)
         context = jobContext
         if context is None:
             context = JobContext()
@@ -331,7 +334,13 @@ class LocalSiteRepo(SiteRepo):
         if success:
             if jobContext is None:
                 lwfManager.emitStatus(context, JobStatus.FINISHING)
-            lwfManager._notateGet(self.getSiteName(), localPath, siteObjPath, context)
+            _metasheet = None
+            if metasheet is None:
+                _metasheet = Metasheet(self.getSiteName(), localPath, siteObjPath, {})
+            if isinstance(metasheet, dict):
+                _metasheet = Metasheet("local", localPath, siteObjPath, cast(dict, metasheet))
+                _metasheet.setJobId(context.getJobId())
+            lwfManager._notateGet(self.getSiteName(), localPath, siteObjPath, context, _metasheet)
             if jobContext is None:
                 lwfManager.emitStatus(context, JobStatus.COMPLETE)
             return localPath
