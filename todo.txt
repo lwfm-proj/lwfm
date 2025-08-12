@@ -11,14 +11,14 @@ Todo & misc notes
         - metadata notate on get?
         - test01: find by metadata, workflowId
 
+        - #77: LocalSite cancel
+
         - capture runArgs, jobDefn in job status; show in workflow dump
-        
-        - logging provenance (107) - workflow level, job level - how to divine the context?,
-            how should IBM.submit() handle logging; file logging vs. logger logging; how does
-            the user set the logger context? do they, or do only site drivers reliably do so?
+        - submit & jobDefn take dict, list, or serialized string of either
+        - LocalSite logging use context
+
     + 2nd
         - import/export (#73)
-        - submit & jobDefn take dict, list, or serialized string of either
         - todo items (many are for log context - separate ticket)
         - inline docs esp. for .base & .midware (#84), keywords, pillars for metasheet search
     + other
@@ -26,6 +26,7 @@ Todo & misc notes
         - "data site" interface
 
 + IBM site driver, quantum info
+    - set logger context, submit/put/get
     - get without a file involved - just a string return
     - proper job status emits
     - VSCode linting

@@ -11,8 +11,10 @@ Purposefully unsecure, as this is local and we assume the user is themselves alr
 import shutil
 from typing import List, Union, Optional, cast
 import os
+import signal
 import subprocess
 import multiprocessing
+import time
 
 from lwfm.base.Site import SiteAuth, SiteRun, SiteRepo, SiteSpin
 from lwfm.base.JobDefn import JobDefn
@@ -92,6 +94,12 @@ class LocalSiteRun(SiteRun):
 
 
     def _run_with_redirect(self, jobDefn, useContext, log_file_path) -> None:
+        # Make this process a new session leader so we can kill its process group on cancel
+        try:
+            os.setsid()
+        except Exception:
+            # setsid may not be available on some platforms; continue best-effort
+            pass
         # Store the output file path for _runJob to use
         self._output_file = log_file_path
         try:
@@ -156,8 +164,17 @@ class LocalSiteRun(SiteRun):
             # Run the job in a new thread so we can wrap it in a bit more code
             # this will kick the status the rest of the way to a terminal state
             logger.info(f"LocalSite: submitting job {useContext.getJobId()}")
-            multiprocessing.Process(target=self._run_with_redirect,
-                args=[jobDefn, useContext, logFilename]).start()
+            proc = multiprocessing.Process(
+                target=self._run_with_redirect,
+                args=[jobDefn, useContext, logFilename]
+            )
+            proc.start()
+            # Track the spawned process PID for cancellation
+            try:
+                self._pendingJobs[useContext.getJobId()] = proc.pid
+            except Exception:
+                # Best-effort tracking; continue even if we can't record it
+                pass
             return lwfManager.getStatus(useContext.getJobId())
         except Exception as ex:
             logger.error(f"ERROR: Could not submit job {ex}")
@@ -165,26 +182,72 @@ class LocalSiteRun(SiteRun):
 
 
     def cancel(self, jobContext: Union[JobContext, str]) -> bool:
-        return False
-        # # Find the locally running thread and kill it
-        # try:
-        #     thread = self._pendingJobs[jobContext.getId()]
-        #     if thread is None:
-        #         return False
-        #     logger.info(
-        #         "LocalSiteDriver.cancelJob(): calling terminate on job "
-        #         + jobContext.getId()
-        #     )
-        #     thread.terminate()
-        #     jStatus = LocalJobStatus(jobContext)
-        #     jStatus.emit(JobStatus.CANCELLED)
-        #     self._pendingJobs[jobContext.getId()] = None
-        #     return True
-        # except Exception as ex:
-        #     logger.error(
-        #         "ERROR: Could not cancel job %d: %s" % (jobContext.getId(), ex)
-        #     )
-        #     return False
+        # Resolve job id and optional context (avoid recursion on bad setJobId usage)
+        ctx: Optional[JobContext] = None
+        job_id: Optional[str] = None
+        if isinstance(jobContext, JobContext):
+            ctx = jobContext
+            job_id = ctx.getJobId()
+        elif isinstance(jobContext, str):
+            # Treat as a jobId directly; optionally try to deserialize if it's a serialized context
+            job_id = jobContext
+            try:
+                maybe = lwfManager.deserialize(jobContext)
+                if isinstance(maybe, JobContext):
+                    ctx = maybe
+                    job_id = ctx.getJobId() or job_id
+            except Exception:
+                pass
+        if not job_id:
+            logger.error("LocalSite.cancel(): no job id provided")
+            return False
+        try:
+            pid = self._pendingJobs.get(job_id)
+            if not pid:
+                logger.error(f"LocalSite.cancel(): no running process found for job {job_id}")
+                return False
+            # Attempt graceful termination of the whole process group
+            try:
+                pgid = os.getpgid(pid)
+                os.killpg(pgid, signal.SIGTERM)
+            except ProcessLookupError:
+                # Already exited
+                pass
+            except Exception as ex:
+                logger.error(f"LocalSite.cancel(): SIGTERM failed for job {job_id}: {ex}")
+
+            # Small grace period, then force kill if still alive
+            time.sleep(5)
+            try:
+                os.kill(pid, 0)
+                # still alive; force kill the group
+                try:
+                    pgid = os.getpgid(pid)
+                    os.killpg(pgid, signal.SIGKILL)
+                except Exception:
+                    pass
+            except ProcessLookupError:
+                # Process is gone
+                pass
+
+            # Emit CANCELLED status
+            try:
+                status = lwfManager.getStatus(job_id)
+                cancel_ctx = status.getJobContext() if status is not None else ctx
+                lwfManager.emitStatus(cancel_ctx, JobStatus.CANCELLED)
+            except Exception:
+                # Best-effort status emit
+                pass
+
+            # Cleanup tracking
+            try:
+                self._pendingJobs.pop(job_id, None)
+            except Exception:
+                pass
+            return True
+        except Exception as ex:
+            logger.error(f"LocalSite.cancel(): error cancelling job {job_id}: {ex}")
+            return False
 
 # ************************************************************************
 
