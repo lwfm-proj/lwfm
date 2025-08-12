@@ -158,6 +158,11 @@ class LocalSiteRun(SiteRun):
             # horse at the gate...
             lwfManager.emitStatus(useContext, JobStatus.PENDING)
 
+            # put out an info message with what we know about the job to be run
+            lwfManager.emitStatus(useContext, JobStatus.INFO, None,
+                str({"jobDefn": str(jobDefn), "jobContext": str(useContext),
+                "computeType": str(computeType), "runArgs": str(runArgs)}))
+
             # create a log file for this job
             logFilename = lwfManager.getLogFilename(useContext)
 

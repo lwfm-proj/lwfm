@@ -6,8 +6,8 @@ Todo & misc notes
 
 + lwfm
     + top
-        - capture runArgs, jobDefn in job status; show in workflow dump
         - submit & jobDefn take dict, list, or serialized string of either
+        - other uses of logger with context
 
         - site put & get need Workflow like submit() - see also venv wrapper, Local, IBM
         - reverse args of put & get
@@ -16,10 +16,12 @@ Todo & misc notes
 
 
     + 2nd
-        - import/export (#73)
+        - import/export (#73) - after ORNL DD
         - todo items (many are for log context - separate ticket)
         - inline docs esp. for .base & .midware (#84), keywords, pillars for metasheet search
         - full trigger impl & bugs
+        - normalize INFO logging data structure for job provenance, data provenance
+        - workflow dumper - all meta info of all kinds
     + other
         - qtsuite test04: sqd
         - "data site" interface
