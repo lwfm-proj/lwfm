@@ -6,12 +6,11 @@ Todo & misc notes
 
 + lwfm
     + top
-        - test01: find by metadata, workflowId
 
     + 2nd
         - import/export (#73) - after ORNL DD
         - todo items (many are for log context - separate ticket)
-        - inline docs esp. for .base & .midware (#84), keywords, pillars for metasheet search
+        - inline docs esp. for .base & .midware (#84), keywords, pillars for metasheet search; tk
         - full trigger impl & bugs
         - normalize INFO logging data structure for job provenance, data provenance
         - lwfManager exec inline needs a way to handle runArgs for submit

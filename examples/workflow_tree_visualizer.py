@@ -1,11 +1,11 @@
-import os
-
 """
 Workflow Tree Visualizer
 
 A utility for building and displaying workflow job trees from lwfm workflow data.
 Shows parent-child relationships between jobs in a visual tree format.
 """
+
+import os
 
 def build_workflow_tree(workflow_data):
     """
