@@ -6,7 +6,7 @@ Todo & misc notes
 
 + lwfm
     + top
-        - test01: find by metadata, workflowId, provenance tests
+        - test01: find by metadata, workflowId
 
     + 2nd
         - import/export (#73) - after ORNL DD

@@ -6,7 +6,6 @@ A set of examples showcasing the data handling capabilities of lwfm.
 
 import sys
 import json
-import tempfile
 import os
 
 from workflow_tree_visualizer import display_workflow_tree
@@ -68,14 +67,17 @@ if __name__ == "__main__":
     # ****************************************************************************
     # jobs with associated data
 
-    # Create a job that writes output to a file, then store that file in the repo
-    temp_file = os.path.join(tempfile.gettempdir(), "hello_output.txt")
+    # Create a job that writes output to a file under /tmp, then store that file in the repo
+    temp_dir = "/tmp"
+    temp_file = os.path.join(temp_dir, "hello_output.txt")
     jobDefn = JobDefn(f"echo 'hello world from job' > {temp_file}")
     job = site.getRunDriver().submit(jobDefn, wf)
     job = lwfManager.wait(job.getJobId())
 
     # Now put the file to the repo with the current context using site repo driver to put the file
-    metasheet = site.getRepoDriver().put(temp_file, "hello_output.txt", job.getJobContext(),
+    # Use an absolute destination under /tmp to avoid writing into the project directory
+    repo_dest = os.path.join(temp_dir, "hello_output_repo.txt")
+    metasheet = site.getRepoDriver().put(temp_file, repo_dest, job.getJobContext(),
         {
             "description": "Hello world output file",
             "file_type": "text",
@@ -113,7 +115,7 @@ if __name__ == "__main__":
     # Use repo.get to retrieve a well-known Unix file and copy it to /tmp with a new name
     wfContext = JobContext()
     wfContext.setWorkflowId(wf.getWorkflowId())
-    destPath = site.getRepoDriver().get("/etc/passwd", "/tmp/system_users.txt", wfContext, 
+    destPath = site.getRepoDriver().get("/etc/passwd", "/tmp/system_users.txt", wfContext,
                                         {"download-reason": "giggles", "foo": "bar"})
     print(f"\n* out8: {destPath}")
 
