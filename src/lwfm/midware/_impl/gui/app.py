@@ -11,6 +11,8 @@ import threading
 import os
 import time
 import json
+import math
+import random
 from datetime import datetime
 from typing import List, Dict, Any
 
@@ -386,6 +388,315 @@ class LwfmGui(tk.Tk):
         btns = ttk.Frame(win)
         btns.pack(side=tk.BOTTOM, fill=tk.X)
         ttk.Button(btns, text="Close", command=win.destroy).pack(side=tk.RIGHT, padx=6, pady=6)
+
+        # Graph tab
+        graph_frame = ttk.Frame(nb)
+        nb.add(graph_frame, text="Graph")
+        canvas = tk.Canvas(graph_frame, background="#0f111a")
+        canvas.pack(fill=tk.BOTH, expand=True)
+
+        # Build graph data: nodes and edges
+        wf_node_id = f"wf:{workflow_id}"
+        nodes = {wf_node_id: {"type": "wf", "label": (workflow.getName() if workflow else "Workflow") or "Workflow"}}
+        job_parent = {}
+        job_nodes = set()
+        for js in jobs:
+            try:
+                ctx = js.getJobContext()
+                jid = ctx.getJobId()
+                job_nodes.add(jid)
+                job_parent[jid] = ctx.getParentJobId()
+                nodes[f"job:{jid}"] = {"type": "job", "label": jid}
+            except Exception:
+                continue
+        # Group metasheets by identity: files are the same if local path OR site path matches
+        edges = set()
+        groups: Dict[str, Dict[str, Any]] = {}  # groupKey -> { 'label': str, 'items': List[Metasheet] }
+        index: Dict[str, str] = {}  # id string (local/site path) -> groupKey
+        def pick_label(lp: str, sp: str) -> str:
+            return (sp or lp or "data")
+        for ms in metas:
+            try:
+                p = ms.getProps() or {}
+                lp = (p.get("_localPath") or "").strip()
+                sp = (p.get("_siteObjPath") or "").strip()
+                g_lp = index.get(lp) if lp else None
+                g_sp = index.get(sp) if sp else None
+                if not g_lp and not g_sp:
+                    gk = sp or lp or ms.getSheetId()
+                    groups[gk] = {"label": pick_label(lp, sp), "items": [ms]}
+                    if lp:
+                        index[lp] = gk
+                    if sp:
+                        index[sp] = gk
+                else:
+                    gk = g_lp or g_sp or (sp or lp or ms.getSheetId())
+                    if gk not in groups:
+                        groups[gk] = {"label": pick_label(lp, sp), "items": []}
+                    groups[gk]["items"].append(ms)
+                    # If both map and differ, merge groups
+                    if g_lp and g_sp and g_lp != g_sp:
+                        keep = g_lp
+                        drop = g_sp
+                        # Move items from drop into keep
+                        for item in groups.get(drop, {}).get("items", []):
+                            groups[keep]["items"].append(item)
+                        # Repoint indices
+                        for id_str, gval in list(index.items()):
+                            if gval == drop:
+                                index[id_str] = keep
+                        # Remove drop group
+                        groups.pop(drop, None)
+                        gk = keep
+                    # Ensure both identifiers point to the chosen group
+                    if lp:
+                        index[lp] = gk
+                    if sp:
+                        index[sp] = gk
+            except Exception:
+                continue
+        # Build data nodes and edges
+        data_groups: Dict[str, List[Metasheet]] = {}
+        for gk, meta in groups.items():
+            label = meta.get("label") or "data"
+            data_id = f"data:{gk}"
+            nodes[data_id] = {"type": "data", "label": label}
+            items: List[Metasheet] = meta.get("items", [])
+            data_groups[gk] = items
+            for ms in items:
+                try:
+                    pj = ms.getProps() or {}
+                    jid = pj.get("_jobId")
+                    if jid:
+                        edges.add((f"job:{jid}", data_id))
+                except Exception:
+                    pass
+        # Job edges
+        for jid in job_nodes:
+            parent = job_parent.get(jid)
+            if parent:
+                edges.add((f"job:{parent}", f"job:{jid}"))
+            else:
+                edges.add((wf_node_id, f"job:{jid}"))
+
+        # Force-directed layout on the canvas
+        def layout_and_draw():
+            canvas.delete("all")
+            w = max(200, canvas.winfo_width())
+            h = max(200, canvas.winfo_height())
+            cx, cy = w / 2, h / 2
+            # Initial positions
+            pos = {}
+            vel = {}
+            for nid in nodes.keys():
+                if nid == wf_node_id:
+                    pos[nid] = [cx, cy]
+                    vel[nid] = [0.0, 0.0]
+                else:
+                    angle = random.random() * 2 * math.pi
+                    r = min(w, h) * 0.35 * (0.6 + 0.4 * random.random())
+                    pos[nid] = [cx + r * math.cos(angle), cy + r * math.sin(angle)]
+                    vel[nid] = [0.0, 0.0]
+
+            # Simple Fruchterman-Reingold style forces
+            N = len(nodes)
+            area = w * h
+            k = math.sqrt(area / max(1, N))  # ideal distance
+            iterations = min(200, 40 + 4 * N)
+            for _ in range(iterations):
+                disp = {nid: [0.0, 0.0] for nid in nodes.keys()}
+                # Repulsion
+                for a in nodes.keys():
+                    ax, ay = pos[a]
+                    for b in nodes.keys():
+                        if a >= b:
+                            continue
+                        bx, by = pos[b]
+                        dx = ax - bx
+                        dy = ay - by
+                        dist2 = dx * dx + dy * dy + 0.01
+                        dist = math.sqrt(dist2)
+                        force = (k * k) / dist
+                        ux = dx / dist
+                        uy = dy / dist
+                        disp[a][0] += ux * force
+                        disp[a][1] += uy * force
+                        disp[b][0] -= ux * force
+                        disp[b][1] -= uy * force
+                # Attraction on edges
+                for (u, v) in edges:
+                    ux, uy = pos[u]
+                    vx, vy = pos[v]
+                    dx = ux - vx
+                    dy = uy - vy
+                    dist2 = dx * dx + dy * dy + 0.01
+                    dist = math.sqrt(dist2)
+                    force = (dist * dist) / k
+                    nx = dx / dist
+                    ny = dy / dist
+                    disp[u][0] -= nx * force
+                    disp[u][1] -= ny * force
+                    disp[v][0] += nx * force
+                    disp[v][1] += ny * force
+                # Update positions
+                for nid in nodes.keys():
+                    if nid == wf_node_id:
+                        pos[nid] = [cx, cy]
+                        continue
+                    dx, dy = disp[nid]
+                    # limit step
+                    step = 4.0
+                    dl = math.sqrt(dx * dx + dy * dy) or 1.0
+                    vx = (dx / dl) * min(step, dl)
+                    vy = (dy / dl) * min(step, dl)
+                    vel[nid][0] = (vel[nid][0] + vx) * 0.8
+                    vel[nid][1] = (vel[nid][1] + vy) * 0.8
+                    pos[nid][0] = min(w - 30, max(30, pos[nid][0] + vel[nid][0]))
+                    pos[nid][1] = min(h - 30, max(30, pos[nid][1] + vel[nid][1]))
+
+            # Draw edges
+            edge_items = []
+            for (u, v) in edges:
+                x1, y1 = pos[u]
+                x2, y2 = pos[v]
+                edge_items.append(canvas.create_line(x1, y1, x2, y2, fill="#5f6b8a", width=1.0))
+
+            # Draw nodes
+            node_items = {}
+            for nid, meta in nodes.items():
+                x, y = pos[nid]
+                t = meta.get("type")
+                if t == "wf":
+                    r = 18
+                    fill = "#8e24aa"  # workflow purple
+                elif t == "job":
+                    r = 12
+                    fill = "#1976d2"  # job blue
+                else:
+                    r = 10
+                    fill = "#ff8f00"  # data orange
+                item = canvas.create_oval(x - r, y - r, x + r, y + r, fill=fill, outline="#eaeaea", width=1.0)
+                node_items[item] = nid
+                # Optional subtle label near node (shortened)
+                try:
+                    label = meta.get("label") or ""
+                    if len(label) > 18:
+                        label = label[:8] + "…" + label[-8:]
+                    canvas.create_text(x, y - (r + 10), text=label, fill="#d9e1f2", font=("TkDefaultFont", 9))
+                except Exception:
+                    pass
+
+            # Click handling
+            def on_click(event):
+                # find closest node within hit radius
+                x = event.x
+                y = event.y
+                hit = canvas.find_closest(x, y)
+                if not hit:
+                    return
+                item = hit[0]
+                nid = node_items.get(item)
+                if not nid:
+                    return
+                try:
+                    if nid.startswith("job:"):
+                        jid = nid.split(":", 1)[1]
+                        self.show_job_status(job_id=jid, _workflow_id=workflow_id)
+                    elif nid.startswith("data:"):
+                        key = nid.split(":", 1)[1]
+                        group = data_groups.get(key)
+                        if group:
+                            # if multiple metasheets, show a chooser; else show the single sheet
+                            if len(group) == 1:
+                                self._show_metasheet_window(group[0])
+                            else:
+                                self._show_metasheet_group_window(label=nodes.get(nid, {}).get("label", key), sheets=group)
+                    else:
+                        # workflow node: no-op for now
+                        pass
+                except Exception:
+                    pass
+
+            canvas.bind("<Button-1>", on_click)
+
+        # Draw now and on resize
+        def on_resize(_event):
+            layout_and_draw()
+        canvas.bind("<Configure>", on_resize)
+        # Initial draw
+        win.after(50, layout_and_draw)
+
+    def _show_metasheet_window(self, ms: Metasheet):
+        win = tk.Toplevel(self)
+        title = f"Data: {ms.getSheetId()}"
+        try:
+            p = ms.getProps() or {}
+            title = p.get("_localPath") or p.get("_siteObjPath") or title
+        except Exception:
+            pass
+        win.title(title)
+        win.geometry("800x400")
+        text = tk.Text(win, wrap=tk.NONE)
+        xsb = ttk.Scrollbar(win, orient=tk.HORIZONTAL, command=text.xview)
+        ysb = ttk.Scrollbar(win, orient=tk.VERTICAL, command=text.yview)
+        text.configure(xscrollcommand=xsb.set, yscrollcommand=ysb.set)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        ysb.pack(side=tk.RIGHT, fill=tk.Y)
+        xsb.pack(side=tk.BOTTOM, fill=tk.X)
+        try:
+            p = ms.getProps() or {}
+            text.insert(tk.END, json.dumps(p, indent=2, sort_keys=True))
+        except Exception as ex:
+            text.insert(tk.END, f"Error rendering metasheet: {ex}")
+
+    def _show_metasheet_group_window(self, label: str, sheets: List[Metasheet]):
+        win = tk.Toplevel(self)
+        win.title(f"Data: {label}")
+        win.geometry("900x500")
+        top = ttk.Frame(win)
+        top.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        cols = ("direction", "local", "siteobj")
+        tv = ttk.Treeview(top, columns=cols, show="headings")
+        tv.heading("direction", text="Dir")
+        tv.heading("local", text="Local Path")
+        tv.heading("siteobj", text="Site Object")
+        tv.column("direction", width=80)
+        tv.column("local", width=360)
+        tv.column("siteobj", width=360)
+        tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        ysb = ttk.Scrollbar(top, orient=tk.VERTICAL, command=tv.yview)
+        tv.configure(yscrollcommand=ysb.set)
+        ysb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        details = ttk.Frame(win)
+        details.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=False)
+        ttk.Label(details, text="Metasheet:").pack(side=tk.TOP, anchor=tk.W)
+        text = tk.Text(details, height=10, wrap=tk.NONE)
+        xsb = ttk.Scrollbar(details, orient=tk.HORIZONTAL, command=text.xview)
+        ysb2 = ttk.Scrollbar(details, orient=tk.VERTICAL, command=text.yview)
+        text.configure(xscrollcommand=xsb.set, yscrollcommand=ysb2.set)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        ysb2.pack(side=tk.RIGHT, fill=tk.Y)
+        xsb.pack(side=tk.BOTTOM, fill=tk.X)
+
+        info_by_iid = {}
+        for ms in sheets:
+            p = ms.getProps() or {}
+            iid = tv.insert("", tk.END, values=(p.get("_direction", ""), p.get("_localPath", ""), p.get("_siteObjPath", "")))
+            try:
+                info_by_iid[iid] = json.dumps(p, indent=2, sort_keys=True)
+            except Exception:
+                info_by_iid[iid] = str(p)
+
+        def on_select(_event):
+            sel = tv.selection()
+            if not sel:
+                return
+            iid = sel[0]
+            text.delete(1.0, tk.END)
+            text.insert(tk.END, info_by_iid.get(iid, ""))
+
+        tv.bind("<<TreeviewSelect>>", on_select)
 
     def set_status(self, text: str):
         self.status_var.set(text)
