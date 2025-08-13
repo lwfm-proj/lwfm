@@ -7,6 +7,7 @@ the test - we will launch the test inside a venv.
 #pylint: disable=invalid-name
 
 import sys
+import os
 
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.WorkflowEvent import JobEvent
@@ -53,13 +54,17 @@ if __name__ == "__main__":
 
     # we don't want to wait synchronously - its a cloud resource
     # so set an event handler for the remote job completion to fetch the results
+    # Write results under /tmp to avoid creating a literal "~" directory
+    out_dir = "/tmp/lwfm/out"
+    if not os.path.isdir(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
     statusB = lwfManager.setEvent(
         JobEvent(job_status.getJobId(),                         # when this job
                 JobStatus.COMPLETE,                             # hits this state
                 JobDefn("repo.get", JobDefn.ENTRY_TYPE_SITE,    # run this repo.get
                     [job_status.getJobId(),                     # with these args
-                    "~/.lwfm/out/" + job_status.getJobId() + \
-                    ".out"]),
+                    os.path.join(out_dir, job_status.getJobId() + ".out")]),
                 lwfm_site_name)                                 # using this site driver
     )
     logger.info("result extraction job set")
