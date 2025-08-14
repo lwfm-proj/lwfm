@@ -6,16 +6,17 @@ Todo & misc notes
 
 + lwfm
     + top
-        - lwfm ex09 IBM case triggered job fails
-
-    + 2nd
+        - lwfm ex09 IBM case triggered job fails - need to fix IBM driver
         - revisit qtsuite tests for lwfm (qt03)
         - gui throws repetitive error on empty db
-        - 97: make venv if it doesn't exist
         - clearing out stale remote monitoring jobs
+
+
+    + 2nd
+        - qtsuite test04: sqd
         - import/export (#73) - after ORNL DD
         - todo items (many are for log context - separate ticket)
-        - inline docs esp. for .base & .midware (#84), keywords, pillars for metasheet search; tk
+        - inline docs esp. for .base & .midware (#84), keywords, pillars for meta search; ibm, tk
         - full trigger impl & bugs
         - normalize INFO logging data structure for job provenance, data provenance
         - lwfManager exec inline needs a way to handle runArgs for submit
@@ -23,25 +24,24 @@ Todo & misc notes
         - test: do we handle jobDefn.getJobArgs() correctly for both data types? 
         - do we need submit() to take a list[str] in addition to dict for args?
         - AWS Braket site driver
-    + other
-        - qtsuite test04: sqd
-        - "data site" interface
+
 
 + IBM site driver, quantum info
-    - metadata on get(), Workflow on get()/put()
-    - set logger context, submit/put/get
-    - get without a file involved - just a string return
-    - proper job status emits
     - VSCode linting
-    - unpacking qiskit results - show in qtsuite cfd
-    - ibm site w qiskit run options - which besides those below?
-    - notating get from IBM by doing a local put?
-    - allow 1 session for many circuits
-    - noise model, from backend
-    - capture of current machine state
-    - gpu device
-    - custom pass manager steps
-    - document driver
+    + data prov
+        - notating get from IBM by doing a local put?
+        - metadata on get(), Workflow on get()/put()
+        - get without a file involved - just a string return
+        - unpacking qiskit results - show in qtsuite cfd
+    + run prov
+        - proper job status emits
+        - capture of current machine state
+        - noise model, from backend, etc.
+        - set logger context, submit/put/get
+        - other qiskit run options
+    + future 
+        - allow 1 session for many circuits
+        - custom pass manager steps as runtime args
 
 
 ******************************************************************************

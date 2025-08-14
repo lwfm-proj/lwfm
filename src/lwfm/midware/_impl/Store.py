@@ -44,8 +44,14 @@ class Store:
     def __init__(self):
         global _SCHEMA_CREATED
         if not _SCHEMA_CREATED:
-            self.createSchema()
-            _SCHEMA_CREATED = True
+            # Be resilient on first run: ensure DB dir exists and handle errors gracefully
+            try:
+                self.createSchema()
+                _SCHEMA_CREATED = True
+            except Exception as ex:
+                # Don't raise here to avoid spamming logs on periodic GUI refresh.
+                # We'll retry schema creation on the next Store instantiation.
+                print(f"Error creating schema: {ex}")
 
     def getDBFilePath(self) -> str:
         """
@@ -57,6 +63,15 @@ class Store:
         """
         Create the database schema if it does not exist.
         """
+        # Ensure parent directory exists on first run (e.g., ~/.lwfm)
+        db_dir = os.path.dirname(_DB_FILE)
+        try:
+            if db_dir and not os.path.isdir(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+        except Exception as ex:
+            # If we cannot create the directory, surface a clear message and bail early
+            raise RuntimeError(f"Unable to create DB directory '{db_dir}': {ex}") from ex
+
         db = sqlite3.connect(_DB_FILE)
         cur = db.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS WorkflowStore ( " \

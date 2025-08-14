@@ -116,11 +116,12 @@ def putWorkflow():
 def getWorkflows():
     try:
         workflows = WorkflowStore().getAllWorkflows()
-        if workflows is not None:
-            # Serialize each workflow for transport
-            serialized_workflows = ObjectSerializer.serialize(workflows)
-            return serialized_workflows, 200
-        return "", 404
+        if workflows is None:
+            # First-run empty DB: return an empty list (200) to avoid client error spam
+            return ObjectSerializer.serialize([]), 200
+        # Serialize each workflow for transport
+        serialized_workflows = ObjectSerializer.serialize(workflows)
+        return serialized_workflows, 200
     except Exception as ex:
         LoggingStore().putLogging("ERROR", "getWorkflows: " + str(ex),
                                   "", "", "") # TODO context
