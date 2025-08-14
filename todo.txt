@@ -6,9 +6,12 @@ Todo & misc notes
 
 + lwfm
     + top
+        - lwfm ex09 IBM case triggered job fails
 
     + 2nd
+        - revisit qtsuite tests for lwfm (qt03)
         - gui throws repetitive error on empty db
+        - 97: make venv if it doesn't exist
         - clearing out stale remote monitoring jobs
         - import/export (#73) - after ORNL DD
         - todo items (many are for log context - separate ticket)
@@ -19,6 +22,7 @@ Todo & misc notes
         - lwfManager.dumpWorkflow() - all meta info of all kinds
         - test: do we handle jobDefn.getJobArgs() correctly for both data types? 
         - do we need submit() to take a list[str] in addition to dict for args?
+        - AWS Braket site driver
     + other
         - qtsuite test04: sqd
         - "data site" interface

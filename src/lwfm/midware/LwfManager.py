@@ -11,6 +11,8 @@ import time
 import threading
 import os
 import argparse
+import subprocess
+import shutil
 
 from typing import List, Optional, Union, Any, cast
 
@@ -260,11 +262,62 @@ class LwfManager:
         """
         if site is None or site == "":
             site = "local"
+        # Ensure venv for sites that declare one (opt-out via LWFM_VENV_AUTOSETUP=0)
+        try:
+            if os.getenv("LWFM_VENV_AUTOSETUP", "1") == "1":
+                self._ensure_site_venv(site)
+        except Exception as _ex:
+            # Non-fatal: continue to build the site even if venv setup fails
+            logger.info(f"Venv autosetup skipped or failed for site '{site}': {_ex}")
         try:
             return SiteConfigBuilder.getSite(site)
         except Exception as ex:
             logger.error(f"Error getting site '{site}': {ex} - returning none")
             return None # type: ignore
+
+    # ---------------- internal: venv ensure via uv ----------------
+    def _ensure_site_venv(self, site: str) -> None:
+        props = SiteConfig.getSiteProperties(site) or {}
+        venv_path = props.get("venv")
+        if not venv_path:
+            return
+        venv_dir = os.path.abspath(os.path.expanduser(str(venv_path)))
+        project_dir = os.path.dirname(venv_dir)
+        # Only act if .venv is direct child (as per guidance)
+        if os.path.basename(venv_dir) != ".venv":
+            # Respect custom venv path but still attempt sync from its parent
+            project_dir = os.path.dirname(venv_dir)
+
+        # If uv isn't present, log and stop (avoid guessing installs)
+        uv_bin = shutil.which("uv")
+        if uv_bin is None:
+            logger.info("uv not found on PATH; skipping venv auto-setup for site '%s'", site)
+            return
+
+        # Create venv if missing
+        if not os.path.isdir(venv_dir):
+            try:
+                logger.info(f"Creating venv at {venv_dir} using uv venv (cwd={project_dir})")
+                subprocess.run([uv_bin, "venv"], cwd=project_dir, check=True)
+            except subprocess.CalledProcessError as ex:
+                logger.error(f"uv venv failed in {project_dir}: {ex}")
+                return
+
+        # Prepare an environment that mirrors 'source .venv/bin/activate'
+        env_vars = os.environ.copy()
+        env_vars["VIRTUAL_ENV"] = venv_dir
+        bin_dir = os.path.join(venv_dir, "bin")
+        env_path = env_vars.get("PATH", "")
+        if bin_dir not in env_path.split(":"):
+            env_vars["PATH"] = f"{bin_dir}:{env_path}" if env_path else bin_dir
+
+        # Always sync to make sure deps are current with lock
+        try:
+            logger.info(f"Syncing dependencies via uv sync --upgrade (cwd={project_dir})")
+            subprocess.run([uv_bin, "sync", "--upgrade"], cwd=project_dir, check=True, env=env_vars)
+        except subprocess.CalledProcessError as ex:
+            logger.error(f"uv sync failed in {project_dir}: {ex}")
+            # proceed; site may still work if already satisfied
 
 
     #***********************************************************************
