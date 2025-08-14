@@ -13,6 +13,7 @@ import sys
 from typing import List
 
 from flask import Flask, request
+import os
 from lwfm.midware._impl.LwfmEventProcessor import LwfmEventProcessor, RemoteJobEvent
 from lwfm.midware._impl.Store import JobStatusStore, LoggingStore, WorkflowStore, MetasheetStore
 from lwfm.base.Workflow import Workflow
@@ -66,8 +67,22 @@ def isRunning():
 # curl http://host:port/shutdown
 @app.route("/shutdown")
 def shutdown():
-    halt()
-    sys.exit(0)
+    """Attempt a clean shutdown of the development server."""
+    try:
+        # Preferred way for Werkzeug dev server
+        func = request.environ.get('werkzeug.server.shutdown')
+        if func is not None:
+            func()
+        else:
+            # Fallback: signal ourselves to terminate
+            os.kill(os.getpid(), signal.SIGTERM)
+        return "shutting down", 200
+    except Exception:
+        try:
+            os.kill(os.getpid(), signal.SIGTERM)
+        except Exception:
+            pass
+        return "shutdown attempted", 200
 
 
 #************************************************************************

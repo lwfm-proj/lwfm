@@ -24,6 +24,20 @@ except ImportError:  # pragma: no cover - env specific
     sys.exit(1)
 
 from lwfm.midware._impl.gui.app import main  # type: ignore
+import atexit
+import pathlib
+
+# Clean up PID file on GUI exit if present
+def _cleanup_pid():
+    try:
+        logs = os.path.expanduser("~/.lwfm/logs")
+        pid_path = pathlib.Path(logs) / "gui.pid"
+        if pid_path.exists():
+            pid_path.unlink(missing_ok=True)  # type: ignore[arg-type]
+    except OSError:
+        pass
+
+atexit.register(_cleanup_pid)
 
 if __name__ == "__main__":
     main()

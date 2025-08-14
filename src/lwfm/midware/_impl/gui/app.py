@@ -18,6 +18,7 @@ from typing import List, Dict, Any
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+import requests
 
 from lwfm.midware.LwfManager import lwfManager
 from lwfm.midware._impl.SiteConfig import SiteConfig
@@ -84,7 +85,7 @@ class LwfmGui(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("lwfm Jobs")
-        self.geometry("1040x560")
+        self.geometry("1180x600")
         self.model = JobsModel()
         self.refresh_interval = int(os.environ.get("LWFM_GUI_REFRESH", str(RefreshIntervalSecDefault)))
         self._shutdown = False
@@ -126,6 +127,14 @@ class LwfmGui(tk.Tk):
 
         self.refresh_btn = ttk.Button(ctrl, text="Refresh", command=self.refresh_async)
         self.refresh_btn.pack(side=tk.LEFT)
+
+        # Stop server button
+        self.stop_btn = ttk.Button(ctrl, text="Stop Server", command=self.stop_server_async)
+        self.stop_btn.pack(side=tk.LEFT, padx=(10, 0))
+
+        # View log button
+        self.viewlog_btn = ttk.Button(ctrl, text="View Server Log", command=self.view_server_log)
+        self.viewlog_btn.pack(side=tk.LEFT, padx=(10, 0))
 
         ttk.Label(ctrl, text="Every (s):").pack(side=tk.LEFT, padx=(10, 2))
         self.interval_entry = ttk.Entry(ctrl, width=5)
@@ -183,6 +192,37 @@ class LwfmGui(tk.Tk):
         self.status_var = tk.StringVar(value="Ready")
         sbar = ttk.Label(self, textvariable=self.status_var, anchor=tk.W)
         sbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def stop_server_async(self):
+        if not messagebox.askyesno("Confirm", "Stop the lwfm server for this machine?\nThis will terminate the background middleware until it is started again."):
+            return
+        self.status_var.set("Stopping server…")
+        self.stop_btn.state(["disabled"])  # disable while working
+
+        def worker():
+            ok = False
+            try:
+                url = lwfManager.getServiceUrl()
+            except Exception:
+                url = None
+            if url:
+                try:
+                    # The server may terminate the connection; treat exceptions as success
+                    requests.get(f"{url}/shutdown", timeout=3)
+                    ok = True
+                except Exception:
+                    ok = True
+            self.after(0, lambda: self._on_server_stopped(ok))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_server_stopped(self, ok: bool):
+        if ok:
+            self.status_var.set("Server stopped. It will auto-start on next use.")
+        else:
+            self.status_var.set("Couldn't reach server; it may already be stopped.")
+        # Re-enable button shortly
+        self.after(500, lambda: self.stop_btn.state(["!disabled"]))
 
     def on_sort(self, column: str):
         if self.model.sort_by == column:
@@ -1046,6 +1086,68 @@ class LwfmGui(tk.Tk):
 
         tv.bind("<<TreeviewSelect>>", on_select)
         ttk.Button(win, text="Close", command=win.destroy).pack(side=tk.BOTTOM, pady=6)
+
+    def view_server_log(self):
+        """Open a simple read-only log viewer that tails the server log."""
+        log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+        log_path = os.path.join(log_dir, "midware.log")
+        win = tk.Toplevel(self)
+        win.title("lwfm Server Log")
+        win.geometry("900x500")
+
+        frm = ttk.Frame(win)
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        text = tk.Text(frm, wrap=tk.WORD)
+        ysb = ttk.Scrollbar(frm, orient=tk.VERTICAL, command=text.yview)
+        text.configure(yscrollcommand=ysb.set, state=tk.NORMAL, font=("Menlo", 10))
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        ysb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        btns = ttk.Frame(win)
+        btns.pack(fill=tk.X)
+        ttk.Button(btns, text="Close", command=win.destroy).pack(side=tk.RIGHT, padx=6, pady=6)
+
+        last_size = 0
+        closed = False
+
+        def poll():
+            nonlocal last_size, closed
+            if closed:
+                return
+            try:
+                if os.path.exists(log_path):
+                    size = os.path.getsize(log_path)
+                    if size < last_size:
+                        with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+                            text.delete(1.0, tk.END)
+                            text.insert(tk.END, f.read())
+                        last_size = size
+                    elif size > last_size:
+                        with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+                            f.seek(last_size)
+                            text.insert(tk.END, f.read())
+                        last_size = size
+                    text.see(tk.END)
+            except Exception:
+                pass
+            win.after(1000, poll)
+
+        def on_close():
+            nonlocal closed
+            closed = True
+            win.destroy()
+
+        win.protocol("WM_DELETE_WINDOW", on_close)
+        try:
+            if os.path.exists(log_path):
+                with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+                    text.insert(tk.END, f.read())
+                last_size = os.path.getsize(log_path)
+                text.see(tk.END)
+        except Exception:
+            pass
+        win.after(1000, poll)
 
 
 def main():

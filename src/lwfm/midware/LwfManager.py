@@ -8,6 +8,7 @@ event handlers, and notating provenancial metadata.
 #pylint: disable = broad-exception-caught, protected-access
 
 import time
+import threading
 import os
 import argparse
 
@@ -35,6 +36,11 @@ class LwfManager:
     def __init__(self):
         self._client = LwfmEventClient()
         self._context = None
+        # Auto-start middleware eagerly on construction (unless disabled)
+        try:
+            self._ensure_midware_running("init")
+        except Exception:
+            pass
 
 
     #***********************************************************************
@@ -47,7 +53,55 @@ class LwfManager:
         Gets the client class which is a thin set of methods for invoking 
         REST services.
         """
+        try:
+            self._ensure_midware_running("getClient")
+        except Exception:
+            pass
         return self._client
+
+    def getServiceUrl(self) -> str:
+        """
+        Public helper to expose the service URL used by the client.
+        """
+        return self._client.getUrl()
+
+    # ---------------- internal: auto-start ----------------
+    _autostart_lock = threading.Lock()
+
+    def _ensure_midware_running(self, reason: str = "") -> None:
+        _ = reason  # avoid unused-arg warnings; available for future logging
+        # Avoid auto-start from within the server process or if disabled
+        if os.getenv("LWFM_SERVER", "0") == "1":
+            return
+        if (os.getenv("LWFM_AUTOSTART", "1") != "1"):
+            return
+        try:
+            if self._client.isMidwareRunning():
+                return
+        except Exception:
+            pass
+        with LwfManager._autostart_lock:
+            # Re-check inside lock to avoid stampede
+            try:
+                if self._client.isMidwareRunning():
+                    return
+            except Exception:
+                pass
+            # Launch detached
+            try:
+                from lwfm.midware._impl.SvcLauncher import SvcLauncher
+                SvcLauncher()._startMidware()
+            except Exception:
+                return
+            # Wait briefly for readiness
+            deadline = time.time() + int(os.getenv("LWFM_AUTOSTART_TIMEOUT", "20"))
+            while time.time() < deadline:
+                try:
+                    if self._client.isMidwareRunning():
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.5)
 
 
     def _serialize(self, obj) -> str:
@@ -115,11 +169,11 @@ class LwfManager:
         if jobContext is None:
             jCtx: JobContext = JobContext()
         elif isinstance(jobContext, str):
-            jCtx: JobContext = self.deserialize(jobContext)
+            jCtx = self.deserialize(jobContext)
             if jCtx is None:
                 jCtx = JobContext()
         else:
-            jCtx: JobContext = jobContext
+            jCtx = jobContext
 
         _metasheet.setJobId(jCtx.getJobId())
         # now do the metadata notate
@@ -134,7 +188,7 @@ class LwfManager:
         _metasheet.setProps(props)
         # persist
         self._client.notate(_metasheet)
-        # TODO technically the above notate() might be None if the notate fails - conisder
+        # Note: above notate() could return None on failure; ignore for now
         # now emit an INFO job status
         self._emitRepoInfo(jCtx, _metasheet)
         return _metasheet
@@ -304,15 +358,15 @@ class LwfManager:
         if workflow_id is None:
             return None
         try:
-            workflow = self.getWorkflow(workflow_id)
-            if workflow is None:
+            wf_obj = self.getWorkflow(workflow_id)
+            if wf_obj is None:
                 return None
             jobs = self.getJobStatusesForWorkflow(workflow_id)
-            metasheets = self.find({"_workflowId": workflow_id}) or []
+            metasheets_list = self.find({"_workflowId": workflow_id}) or []
             return {
-                "workflow": str(workflow),
+                "workflow": str(wf_obj),
                 "jobs": jobs,
-                "metasheets": metasheets
+                "metasheets": metasheets_list
             }
         except Exception as e:
             logger.error(f"Error in LwfManager.dumpWorkflow: {e}")
@@ -561,19 +615,19 @@ class LwfManager:
 
 
     def notateGet(self, localPath: str, workflowId: Optional[str] = None,
-                  metasheet: Optional[Union[Metasheet, dict]] = None) -> Metasheet:
+                  metasheet_obj: Optional[Union[Metasheet, dict]] = None) -> Metasheet:
         if workflowId is not None:
             jobContext = JobContext()
             jobContext.setWorkflowId(workflowId)
         else:
             jobContext = JobContext()
-        if metasheet is None:
-            metasheet = Metasheet("local", localPath, "", {})
-            metasheet.setJobId(jobContext.getJobId())
-        if isinstance(metasheet, dict):
-            metasheet = Metasheet("local", localPath, "", cast(dict, metasheet))
-            metasheet.setJobId(jobContext.getJobId())
-        return self._notateGet("local", localPath, "", jobContext, metasheet)
+        if metasheet_obj is None:
+            metasheet_obj = Metasheet("local", localPath, "", {})
+            metasheet_obj.setJobId(jobContext.getJobId())
+        if isinstance(metasheet_obj, dict):
+            metasheet_obj = Metasheet("local", localPath, "", cast(dict, metasheet_obj))
+            metasheet_obj.setJobId(jobContext.getJobId())
+        return self._notateGet("local", localPath, "", jobContext, metasheet_obj)
 
 
     def find(self, queryRegExs: dict) -> Optional[List[Metasheet]]:
@@ -595,7 +649,7 @@ class LwfManager:
         try:
             session = requests.Session()
             session.verify = False  # Use system certificate store
-            response = session.post(
+            session.post(
                 "https://api.mailgun.net/v3/sandbox884a84ded0f443569fd09c93dcc28aa2.mailgun.org/messages",
                 auth=("api", SiteConfig.getSiteProperties("lwfm").get("emailKey") or ""),
                 data={"from": "Mailgun Sandbox <postmaster@sandbox884a84ded0f443569fd09c93dcc28aa2.mailgun.org>",

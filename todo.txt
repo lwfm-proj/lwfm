@@ -8,6 +8,8 @@ Todo & misc notes
     + top
 
     + 2nd
+        - gui throws repetitive error on empty db
+        - clearing out stale remote monitoring jobs
         - import/export (#73) - after ORNL DD
         - todo items (many are for log context - separate ticket)
         - inline docs esp. for .base & .midware (#84), keywords, pillars for metasheet search; tk
