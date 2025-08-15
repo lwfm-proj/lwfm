@@ -6,11 +6,11 @@ Todo & misc notes
 
 + lwfm
     + top
-        - lwfm ex09 IBM case triggered job fails - need to fix IBM driver
 
     + 2nd
+        - can we run a gui at oak ridge?
         - qtsuite test04: sqd
-        - clearing out stale remote monitoring jobs
+        - clearing out stale remote monitoring jobs - test the gui
         - import/export (#73) - after ORNL DD
         - todo items (many are for log context - separate ticket)
         - inline docs esp. for .base & .midware (#84), keywords, pillars for meta search; ibm, tk

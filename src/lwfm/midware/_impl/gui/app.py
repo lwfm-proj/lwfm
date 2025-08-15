@@ -1,241 +1,115 @@
 """
 Tkinter-based GUI for lwfm job monitoring and control.
-Features:
-- Sortable, filterable, scrollable grid of non-terminal (running) jobs.
-- Periodic refresh.
-- Per-row actions: Cancel job, Show files (put/get metasheets).
-- Time window filter (last hour/day/week/month/all).
 """
 # pylint: disable=invalid-name, broad-exception-caught
-import threading
-import os
-import time
+from __future__ import annotations
+
 import json
+import os
+import threading
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 import tkinter as tk
-from tkinter import ttk, messagebox
-import requests
+from tkinter import messagebox, ttk
 
+from lwfm.base.JobStatus import JobStatus
+from lwfm.base.WorkflowEvent import WorkflowEvent, MetadataEvent, JobEvent, NotificationEvent
+from lwfm.base.Metasheet import Metasheet  # type: ignore
 from lwfm.midware.LwfManager import lwfManager
 from lwfm.midware._impl.SiteConfig import SiteConfig
-from lwfm.base.JobStatus import JobStatus
-from lwfm.base.Metasheet import Metasheet
-from lwfm.base.WorkflowEvent import WorkflowEvent, JobEvent, MetadataEvent, NotificationEvent
 
 
 RefreshIntervalSecDefault = 5
 
 
-class JobsModel:
-    def __init__(self):
-        self.rows = []  # type: List[Dict[str, Any]]
-        self.sort_by = "last_update"
-        self.sort_asc = False
-        self.filter_text = ""
-        self.filter_status = "ALL"
-        self.filter_time = "ALL"  # one of: ALL, 1H, 1D, 1W, 1M
-
-    def apply_filters(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        text = (self.filter_text or "").lower()
-        status_filter = self.filter_status
-        out: List[Dict[str, Any]] = []
-        now_ts = time.time()
-
-        def within_window(ts: float) -> bool:
-            if not ts:
-                return False
-            code = (self.filter_time or "ALL").upper()
-            if code == "ALL":
-                return True
-            limits = {
-                "1H": 60 * 60,
-                "1D": 60 * 60 * 24,
-                "1W": 60 * 60 * 24 * 7,
-                "1M": 60 * 60 * 24 * 30,
-            }
-            window = limits.get(code)
-            if window is None:
-                return True
-            return (now_ts - ts) <= window
-
-        for r in rows:
-            if status_filter and status_filter != "ALL" and r.get("status") != status_filter:
-                continue
-            if not within_window(r.get("last_update_ts") or 0):
-                continue
-            if text:
-                hay = " ".join([str(r.get(k, "")) for k in ("job_id", "site", "status", "workflow_id")]).lower()
-                if text not in hay:
-                    continue
-            out.append(r)
-        return out
-
-    def apply_sort(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        key = self.sort_by
-        rev = not self.sort_asc
-        if key == "last_update":
-            return sorted(rows, key=lambda r: r.get("last_update_ts") or 0, reverse=rev)
-        return sorted(rows, key=lambda r: str(r.get(key, "")), reverse=rev)
-
-
 class LwfmGui(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("lwfm Jobs")
-        self.geometry("1180x600")
-        self.model = JobsModel()
-        self.refresh_interval = int(os.environ.get("LWFM_GUI_REFRESH", str(RefreshIntervalSecDefault)))
-        self._shutdown = False
-        self._building = False
-        # cache: job_id -> { 'ts': last_update_ts, 'has': bool }
-        self._files_cache = {}
-        self._setup_ui()
-        self.after(200, self.refresh_async)
+        self.title("lwfm")
+        self.geometry("1100x650")
 
-    def _setup_ui(self):
-        # Controls frame
-        ctrl = ttk.Frame(self)
-        ctrl.pack(side=tk.TOP, fill=tk.X, padx=8, pady=6)
+        # State
+        self.refresh_interval: int = RefreshIntervalSecDefault
+        self._building: bool = False
+        self._shutdown: bool = False
+        self._files_cache: Dict[str, Dict[str, Any]] = {}
 
-        ttk.Label(ctrl, text="Filter:").pack(side=tk.LEFT)
-        self.filter_entry = ttk.Entry(ctrl, width=24)
-        self.filter_entry.pack(side=tk.LEFT, padx=(4, 10))
-        self.filter_entry.bind("<Return>", lambda e: self.rebuild_table())
+        # Top toolbar
+        top = ttk.Frame(self)
+        top.pack(side=tk.TOP, fill=tk.X)
+        ttk.Button(top, text="View Events", command=self.view_events).pack(side=tk.LEFT, padx=6, pady=6)
+        ttk.Button(top, text="Search Data", command=self.view_metasheets).pack(side=tk.LEFT, padx=6, pady=6)
+        ttk.Button(top, text="Server Log", command=self.view_server_log).pack(side=tk.LEFT, padx=6, pady=6)
 
-        ttk.Label(ctrl, text="Status:").pack(side=tk.LEFT)
-        self.status_combo = ttk.Combobox(
-            ctrl,
-            values=["ALL", "READY", "PENDING", "RUNNING", "INFO", "FINISHING"],
-            width=12,
-        )
-        self.status_combo.set("ALL")
-        self.status_combo.pack(side=tk.LEFT, padx=(4, 10))
-        self.status_combo.bind("<<ComboboxSelected>>", lambda e: self.rebuild_table())
+        # Status bar with refresh interval control
+        status = ttk.Frame(self)
+        status.pack(side=tk.BOTTOM, fill=tk.X)
+        self.status_var = tk.StringVar(value="")
+        ttk.Label(status, textvariable=self.status_var).pack(side=tk.LEFT, padx=6)
+        ttk.Label(status, text="Refresh (sec):").pack(side=tk.RIGHT, padx=(0, 4))
+        self.interval_entry = ttk.Entry(status, width=6)
+        self.interval_entry.insert(0, str(self.refresh_interval))
+        self.interval_entry.pack(side=tk.RIGHT, padx=(0, 8))
 
-        ttk.Label(ctrl, text="Time:").pack(side=tk.LEFT)
-        self.time_combo = ttk.Combobox(
-            ctrl,
-            values=["Last hour", "Last day", "Last week", "Last month", "All"],
-            width=12,
-        )
-        self.time_combo.set("Last day")
-        self.time_combo.pack(side=tk.LEFT, padx=(4, 10))
-        self.time_combo.bind("<<ComboboxSelected>>", lambda e: self.rebuild_table())
-
-        self.refresh_btn = ttk.Button(ctrl, text="Refresh", command=self.refresh_async)
-        self.refresh_btn.pack(side=tk.LEFT)
-
-        # Stop server button
-        self.stop_btn = ttk.Button(ctrl, text="Stop Server", command=self.stop_server_async)
-        self.stop_btn.pack(side=tk.LEFT, padx=(10, 0))
-
-        # View log button
-        self.viewlog_btn = ttk.Button(ctrl, text="View Server Log", command=self.view_server_log)
-        self.viewlog_btn.pack(side=tk.LEFT, padx=(10, 0))
-
-        # View events button
-        self.viewevents_btn = ttk.Button(ctrl, text="View Events", command=self.view_events)
-        self.viewevents_btn.pack(side=tk.LEFT, padx=(10, 0))
-
-        # Table frame containing tree and scrollbar
-        table = ttk.Frame(self)
-        table.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=6)
-
-        # Treeview
+        # Jobs table
         cols = ("job_id", "site", "status", "workflow_id", "last_update", "files")
-        self.tree = ttk.Treeview(table, columns=cols, show="headings", selectmode="browse")
-        headings = {
-            "job_id": "Job ID",
-            "site": "Site",
-            "status": "Status",
-            "workflow_id": "Workflow",
-            "last_update": "Last Update",
-            "files": "Files",
-        }
-        for cid in cols:
-            self.tree.heading(cid, text=headings[cid], command=lambda c=cid: self.on_sort(c))
-            if cid == "workflow_id":
-                width = 140
-            elif cid == "last_update":
-                width = 220
-            elif cid == "job_id":
-                width = 180
-            else:
-                width = 120
-            if cid in ("files",):
-                width = 100
-                self.tree.column(cid, width=width, anchor=tk.CENTER)
-            else:
-                self.tree.column(cid, width=width, anchor=tk.W)
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        try:
-            self.tree.tag_configure("status-bad", foreground="#d32f2f")
-            self.tree.tag_configure("status-good", foreground="#2e7d32")
-            self.tree.tag_configure("status-info", foreground="#1565c0")
-        except Exception:
-            pass
+        self.tree = ttk.Treeview(self, columns=cols, show="headings")
+        for c, w in zip(cols, (260, 120, 120, 200, 180, 90)):
+            self.tree.heading(c, text=c.replace("_", " ").title())
+            self.tree.column(c, width=w, anchor=(tk.W if c != "files" else tk.CENTER))
+        self.tree.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.tree.bind("<Button-1>", self.on_tree_click)
         self.tree.bind("<Motion>", self.on_tree_motion)
 
-        # Scrollbar
-        ysb = ttk.Scrollbar(table, orient=tk.VERTICAL, command=self.tree.yview)
-        self.tree.configure(yscrollcommand=ysb.set)
-        ysb.pack(side=tk.RIGHT, fill=tk.Y)
+        # Filtering controls
+        filt = ttk.Frame(self)
+        filt.pack(side=tk.TOP, fill=tk.X)
+        ttk.Label(filt, text="Filter:").pack(side=tk.LEFT)
+        self.filter_entry = ttk.Entry(filt, width=24)
+        self.filter_entry.pack(side=tk.LEFT, padx=(4, 8))
+        ttk.Label(filt, text="Status:").pack(side=tk.LEFT)
+        self.status_combo = ttk.Combobox(filt, values=["", JobStatus.INFO, JobStatus.PENDING, JobStatus.RUNNING, JobStatus.COMPLETE, JobStatus.CANCELLED, JobStatus.FAILED], width=14)
+        self.status_combo.pack(side=tk.LEFT, padx=(4, 8))
+        ttk.Label(filt, text="Time:").pack(side=tk.LEFT)
+        self.time_combo = ttk.Combobox(filt, values=["All", "Last hour", "Last day", "Last week", "Last month"], width=14)
+        self.time_combo.current(0)
+        self.time_combo.pack(side=tk.LEFT, padx=(4, 8))
 
-        # Status bar with refresh-interval control and Search Data button
-        self.status_var = tk.StringVar(value="Ready")
-        sbar = ttk.Frame(self)
-        sbar.pack(side=tk.BOTTOM, fill=tk.X)
-        ttk.Label(sbar, textvariable=self.status_var, anchor=tk.W).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 4))
-        right = ttk.Frame(sbar)
-        right.pack(side=tk.RIGHT)
-        ttk.Label(right, text="Every (s):").pack(side=tk.LEFT, padx=(4, 2))
-        self.interval_entry = ttk.Entry(right, width=5)
-        self.interval_entry.insert(0, str(self.refresh_interval))
-        self.interval_entry.pack(side=tk.LEFT, padx=(0, 6))
-        ttk.Button(right, text="Search Data", command=self.view_metasheets).pack(side=tk.LEFT, padx=(8, 6))
+        # Simple data model helpers
+        class _Model:
+            def __init__(self):
+                self.rows: List[Dict[str, Any]] = []
+                self.sort_col = "last_update"
+                self.sort_asc = False
+                self.filter_text = ""
+                self.filter_status = ""
+                self.filter_time = "ALL"
 
-    def stop_server_async(self):
-        if not messagebox.askyesno("Confirm", "Stop the lwfm server for this machine?\nThis will terminate the background middleware until it is started again."):
-            return
-        self.status_var.set("Stopping server…")
-        self.stop_btn.state(["disabled"])  # disable while working
+            def apply_filters(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+                f = (self.filter_text or "").lower().strip()
+                st = (self.filter_status or "").upper().strip()
+                out = []
+                for r in rows:
+                    hay = " ".join([str(r.get(k, "")) for k in ("job_id", "site", "status", "workflow_id")]).lower()
+                    if f and f not in hay:
+                        continue
+                    if st and (str(r.get("status", "")).upper().strip() != st):
+                        continue
+                    out.append(r)
+                return out
 
-        def worker():
-            ok = False
-            try:
-                url = lwfManager.getServiceUrl()
-            except Exception:
-                url = None
-            if url:
-                try:
-                    # The server may terminate the connection; treat exceptions as success
-                    requests.get(f"{url}/shutdown", timeout=3)
-                    ok = True
-                except Exception:
-                    ok = True
-            self.after(0, lambda: self._on_server_stopped(ok))
+            def apply_sort(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+                key = self.sort_col
+                rev = not self.sort_asc
+                return sorted(rows, key=lambda rr: str(rr.get(key, "")), reverse=rev)
 
-        threading.Thread(target=worker, daemon=True).start()
+        self.model = _Model()
 
-    def _on_server_stopped(self, ok: bool):
-        if ok:
-            self.status_var.set("Server stopped. It will auto-start on next use.")
-        else:
-            self.status_var.set("Couldn't reach server; it may already be stopped.")
-        # Re-enable button shortly
-        self.after(500, lambda: self.stop_btn.state(["!disabled"]))
+        # Kick off first refresh
+        self.after(250, self.refresh_async)
 
-    def on_sort(self, column: str):
-        if self.model.sort_by == column:
-            self.model.sort_asc = not self.model.sort_asc
-        else:
-            self.model.sort_by = column
-            self.model.sort_asc = True
-        self.rebuild_table()
-
+    # ===== Metasheets search dialog =====
     def view_metasheets(self):
         """Open a panel to search metasheets with AND/OR/NOT and show results in a grouped tree."""
         win = tk.Toplevel(self)
@@ -252,12 +126,7 @@ class LwfmGui(tk.Tk):
         def wildcard_to_regex(pat: str) -> str:
             import re as _re
             s = "" if pat is None else str(pat)
-            parts = []
-            for ch in s:
-                if ch == "*": parts.append(".*")
-                elif ch == "?": parts.append(".")
-                else: parts.append(_re.escape(ch))
-            return "".join(parts)
+            return "".join([".*" if c == "*" else "." if c == "?" else _re.escape(c) for c in s])
 
         def load_all_fields_and_data():
             nonlocal all_sheets, field_names
@@ -274,7 +143,7 @@ class LwfmGui(tk.Tk):
                     continue
             preferred = ["_workflowId", "_jobId", "_siteName", "_direction", "_localPath", "_siteObjPath", "_sheetId"]
             rest = sorted([n for n in names if n not in preferred])
-            field_names = [n for n in preferred if n in names] + rest
+            field_names[:] = [n for n in preferred if n in names] + rest
 
         def sheet_matches(ms: Metasheet, must_all: List[tuple], must_any: List[tuple], must_not: List[tuple], case_sensitive: bool) -> bool:
             import re as _re
@@ -300,6 +169,7 @@ class LwfmGui(tk.Tk):
         qframe = ttk.Frame(top)
         qframe.pack(side=tk.LEFT, fill=tk.X, expand=True)
         case_var = tk.BooleanVar(value=False)
+        show_nulls_var = tk.BooleanVar(value=False)  # default OFF
 
         def make_clause_block(parent, title: str):
             frm = ttk.Labelframe(parent, text=title)
@@ -313,14 +183,12 @@ class LwfmGui(tk.Tk):
                 field_cb.pack(side=tk.LEFT, padx=(0, 6))
                 val_ent = ttk.Entry(row, width=28)
                 val_ent.pack(side=tk.LEFT, padx=(0, 6))
-
                 def on_del():
                     try:
                         rows.remove(item)
                     except Exception:
                         pass
                     row.destroy()
-
                 ttk.Button(row, text="-", width=2, command=on_del).pack(side=tk.LEFT)
                 item = {"field": field_cb, "value": val_ent}
                 rows.append(item)
@@ -335,10 +203,13 @@ class LwfmGui(tk.Tk):
         any_rows = make_clause_block(qframe, "Must match ANY of:")
         not_rows = make_clause_block(qframe, "Must NOT match:")
 
+        # Options (right side)
         opts = ttk.Frame(top)
         opts.pack(side=tk.RIGHT, anchor=tk.N)
         ttk.Checkbutton(opts, text="Case sensitive", variable=case_var).pack(side=tk.TOP)
-        ttk.Button(opts, text="Search", command=lambda: do_search()).pack(side=tk.TOP, pady=(6, 0))
+        ttk.Checkbutton(opts, text="Show nulls", variable=show_nulls_var).pack(side=tk.TOP)
+        search_btn_opts = ttk.Button(opts, text="Search")
+        search_btn_opts.pack(side=tk.TOP, pady=(6, 0))
 
         # Group-by selector
         grp = ttk.Labelframe(win, text="Group by (order) f1, f2, f3…")
@@ -364,7 +235,10 @@ class LwfmGui(tk.Tk):
                 return
             idx = sel[0]
             name = chosen.get(idx)
-            group_fields.remove(name)
+            try:
+                group_fields.remove(name)
+            except ValueError:
+                pass
             chosen.delete(idx)
         def move_up():
             sel = chosen.curselection()
@@ -400,16 +274,122 @@ class LwfmGui(tk.Tk):
         chosen = tk.Listbox(grp_right, height=7, exportselection=False)
         chosen.pack(side=tk.LEFT, fill=tk.X)
 
-        # Results tree
+        # Results toolbar + tree
+        tree_toolbar = ttk.Frame(win)
+        tree_toolbar.pack(side=tk.TOP, fill=tk.X, padx=8, pady=(6, 0))
         tree_frame = ttk.Frame(win)
         tree_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=6)
-        tv = ttk.Treeview(tree_frame, columns=("name",), show="tree headings")
-        tv.heading("name", text="Name")
-        tv.column("name", width=700, anchor=tk.W)
+        tv = ttk.Treeview(tree_frame, columns=("type",), show="tree headings")
+        tv.heading("type", text="Type")
+        tv.column("type", width=100, anchor=tk.W)
         tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         ysb = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=tv.yview)
         tv.configure(yscrollcommand=ysb.set)
         ysb.pack(side=tk.RIGHT, fill=tk.Y)
+        # Slightly taller rows and zebra striping + readable selection (dark mode friendly)
+        try:
+            style = ttk.Style(tv)
+            style_name = "LwfmSearch.Treeview"
+            style.configure(style_name, rowheight=22)
+            # Make selected row readable on dark themes
+            style.map(style_name,
+                      background=[('selected', '#eaf2ff')],
+                      foreground=[('selected', '#000000')])
+            tv.configure(style=style_name)
+            # Detect dark vs light background and choose zebra colors
+            def _is_dark_color(hex_or_name: str) -> bool:
+                try:
+                    rgb = tv.winfo_rgb(hex_or_name)
+                    r, g, b = rgb[0] / 65535.0, rgb[1] / 65535.0, rgb[2] / 65535.0
+                    luma = 0.2126 * r + 0.7152 * g + 0.0722 * b
+                    return luma < 0.5
+                except Exception:
+                    return False
+            base_bg = style.lookup("Treeview", "background") or style.lookup(style_name, "background") or "#ffffff"
+            dark = _is_dark_color(base_bg)
+            if dark:
+                odd_bg, even_bg, fg = "#2b2b2b", "#1f1f1f", "#e6e6e6"
+            else:
+                odd_bg, even_bg, fg = "#f6f6f6", "#ffffff", "#000000"
+            tv.tag_configure("odd", background=odd_bg, foreground=fg)
+            tv.tag_configure("even", background=even_bg, foreground=fg)
+
+            # Custom indicator images for better dark-mode visibility
+            def _mk_triangle(direction: str, size: int, color: str, bg: str = ""):
+                img = tk.PhotoImage(width=size, height=size)
+                if bg:
+                    img.put(bg, to=(0, 0, size, size))
+                c = size // 2
+                if direction == 'right':
+                    for x in range(size):
+                        half = max(0, (x * c) // max(1, size - 1))
+                        y0, y1 = c - half, c + half
+                        for y in range(max(0, y0), min(size, y1 + 1)):
+                            img.put(color, to=(x, y))
+                else:
+                    for y in range(size):
+                        half = max(0, (y * c) // max(1, size - 1))
+                        x0, x1 = c - half, c + half
+                        for x in range(max(0, x0), min(size, x1 + 1)):
+                            img.put(color, to=(x, y))
+                return img
+            try:
+                ind_color = fg if dark else "#333333"
+                bg_color = even_bg
+                collapsed_img = _mk_triangle('right', 10, ind_color, bg_color)
+                expanded_img = _mk_triangle('down', 10, ind_color, bg_color)
+                win.lwf_indicator_images = (collapsed_img, expanded_img)  # keep refs
+                elem_name = 'LwfmIndicator'
+                try:
+                    style.element_create(elem_name, 'image', collapsed_img, ('open', expanded_img))
+                except Exception:
+                    pass
+                try:
+                    base_layout = style.layout('Treeview.Item')
+                    def _replace_indicator(spec):
+                        new = []
+                        for child in spec:
+                            elem = child[0]
+                            opts_child = child[1]
+                            if isinstance(elem, str) and elem.endswith('.indicator'):
+                                new.append((elem_name, opts_child))
+                            elif isinstance(opts_child, dict) and 'children' in opts_child:
+                                opts_child = {**opts_child, 'children': _replace_indicator(opts_child['children'])}
+                                new.append((elem, opts_child))
+                            else:
+                                new.append(child)
+                        return new
+                    style.layout('Treeview.Item', _replace_indicator(base_layout))
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        # Expand/Collapse all
+        def _open_all(item):
+            try:
+                tv.item(item, open=True)
+                for ch in tv.get_children(item):
+                    _open_all(ch)
+            except Exception:
+                pass
+        def _close_all(item):
+            try:
+                for ch in tv.get_children(item):
+                    _close_all(ch)
+                tv.item(item, open=False)
+            except Exception:
+                pass
+        def expand_all():
+            for r in tv.get_children(""):
+                _open_all(r)
+        def collapse_all():
+            for r in tv.get_children(""):
+                _close_all(r)
+        ttk.Button(tree_toolbar, text="Expand All", command=expand_all).pack(side=tk.LEFT)
+        ttk.Button(tree_toolbar, text="Collapse All", command=collapse_all).pack(side=tk.LEFT, padx=(6,0))
 
         # Status and actions
         bottom = ttk.Frame(win)
@@ -424,8 +404,12 @@ class LwfmGui(tk.Tk):
             if not results:
                 status.set("No results")
                 return
-            root_label = group_fields[0] if group_fields else "Metasheets"
-            root = tv.insert("", tk.END, text=root_label, values=(root_label,))
+            row_index = 0
+            def _ins(parent, text, values):
+                nonlocal row_index
+                tag = "odd" if (row_index % 2) else "even"
+                row_index += 1
+                return tv.insert(parent, tk.END, text=text, values=values, tags=(tag,))
 
             from collections import defaultdict
             def make_tree():
@@ -453,24 +437,24 @@ class LwfmGui(tk.Tk):
                     for p in prefix:
                         node = node[p]
                     for val in sorted(node.keys(), key=str):
-                        iid = tv.insert(parent, tk.END, text=str(val), values=(str(val),))
+                        label = f"📁 {group_fields[depth]}: {val}"
+                        iid = _ins(parent, label, ("Folder",))
                         insert_children(iid, depth+1, prefix + [val])
                 else:
                     items = buckets.get(tuple(prefix), [])
                     for ms in items:
                         label = (ms.getProps() or {}).get("_localPath") or (ms.getProps() or {}).get("_siteObjPath") or ms.getSheetId()
-                        iid = tv.insert(parent, tk.END, text=str(label), values=(str(label),))
+                        iid = _ins(parent, f"📄 {label}", ("File",))
                         leaf_by_iid[iid] = ms
 
             if group_fields:
-                insert_children(root, 0, [])
+                insert_children("", 0, [])
             else:
                 for ms in results:
                     label = (ms.getProps() or {}).get("_localPath") or (ms.getProps() or {}).get("_siteObjPath") or ms.getSheetId()
-                    iid = tv.insert(root, tk.END, text=str(label), values=(str(label),))
+                    iid = _ins("", f"📄 {label}", ("File",))
                     leaf_by_iid[iid] = ms
 
-            tv.item(root, open=True)
             status.set(f"Results: {len(results)} metasheets")
 
         def on_click(event):
@@ -507,35 +491,57 @@ class LwfmGui(tk.Tk):
                 for n in field_names:
                     avail.insert(tk.END, n)
 
+            used_fields = set([k for (k, _) in (must_all + must_any + must_not)])
             results: List[Metasheet] = []
             for ms in all_sheets:
                 try:
+                    if used_fields and not bool(show_nulls_var.get()):
+                        props = ms.getProps() or {}
+                        if any((props.get(k) is None) or (isinstance(props.get(k), str) and props.get(k).strip() == "") for k in used_fields):
+                            continue
                     if sheet_matches(ms, must_all, must_any, must_not, case_sensitive):
                         results.append(ms)
                 except Exception:
                     continue
             if not group_fields:
                 group_fields = ["_workflowId", "_jobId"]
+                try:
+                    chosen.delete(0, tk.END)
+                    for gf in group_fields:
+                        chosen.insert(tk.END, gf)
+                except Exception:
+                    pass
             rebuild_tree(results)
 
+        # Wire the right-side Search button now that do_search exists
+        try:
+            search_btn_opts.configure(command=do_search)
+        except Exception:
+            pass
+
+        # Buttons at bottom (search + close)
         ttk.Button(bottom, text="Search", command=do_search).pack(side=tk.RIGHT, padx=6, pady=6)
         ttk.Button(bottom, text="Close", command=win.destroy).pack(side=tk.RIGHT, padx=6, pady=6)
 
+        # Allow Enter/Return to trigger Search
+        try:
+            win.bind("<Return>", lambda e: do_search())
+        except Exception:
+            pass
+
+        # Bootstrap load of fields and update UI pickers
         def bootstrap_fields_async():
             def worker():
                 load_all_fields_and_data()
                 def done():
-                    # Populate group-by available list
                     avail.delete(0, tk.END)
                     for n in field_names:
                         avail.insert(tk.END, n)
-                    # Update comboboxes in all query rows with the loaded field names
                     try:
                         for r in (all_rows + any_rows + not_rows):
                             cb = r.get("field")
                             if cb:
                                 cb.configure(values=field_names)
-                                # leave selection empty to force explicit choice
                     except Exception:
                         pass
                 try:
@@ -545,7 +551,6 @@ class LwfmGui(tk.Tk):
             threading.Thread(target=worker, daemon=True).start()
 
         bootstrap_fields_async()
-
 
     def _show_metasheet_window(self, ms: Metasheet):
         win = tk.Toplevel(self)
@@ -720,6 +725,13 @@ class LwfmGui(tk.Tk):
 
         for iid in self.tree.get_children():
             self.tree.delete(iid)
+        # Color tags for status rows
+        try:
+            self.tree.tag_configure("status-bad", foreground="#d32f2f")   # failed/cancelled
+            self.tree.tag_configure("status-good", foreground="#2e7d32")  # complete
+            # info/other left default
+        except Exception:
+            pass
         for r in rows:
             files_label = "[ Files ]" if r.get("has_files") else ""
             # Determine tag by status
@@ -768,6 +780,9 @@ class LwfmGui(tk.Tk):
             elif colname in ("job_id", "status"):
                 if job_id:
                     self.show_job_status(job_id, workflow_id)
+            elif colname == "workflow_id":
+                if workflow_id:
+                    self.view_workflow(workflow_id)
         except Exception:
             pass
 
@@ -798,12 +813,330 @@ class LwfmGui(tk.Tk):
     def show_job_status(self, job_id: str, _workflow_id: str):
         def worker():
             try:
-                # Fetch full history for this job directly
                 filtered = lwfManager.getAllStatus(job_id) or []
                 filtered.sort(key=lambda s: s.getEmitTime().timestamp())
             except Exception:
                 filtered = []
             self.after(0, lambda: self._show_status_window(job_id, filtered))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def view_workflow(self, workflow_id: str):
+        win = tk.Toplevel(self)
+        win.title(f"Workflow {workflow_id}")
+        win.geometry("1100x680")
+
+        nb = ttk.Notebook(win)
+        nb.pack(fill=tk.BOTH, expand=True)
+
+        # --- Overview tab ---
+        tab_overview = ttk.Frame(nb)
+        nb.add(tab_overview, text="Overview")
+        ov_top = ttk.Frame(tab_overview)
+        ov_top.pack(side=tk.TOP, fill=tk.X, padx=8, pady=8)
+        name_var = tk.StringVar(value="")
+        desc_var = tk.StringVar(value="")
+        jobs_count = tk.StringVar(value="0")
+        data_count = tk.StringVar(value="0")
+        wf_id_var = tk.StringVar(value=workflow_id)
+        ttk.Label(ov_top, text="Name:").grid(row=0, column=0, sticky=tk.W)
+        ttk.Label(ov_top, textvariable=name_var).grid(row=0, column=1, sticky=tk.W, padx=(4, 16))
+        ttk.Label(ov_top, text="Description:").grid(row=1, column=0, sticky=tk.W)
+        ttk.Label(ov_top, textvariable=desc_var).grid(row=1, column=1, sticky=tk.W, padx=(4, 16))
+        ttk.Label(ov_top, text="Workflow ID:").grid(row=2, column=0, sticky=tk.W)
+        ttk.Entry(ov_top, textvariable=wf_id_var, width=60, state="readonly").grid(row=2, column=1, sticky=tk.W, padx=(4, 16))
+        ttk.Label(ov_top, text="Jobs:").grid(row=0, column=2, sticky=tk.W)
+        ttk.Label(ov_top, textvariable=jobs_count).grid(row=0, column=3, sticky=tk.W, padx=(4, 16))
+        ttk.Label(ov_top, text="Data items:").grid(row=1, column=2, sticky=tk.W)
+        ttk.Label(ov_top, textvariable=data_count).grid(row=1, column=3, sticky=tk.W, padx=(4, 16))
+        # Properties viewer
+        ttk.Label(tab_overview, text="Properties:").pack(side=tk.TOP, anchor=tk.W, padx=8)
+        props_text = tk.Text(tab_overview, height=10, wrap=tk.NONE)
+        px = ttk.Scrollbar(tab_overview, orient=tk.HORIZONTAL, command=props_text.xview)
+        py = ttk.Scrollbar(tab_overview, orient=tk.VERTICAL, command=props_text.yview)
+        props_text.configure(xscrollcommand=px.set, yscrollcommand=py.set, state=tk.DISABLED)
+        props_frame = ttk.Frame(tab_overview)
+        props_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=(0,8))
+        props_text.pack(in_=props_frame, side=tk.LEFT, fill=tk.BOTH, expand=True)
+        py.pack(in_=props_frame, side=tk.RIGHT, fill=tk.Y)
+        px.pack(in_=props_frame, side=tk.BOTTOM, fill=tk.X)
+
+        # --- Jobs tab ---
+        tab_jobs = ttk.Frame(nb)
+        nb.add(tab_jobs, text="Jobs")
+        cols = ("job_id", "status", "native", "last_update", "files", "actions")
+        tv_jobs = ttk.Treeview(tab_jobs, columns=cols, show="headings", selectmode="browse")
+        for cid, w in zip(cols, (260, 120, 180, 180, 80, 120)):
+            tv_jobs.heading(cid, text=cid.replace("_", " ").title())
+            tv_jobs.column(cid, width=w, anchor=(tk.CENTER if cid in ("files", "actions") else tk.W))
+        tv_jobs.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(8,0), pady=8)
+        ysb_jobs = ttk.Scrollbar(tab_jobs, orient=tk.VERTICAL, command=tv_jobs.yview)
+        tv_jobs.configure(yscrollcommand=ysb_jobs.set)
+        ysb_jobs.pack(side=tk.RIGHT, fill=tk.Y, padx=(0,8), pady=8)
+        try:
+            tv_jobs.tag_configure("status-bad", foreground="#d32f2f")
+            tv_jobs.tag_configure("status-good", foreground="#2e7d32")
+        except Exception:
+            pass
+
+        details_jobs = tk.Text(tab_jobs, height=10, wrap=tk.WORD)
+        details_jobs.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=(0,8))
+
+        # --- Data tab ---
+        tab_data = ttk.Frame(nb)
+        nb.add(tab_data, text="Data")
+        data_cols = ("direction", "local", "siteobj")
+        tv_data = ttk.Treeview(tab_data, columns=data_cols, show="headings")
+        tv_data.heading("direction", text="Dir")
+        tv_data.heading("local", text="Local Path")
+        tv_data.heading("siteobj", text="Site Object")
+        tv_data.column("direction", width=80)
+        tv_data.column("local", width=460)
+        tv_data.column("siteobj", width=460)
+        tv_data.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(8,0), pady=8)
+        ysb_data = ttk.Scrollbar(tab_data, orient=tk.VERTICAL, command=tv_data.yview)
+        tv_data.configure(yscrollcommand=ysb_data.set)
+        ysb_data.pack(side=tk.RIGHT, fill=tk.Y, padx=(0,8), pady=8)
+
+        # --- Graph tab ---
+        tab_graph = ttk.Frame(nb)
+        nb.add(tab_graph, text="Graph")
+        canvas = tk.Canvas(tab_graph, background="#ffffff")
+        canvas.pack(fill=tk.BOTH, expand=True)
+
+        jobs_map: Dict[str, List[JobStatus]] = {}
+        metas: List[Metasheet] = []
+
+        def jobs_rebuild():
+            tv_jobs.delete(*tv_jobs.get_children())
+            for job_id, statuses in jobs_map.items():
+                latest = None
+                if statuses:
+                    latest = max(statuses, key=lambda s: s.getEmitTime())
+                stat = (latest.getStatus() if latest else "") or ""
+                up = stat.upper()
+                tag = ()
+                if up in (JobStatus.FAILED, JobStatus.CANCELLED):
+                    tag = ("status-bad",)
+                elif up == JobStatus.COMPLETE:
+                    tag = ("status-good",)
+                last_time = latest.getEmitTime().strftime('%Y-%m-%d %H:%M:%S') if latest else ""
+                nat = latest.getNativeStatusStr() if latest else ""
+                tv_jobs.insert("", tk.END, values=(job_id, stat, nat, last_time, "[ Files ]", "[ Status ]"), tags=tag)
+
+        def data_rebuild():
+            tv_data.delete(*tv_data.get_children())
+            for ms in metas:
+                p = ms.getProps() or {}
+                tv_data.insert("", tk.END, values=(p.get("_direction", ""), p.get("_localPath", ""), p.get("_siteObjPath", "")))
+
+        def on_jobs_click(event):
+            region = tv_jobs.identify("region", event.x, event.y)
+            if region != "cell":
+                return
+            row_id = tv_jobs.identify_row(event.y)
+            col_id = tv_jobs.identify_column(event.x)
+            if not row_id or not col_id:
+                return
+            idx = int(col_id.replace('#', '')) - 1
+            vals = tv_jobs.item(row_id, "values") or []
+            if not vals:
+                return
+            job_id = vals[0]
+            if cols[idx] == "files":
+                self.show_files(job_id)
+            elif cols[idx] == "actions":
+                self.show_job_status(job_id, workflow_id)
+            else:
+                ss = jobs_map.get(job_id, [])
+                try:
+                    details_jobs.delete(1.0, tk.END)
+                    for s in ss:
+                        t = s.getEmitTime().strftime('%Y-%m-%d %H:%M:%S')
+                        details_jobs.insert(tk.END, f"[{t}] {s.getStatus()} {s.getNativeStatusStr() or ''}\n")
+                    details_jobs.see(tk.END)
+                except Exception:
+                    pass
+        tv_jobs.bind("<Button-1>", on_jobs_click)
+
+        def on_data_dbl(_e):
+            sel = tv_data.selection()
+            if not sel:
+                return
+            idx = tv_data.index(sel[0])
+            if 0 <= idx < len(metas):
+                self._show_metasheet_window(metas[idx])
+        tv_data.bind("<Double-1>", on_data_dbl)
+
+        def draw_graph():
+            canvas.delete("all")
+            # Build a bipartite graph of Job nodes and Data nodes and draw directional edges
+            # Coalesce data nodes by site path if present else by local path
+            # Nodes
+            job_nodes = list(jobs_map.keys())
+            # Build data nodes from metasheets
+            data_nodes: Dict[str, Dict[str, Any]] = {}  # key -> props summary
+            edges: List[tuple] = []  # (src_id, dst_id, kind) where ids include prefix 'J:' or 'D:'
+            for ms in metas:
+                p = ms.getProps() or {}
+                key = p.get("_siteObjPath") or p.get("_localPath") or ms.getSheetId()
+                key = str(key)
+                if key not in data_nodes:
+                    data_nodes[key] = {
+                        "site": p.get("_siteName", ""),
+                        "path": key,
+                    }
+                direction = (p.get("_direction") or "").lower()
+                job_id = str(p.get("_jobId") or "")
+                if not job_id:
+                    continue
+                if direction == "put":
+                    edges.append((f"J:{job_id}", f"D:{key}", "put"))
+                elif direction == "get":
+                    edges.append((f"D:{key}", f"J:{job_id}", "get"))
+            # Add parent relations between jobs (dashed)
+            for job_id, sts in jobs_map.items():
+                if not sts:
+                    continue
+                latest = max(sts, key=lambda s: s.getEmitTime())
+                try:
+                    ctx = latest.getJobContext()
+                    parent = ctx.getParentJobId()
+                    if parent and parent in job_nodes:
+                        edges.append((f"J:{parent}", f"J:{job_id}", "flow"))
+                except Exception:
+                    pass
+            # Layout levels alternating for bipartite portions
+            from collections import defaultdict, deque
+            children = defaultdict(list)
+            indeg = defaultdict(int)
+            nodes_all = set([f"J:{j}" for j in job_nodes]) | set([f"D:{d}" for d in data_nodes.keys()])
+            for a, b, _k in edges:
+                children[a].append(b)
+                indeg[b] += 1
+                nodes_all.add(a); nodes_all.add(b)
+            roots = [n for n in nodes_all if indeg[n] == 0]
+            level = {n: 0 for n in roots}
+            dq = deque(roots)
+            while dq:
+                u = dq.popleft()
+                for v in children.get(u, []):
+                    if v not in level:
+                        level[v] = level[u] + 1
+                        dq.append(v)
+            for n in list(nodes_all):
+                level.setdefault(n, 0)
+            # Group
+            by_lvl: Dict[int, List[str]] = {}
+            for n, l in level.items():
+                by_lvl.setdefault(l, []).append(n)
+            max_lvl = max(by_lvl.keys()) if by_lvl else 0
+            W = max(canvas.winfo_width(), 1000)
+            H = max(canvas.winfo_height(), 560)
+            vgap = max(100, H // (max_lvl + 2))
+            node_pos: Dict[str, tuple] = {}
+            for l in range(0, max_lvl + 1):
+                row = by_lvl.get(l, [])
+                count = max(1, len(row))
+                hgap = max(120, W // (count + 1))
+                y = (l + 1) * vgap
+                for i, nid in enumerate(sorted(row)):
+                    x = (i + 1) * hgap
+                    node_pos[nid] = (x, y)
+            # Draw edges
+            for a, b, kind in edges:
+                x1, y1 = node_pos.get(a, (50, 50))
+                x2, y2 = node_pos.get(b, (50, 50))
+                color = "#6c6c6c"
+                dash = None
+                if kind == "put":
+                    color = "#1565c0"  # blue
+                elif kind == "get":
+                    color = "#ef6c00"  # orange
+                elif kind == "flow":
+                    color = "#9e9e9e"; dash = (3, 3)
+                canvas.create_line(x1, y1, x2, y2, arrow=tk.LAST, fill=color, dash=dash)
+            # Draw nodes
+            for nid, (x, y) in node_pos.items():
+                if nid.startswith("J:"):
+                    jid = nid[2:]
+                    # color by status
+                    latest = None
+                    sts = jobs_map.get(jid, [])
+                    if sts:
+                        latest = max(sts, key=lambda s: s.getEmitTime())
+                    stat = ((latest.getStatus() if latest else "") or "").upper()
+                    fill = "#f0f7ff"
+                    outline = "#3a7bd5"
+                    if stat in (JobStatus.FAILED, JobStatus.CANCELLED):
+                        fill, outline = "#ffebee", "#d32f2f"
+                    elif stat == JobStatus.COMPLETE:
+                        fill, outline = "#e8f5e9", "#2e7d32"
+                    label = jid[:10] + ("…" if len(jid) > 10 else "")
+                    canvas.create_rectangle(x-60, y-18, x+60, y+18, fill=fill, outline=outline, width=2)
+                    canvas.create_text(x, y, text=label)
+                else:
+                    key = nid[2:]
+                    info = data_nodes.get(key, {})
+                    label = (info.get("path") or key)
+                    short = str(label)
+                    if len(short) > 22:
+                        short = "…" + short[-21:]
+                    canvas.create_oval(x-14, y-14, x+14, y+14, fill="#fff8e1", outline="#ef6c00", width=2)
+                    canvas.create_text(x, y-24, text=short, anchor=tk.S)
+            # Optional: legend
+            canvas.create_rectangle(10, 10, 230, 82, fill="#ffffff", outline="#cccccc")
+            canvas.create_line(20, 30, 40, 30, arrow=tk.LAST, fill="#1565c0")
+            canvas.create_text(50, 30, text="put")
+            canvas.create_line(20, 50, 40, 50, arrow=tk.LAST, fill="#ef6c00")
+            canvas.create_text(50, 50, text="get")
+            canvas.create_line(20, 70, 40, 70, arrow=tk.LAST, fill="#9e9e9e", dash=(3,3))
+            canvas.create_text(75, 70, text="job flow")
+
+        # Redraw graph on resize
+        def _on_cfg(_e):
+            try:
+                draw_graph()
+            except Exception:
+                pass
+        canvas.bind("<Configure>", _on_cfg)
+
+        def worker():
+            try:
+                wf = lwfManager.getWorkflow(workflow_id)
+                if wf:
+                    try:
+                        name_var.set(wf.getName() or "")
+                        desc_var.set(wf.getDescription() or "")
+                        # properties
+                        props = wf.getProps() or {}
+                        props_text.configure(state=tk.NORMAL)
+                        props_text.delete(1.0, tk.END)
+                        props_text.insert(tk.END, json.dumps(props, indent=2, sort_keys=True))
+                        props_text.configure(state=tk.DISABLED)
+                    except Exception:
+                        pass
+                all_stats = lwfManager.getAllJobStatusesForWorkflow(workflow_id) or []
+                jmap: Dict[str, List[JobStatus]] = {}
+                for s in all_stats:
+                    jid = s.getJobContext().getJobId()
+                    jmap.setdefault(jid, []).append(s)
+                for lst in jmap.values():
+                    lst.sort(key=lambda x: x.getEmitTime())
+                ms = lwfManager.find({"_workflowId": workflow_id}) or []
+            except Exception:
+                jmap = {}
+                ms = []
+            def done():
+                nonlocal jobs_map, metas
+                jobs_map = jmap
+                metas = ms
+                jobs_count.set(str(len(jobs_map)))
+                data_count.set(str(len(metas)))
+                jobs_rebuild()
+                data_rebuild()
+                draw_graph()
+            self.after(0, done)
+
         threading.Thread(target=worker, daemon=True).start()
 
     def _show_status_window(self, job_id: str, statuses: List[JobStatus]):
@@ -1083,7 +1416,6 @@ class LwfmGui(tk.Tk):
             pass
         win.after(1000, poll)
 
-
     def view_events(self):
         """Open a panel listing active workflow events with filtering, sorting, and unset."""
         win = tk.Toplevel(self)
@@ -1304,7 +1636,7 @@ class LwfmGui(tk.Tk):
         refresh(load=True)
 
         # Auto-refresh loop tied to the main interval; cancels on window close
-        timer_id = None
+        timer_id: Optional[str] = None
         closed = False
 
         def get_interval_ms() -> int:
