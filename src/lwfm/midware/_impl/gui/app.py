@@ -11,8 +11,6 @@ import threading
 import os
 import time
 import json
-import math
-import random
 from datetime import datetime
 from typing import List, Dict, Any
 
@@ -102,7 +100,6 @@ class LwfmGui(tk.Tk):
         ctrl.pack(side=tk.TOP, fill=tk.X, padx=8, pady=6)
 
         ttk.Label(ctrl, text="Filter:").pack(side=tk.LEFT)
-        # Make this a bit narrower so the interval field is fully visible
         self.filter_entry = ttk.Entry(ctrl, width=24)
         self.filter_entry.pack(side=tk.LEFT, padx=(4, 10))
         self.filter_entry.bind("<Return>", lambda e: self.rebuild_table())
@@ -142,8 +139,6 @@ class LwfmGui(tk.Tk):
         self.viewevents_btn = ttk.Button(ctrl, text="View Events", command=self.view_events)
         self.viewevents_btn.pack(side=tk.LEFT, padx=(10, 0))
 
-    # Interval control moved to status bar
-
         # Table frame containing tree and scrollbar
         table = ttk.Frame(self)
         table.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=6)
@@ -161,7 +156,6 @@ class LwfmGui(tk.Tk):
         }
         for cid in cols:
             self.tree.heading(cid, text=headings[cid], command=lambda c=cid: self.on_sort(c))
-            # Make workflow smaller, time larger
             if cid == "workflow_id":
                 width = 140
             elif cid == "last_update":
@@ -176,32 +170,32 @@ class LwfmGui(tk.Tk):
             else:
                 self.tree.column(cid, width=width, anchor=tk.W)
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        # Color tags for statuses
         try:
-            self.tree.tag_configure("status-bad", foreground="#d32f2f")    # red
-            self.tree.tag_configure("status-good", foreground="#2e7d32")   # green
-            self.tree.tag_configure("status-info", foreground="#1565c0")   # blue
+            self.tree.tag_configure("status-bad", foreground="#d32f2f")
+            self.tree.tag_configure("status-good", foreground="#2e7d32")
+            self.tree.tag_configure("status-info", foreground="#1565c0")
         except Exception:
             pass
         self.tree.bind("<Button-1>", self.on_tree_click)
         self.tree.bind("<Motion>", self.on_tree_motion)
+
         # Scrollbar
         ysb = ttk.Scrollbar(table, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=ysb.set)
         ysb.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Status bar with refresh-interval control
+        # Status bar with refresh-interval control and Search Data button
         self.status_var = tk.StringVar(value="Ready")
         sbar = ttk.Frame(self)
         sbar.pack(side=tk.BOTTOM, fill=tk.X)
-        left = ttk.Label(sbar, textvariable=self.status_var, anchor=tk.W)
-        left.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 4))
+        ttk.Label(sbar, textvariable=self.status_var, anchor=tk.W).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 4))
         right = ttk.Frame(sbar)
         right.pack(side=tk.RIGHT)
         ttk.Label(right, text="Every (s):").pack(side=tk.LEFT, padx=(4, 2))
         self.interval_entry = ttk.Entry(right, width=5)
         self.interval_entry.insert(0, str(self.refresh_interval))
         self.interval_entry.pack(side=tk.LEFT, padx=(0, 6))
+        ttk.Button(right, text="Search Data", command=self.view_metasheets).pack(side=tk.LEFT, padx=(8, 6))
 
     def stop_server_async(self):
         if not messagebox.askyesno("Confirm", "Stop the lwfm server for this machine?\nThis will terminate the background middleware until it is started again."):
@@ -242,439 +236,316 @@ class LwfmGui(tk.Tk):
             self.model.sort_asc = True
         self.rebuild_table()
 
-    def on_tree_click(self, event):
-        region = self.tree.identify("region", event.x, event.y)
-        if region != "cell":
-            return
-        row_id = self.tree.identify_row(event.y)
-        col_id = self.tree.identify_column(event.x)
-        if not row_id or not col_id:
-            return
-        col_index = int(col_id.replace('#', '')) - 1
-        cols = ("job_id", "site", "status", "workflow_id", "last_update", "files")
-        col_name = cols[col_index]
-        row_vals = self.tree.item(row_id, "values")
-        if col_name == "job_id":
-            self.show_job_status(job_id=row_vals[0], _workflow_id=row_vals[3])
-            return
-        if col_name == "workflow_id":
-            self.show_workflow_details(workflow_id=row_vals[3])
-            return
-        if col_name not in ("files",):
-            return
-        job_id = row_vals[0]
-        if row_vals[5].strip():
-            self.show_files(job_id)
-
-    def on_tree_motion(self, event):
-        region = self.tree.identify("region", event.x, event.y)
-        if region != "cell":
-            self.tree.configure(cursor="")
-            return
-        col_id = self.tree.identify_column(event.x)
-        try:
-            col_index = int(col_id.replace('#', '')) - 1
-        except Exception:
-            self.tree.configure(cursor="")
-            return
-        # Make Job ID (0), Workflow (3) and Files (5) show hand cursor
-        if col_index in (0, 3, 5):
-            if col_index == 5:
-                row_id = self.tree.identify_row(event.y)
-                if row_id:
-                    vals = self.tree.item(row_id, "values")
-                    if not vals[5].strip():
-                        self.tree.configure(cursor="")
-                        return
-            self.tree.configure(cursor="hand2")
-        else:
-            self.tree.configure(cursor="")
-
-    def show_workflow_details(self, workflow_id: str):
-        def worker():
-            try:
-                wf = lwfManager.getWorkflow(workflow_id)
-            except Exception:
-                wf = None
-            try:
-                jobs = lwfManager.getJobStatusesForWorkflow(workflow_id) or []
-            except Exception:
-                jobs = []
-            try:
-                metas = lwfManager.find({"_workflowId": workflow_id}) or []
-            except Exception:
-                metas = []
-            self.after(0, lambda: self._show_workflow_window(workflow_id, wf, jobs, metas))
-        threading.Thread(target=worker, daemon=True).start()
-
-    def _show_workflow_window(self, workflow_id: str, workflow, jobs: List[JobStatus], metas: List[Metasheet]):
+    def view_metasheets(self):
+        """Open a panel to search metasheets with AND/OR/NOT and show results in a grouped tree."""
         win = tk.Toplevel(self)
-        title = f"Workflow {workflow_id}"
-        try:
-            name = workflow.getName() if workflow else None
-            if name:
-                title = f"Workflow {name} ({workflow_id})"
-        except Exception:
-            pass
-        win.title(title)
-        win.geometry("900x600")
+        win.title("Search Metasheets")
+        win.geometry("1100x650")
 
-        nb = ttk.Notebook(win)
-        nb.pack(fill=tk.BOTH, expand=True)
+        # State
+        all_sheets: List[Metasheet] = []
+        field_names: List[str] = []
+        group_fields: List[str] = []  # f1, f2, f3 order
+        leaf_by_iid: Dict[str, Metasheet] = {}
 
-        # Properties tab
-        props_frame = ttk.Frame(nb)
-        nb.add(props_frame, text="Properties")
-        props_tree = ttk.Treeview(props_frame, columns=("key", "value"), show="headings")
-        props_tree.heading("key", text="Key")
-        props_tree.heading("value", text="Value")
-        props_tree.column("key", width=200)
-        props_tree.column("value", width=600)
-        props_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        ysb1 = ttk.Scrollbar(props_frame, orient=tk.VERTICAL, command=props_tree.yview)
-        props_tree.configure(yscrollcommand=ysb1.set)
-        ysb1.pack(side=tk.RIGHT, fill=tk.Y)
+        # Helpers
+        def wildcard_to_regex(pat: str) -> str:
+            import re as _re
+            s = "" if pat is None else str(pat)
+            parts = []
+            for ch in s:
+                if ch == "*": parts.append(".*")
+                elif ch == "?": parts.append(".")
+                else: parts.append(_re.escape(ch))
+            return "".join(parts)
 
-        # Populate properties
-        try:
-            kvs = []
-            if workflow:
-                kvs.append(("workflow_id", workflow.getWorkflowId()))
-                kvs.append(("name", workflow.getName() or ""))
-                kvs.append(("description", workflow.getDescription() or ""))
-                for k, v in (workflow.getProps() or {}).items():
-                    kvs.append((str(k), str(v)))
-            else:
-                kvs.append(("error", "Workflow not found"))
-            for k, v in kvs:
-                props_tree.insert("", tk.END, values=(k, v))
-        except Exception:
-            pass
-
-        # Jobs tab
-        jobs_frame = ttk.Frame(nb)
-        nb.add(jobs_frame, text="Jobs")
-        jobs_cols = ("job_id", "site", "status", "time")
-        jobs_tree = ttk.Treeview(jobs_frame, columns=jobs_cols, show="headings")
-        for cid, label, w in (
-            ("job_id", "Job ID", 220),
-            ("site", "Site", 120),
-            ("status", "Status", 140),
-            ("time", "Last Update", 220),
-        ):
-            jobs_tree.heading(cid, text=label)
-            jobs_tree.column(cid, width=w)
-        jobs_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        ysb2 = ttk.Scrollbar(jobs_frame, orient=tk.VERTICAL, command=jobs_tree.yview)
-        jobs_tree.configure(yscrollcommand=ysb2.set)
-        ysb2.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Populate jobs with latest statuses already provided
-        try:
-            for js in jobs:
-                ctx = js.getJobContext()
-                t = js.getEmitTime()
-                time_str = datetime.fromtimestamp(t.timestamp()).strftime('%Y-%m-%d %H:%M:%S')
-                jobs_tree.insert("", tk.END, values=(ctx.getJobId(), ctx.getSiteName(), js.getStatus(), time_str))
-        except Exception:
-            pass
-
-        # Data tab
-        data_frame = ttk.Frame(nb)
-        nb.add(data_frame, text="Data")
-
-        # Top split: list + scrollbar
-        df_top = ttk.Frame(data_frame)
-        df_top.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-        data_cols = ("direction", "local", "siteobj")
-        data_tree = ttk.Treeview(df_top, columns=data_cols, show="headings")
-        data_tree.heading("direction", text="Dir")
-        data_tree.heading("local", text="Local Path")
-        data_tree.heading("siteobj", text="Site Object")
-        data_tree.column("direction", width=80)
-        data_tree.column("local", width=360)
-        data_tree.column("siteobj", width=360)
-        data_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        ysb3 = ttk.Scrollbar(df_top, orient=tk.VERTICAL, command=data_tree.yview)
-        data_tree.configure(yscrollcommand=ysb3.set)
-        ysb3.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Bottom: details text showing full metasheet props
-        df_bottom = ttk.Frame(data_frame)
-        df_bottom.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=False)
-        ttk.Label(df_bottom, text="Metasheet:").pack(side=tk.TOP, anchor=tk.W)
-        dtext = tk.Text(df_bottom, height=10, wrap=tk.NONE)
-        dxsb = ttk.Scrollbar(df_bottom, orient=tk.HORIZONTAL, command=dtext.xview)
-        dysb = ttk.Scrollbar(df_bottom, orient=tk.VERTICAL, command=dtext.yview)
-        dtext.configure(xscrollcommand=dxsb.set, yscrollcommand=dysb.set)
-        dtext.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        dysb.pack(side=tk.RIGHT, fill=tk.Y)
-        dxsb.pack(side=tk.BOTTOM, fill=tk.X)
-
-        # Populate metasheets and map to details
-        data_info_by_iid = {}
-        try:
-            for ms in metas:
-                p = ms.getProps() or {}
-                iid = data_tree.insert("", tk.END, values=(p.get("_direction", ""), p.get("_localPath", ""), p.get("_siteObjPath", "")))
+        def load_all_fields_and_data():
+            nonlocal all_sheets, field_names
+            try:
+                all_sheets = lwfManager.find({}) or []
+            except Exception:
+                all_sheets = []
+            names = set()
+            for ms in all_sheets:
                 try:
-                    data_info_by_iid[iid] = json.dumps(p, indent=2, sort_keys=True)
+                    for k in (ms.getProps() or {}).keys():
+                        names.add(str(k))
                 except Exception:
-                    data_info_by_iid[iid] = str(p)
-        except Exception:
-            pass
+                    continue
+            preferred = ["_workflowId", "_jobId", "_siteName", "_direction", "_localPath", "_siteObjPath", "_sheetId"]
+            rest = sorted([n for n in names if n not in preferred])
+            field_names = [n for n in preferred if n in names] + rest
 
-        def on_data_select(_event):
-            sel = data_tree.selection()
+        def sheet_matches(ms: Metasheet, must_all: List[tuple], must_any: List[tuple], must_not: List[tuple], case_sensitive: bool) -> bool:
+            import re as _re
+            props = ms.getProps() or {}
+            def getv(k: str) -> str:
+                v = props.get(k)
+                return "" if v is None else str(v)
+            flags = 0 if case_sensitive else _re.IGNORECASE
+            for k, regex in must_all:
+                if not _re.search(regex, getv(k), flags=flags):
+                    return False
+            for k, regex in must_not:
+                if _re.search(regex, getv(k), flags=flags):
+                    return False
+            if must_any:
+                if not any(_re.search(regex, getv(k), flags=flags) for k, regex in must_any):
+                    return False
+            return True
+
+        # Layout: query builder
+        top = ttk.Frame(win)
+        top.pack(side=tk.TOP, fill=tk.X, padx=8, pady=6)
+        qframe = ttk.Frame(top)
+        qframe.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        case_var = tk.BooleanVar(value=False)
+
+        def make_clause_block(parent, title: str):
+            frm = ttk.Labelframe(parent, text=title)
+            frm.pack(side=tk.TOP, fill=tk.X, padx=(0, 10), pady=(0, 6))
+            rows: List[Dict[str, Any]] = []
+
+            def add_row():
+                row = ttk.Frame(frm)
+                row.pack(side=tk.TOP, fill=tk.X, pady=2)
+                field_cb = ttk.Combobox(row, values=field_names, width=24)
+                field_cb.pack(side=tk.LEFT, padx=(0, 6))
+                val_ent = ttk.Entry(row, width=28)
+                val_ent.pack(side=tk.LEFT, padx=(0, 6))
+
+                def on_del():
+                    try:
+                        rows.remove(item)
+                    except Exception:
+                        pass
+                    row.destroy()
+
+                ttk.Button(row, text="-", width=2, command=on_del).pack(side=tk.LEFT)
+                item = {"field": field_cb, "value": val_ent}
+                rows.append(item)
+
+            btns = ttk.Frame(frm)
+            btns.pack(side=tk.TOP, anchor=tk.W)
+            ttk.Button(btns, text="+ Add", command=add_row).pack(side=tk.LEFT, pady=2)
+            add_row()
+            return rows
+
+        all_rows = make_clause_block(qframe, "Must match ALL of:")
+        any_rows = make_clause_block(qframe, "Must match ANY of:")
+        not_rows = make_clause_block(qframe, "Must NOT match:")
+
+        opts = ttk.Frame(top)
+        opts.pack(side=tk.RIGHT, anchor=tk.N)
+        ttk.Checkbutton(opts, text="Case sensitive", variable=case_var).pack(side=tk.TOP)
+        ttk.Button(opts, text="Search", command=lambda: do_search()).pack(side=tk.TOP, pady=(6, 0))
+
+        # Group-by selector
+        grp = ttk.Labelframe(win, text="Group by (order) f1, f2, f3…")
+        grp.pack(side=tk.TOP, fill=tk.X, padx=8, pady=(0, 6))
+        grp_left = ttk.Frame(grp)
+        grp_left.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Label(grp_left, text="Available fields:").pack(anchor=tk.W)
+        avail = tk.Listbox(grp_left, height=7, exportselection=False)
+        avail.pack(side=tk.LEFT, fill=tk.X)
+        grp_mid = ttk.Frame(grp)
+        grp_mid.pack(side=tk.LEFT, padx=8)
+        def add_field():
+            sel = avail.curselection()
             if not sel:
                 return
-            iid = sel[0]
-            dtext.delete(1.0, tk.END)
-            dtext.insert(tk.END, data_info_by_iid.get(iid, ""))
+            name = avail.get(sel[0])
+            if name not in group_fields:
+                group_fields.append(name)
+                chosen.insert(tk.END, name)
+        def remove_field():
+            sel = chosen.curselection()
+            if not sel:
+                return
+            idx = sel[0]
+            name = chosen.get(idx)
+            group_fields.remove(name)
+            chosen.delete(idx)
+        def move_up():
+            sel = chosen.curselection()
+            if not sel:
+                return
+            idx = sel[0]
+            if idx == 0:
+                return
+            name = chosen.get(idx)
+            chosen.delete(idx)
+            chosen.insert(idx-1, name)
+            chosen.selection_set(idx-1)
+            group_fields[:] = list(chosen.get(0, tk.END))
+        def move_down():
+            sel = chosen.curselection()
+            if not sel:
+                return
+            idx = sel[0]
+            if idx >= chosen.size()-1:
+                return
+            name = chosen.get(idx)
+            chosen.delete(idx)
+            chosen.insert(idx+1, name)
+            chosen.selection_set(idx+1)
+            group_fields[:] = list(chosen.get(0, tk.END))
+        ttk.Button(grp_mid, text=">", width=3, command=add_field).pack(pady=2)
+        ttk.Button(grp_mid, text="<", width=3, command=remove_field).pack(pady=2)
+        ttk.Button(grp_mid, text="▲", width=3, command=move_up).pack(pady=2)
+        ttk.Button(grp_mid, text="▼", width=3, command=move_down).pack(pady=2)
+        grp_right = ttk.Frame(grp)
+        grp_right.pack(side=tk.LEFT)
+        ttk.Label(grp_right, text="Chosen (f1→f2→…):").pack(anchor=tk.W)
+        chosen = tk.Listbox(grp_right, height=7, exportselection=False)
+        chosen.pack(side=tk.LEFT, fill=tk.X)
 
-        data_tree.bind("<<TreeviewSelect>>", on_data_select)
+        # Results tree
+        tree_frame = ttk.Frame(win)
+        tree_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=6)
+        tv = ttk.Treeview(tree_frame, columns=("name",), show="tree headings")
+        tv.heading("name", text="Name")
+        tv.column("name", width=700, anchor=tk.W)
+        tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        ysb = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=tv.yview)
+        tv.configure(yscrollcommand=ysb.set)
+        ysb.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Bottom controls
-        btns = ttk.Frame(win)
-        btns.pack(side=tk.BOTTOM, fill=tk.X)
-        ttk.Button(btns, text="Close", command=win.destroy).pack(side=tk.RIGHT, padx=6, pady=6)
+        # Status and actions
+        bottom = ttk.Frame(win)
+        bottom.pack(side=tk.BOTTOM, fill=tk.X)
+        status = tk.StringVar(value="")
+        ttk.Label(bottom, textvariable=status).pack(side=tk.LEFT, padx=6)
 
-        # Graph tab
-        graph_frame = ttk.Frame(nb)
-        nb.add(graph_frame, text="Graph")
-        canvas = tk.Canvas(graph_frame, background="#0f111a")
-        canvas.pack(fill=tk.BOTH, expand=True)
+        # Build tree from results
+        def rebuild_tree(results: List[Metasheet]):
+            tv.delete(*tv.get_children())
+            leaf_by_iid.clear()
+            if not results:
+                status.set("No results")
+                return
+            root_label = group_fields[0] if group_fields else "Metasheets"
+            root = tv.insert("", tk.END, text=root_label, values=(root_label,))
 
-        # Build graph data: nodes and edges
-        wf_node_id = f"wf:{workflow_id}"
-        nodes = {wf_node_id: {"type": "wf", "label": (workflow.getName() if workflow else "Workflow") or "Workflow"}}
-        job_parent = {}
-        job_nodes = set()
-        for js in jobs:
-            try:
-                ctx = js.getJobContext()
-                jid = ctx.getJobId()
-                job_nodes.add(jid)
-                job_parent[jid] = ctx.getParentJobId()
-                nodes[f"job:{jid}"] = {"type": "job", "label": jid}
-            except Exception:
-                continue
-        # Group metasheets by identity: files are the same if local path OR site path matches
-        edges = set()
-        groups: Dict[str, Dict[str, Any]] = {}  # groupKey -> { 'label': str, 'items': List[Metasheet] }
-        index: Dict[str, str] = {}  # id string (local/site path) -> groupKey
-        def pick_label(lp: str, sp: str) -> str:
-            return (sp or lp or "data")
-        for ms in metas:
-            try:
-                p = ms.getProps() or {}
-                lp = (p.get("_localPath") or "").strip()
-                sp = (p.get("_siteObjPath") or "").strip()
-                g_lp = index.get(lp) if lp else None
-                g_sp = index.get(sp) if sp else None
-                if not g_lp and not g_sp:
-                    gk = sp or lp or ms.getSheetId()
-                    groups[gk] = {"label": pick_label(lp, sp), "items": [ms]}
-                    if lp:
-                        index[lp] = gk
-                    if sp:
-                        index[sp] = gk
-                else:
-                    gk = g_lp or g_sp or (sp or lp or ms.getSheetId())
-                    if gk not in groups:
-                        groups[gk] = {"label": pick_label(lp, sp), "items": []}
-                    groups[gk]["items"].append(ms)
-                    # If both map and differ, merge groups
-                    if g_lp and g_sp and g_lp != g_sp:
-                        keep = g_lp
-                        drop = g_sp
-                        # Move items from drop into keep
-                        for item in groups.get(drop, {}).get("items", []):
-                            groups[keep]["items"].append(item)
-                        # Repoint indices
-                        for id_str, gval in list(index.items()):
-                            if gval == drop:
-                                index[id_str] = keep
-                        # Remove drop group
-                        groups.pop(drop, None)
-                        gk = keep
-                    # Ensure both identifiers point to the chosen group
-                    if lp:
-                        index[lp] = gk
-                    if sp:
-                        index[sp] = gk
-            except Exception:
-                continue
-        # Build data nodes and edges
-        data_groups: Dict[str, List[Metasheet]] = {}
-        for gk, meta in groups.items():
-            label = meta.get("label") or "data"
-            data_id = f"data:{gk}"
-            nodes[data_id] = {"type": "data", "label": label}
-            items: List[Metasheet] = meta.get("items", [])
-            data_groups[gk] = items
-            for ms in items:
+            from collections import defaultdict
+            def make_tree():
+                return defaultdict(make_tree)
+            nested = make_tree()
+            buckets: Dict[tuple, List[Metasheet]] = {}
+            def get_val(ms: Metasheet, key: str) -> str:
                 try:
-                    pj = ms.getProps() or {}
-                    jid = pj.get("_jobId")
-                    if jid:
-                        edges.add((f"job:{jid}", data_id))
+                    v = (ms.getProps() or {}).get(key)
+                    return str(v) if v is not None else "(missing)"
                 except Exception:
-                    pass
-        # Job edges
-        for jid in job_nodes:
-            parent = job_parent.get(jid)
-            if parent:
-                edges.add((f"job:{parent}", f"job:{jid}"))
+                    return "(missing)"
+            for ms in results:
+                cursor = nested
+                path_vals = []
+                for gf in group_fields:
+                    val = get_val(ms, gf)
+                    path_vals.append(val)
+                    cursor = cursor[val]
+                buckets.setdefault(tuple(path_vals), []).append(ms)
+
+            def insert_children(parent, depth, prefix):
+                if depth < len(group_fields):
+                    node = nested
+                    for p in prefix:
+                        node = node[p]
+                    for val in sorted(node.keys(), key=str):
+                        iid = tv.insert(parent, tk.END, text=str(val), values=(str(val),))
+                        insert_children(iid, depth+1, prefix + [val])
+                else:
+                    items = buckets.get(tuple(prefix), [])
+                    for ms in items:
+                        label = (ms.getProps() or {}).get("_localPath") or (ms.getProps() or {}).get("_siteObjPath") or ms.getSheetId()
+                        iid = tv.insert(parent, tk.END, text=str(label), values=(str(label),))
+                        leaf_by_iid[iid] = ms
+
+            if group_fields:
+                insert_children(root, 0, [])
             else:
-                edges.add((wf_node_id, f"job:{jid}"))
+                for ms in results:
+                    label = (ms.getProps() or {}).get("_localPath") or (ms.getProps() or {}).get("_siteObjPath") or ms.getSheetId()
+                    iid = tv.insert(root, tk.END, text=str(label), values=(str(label),))
+                    leaf_by_iid[iid] = ms
 
-        # Force-directed layout on the canvas
-        def layout_and_draw():
-            canvas.delete("all")
-            w = max(200, canvas.winfo_width())
-            h = max(200, canvas.winfo_height())
-            cx, cy = w / 2, h / 2
-            # Initial positions
-            pos = {}
-            vel = {}
-            for nid in nodes.keys():
-                if nid == wf_node_id:
-                    pos[nid] = [cx, cy]
-                    vel[nid] = [0.0, 0.0]
-                else:
-                    angle = random.random() * 2 * math.pi
-                    r = min(w, h) * 0.35 * (0.6 + 0.4 * random.random())
-                    pos[nid] = [cx + r * math.cos(angle), cy + r * math.sin(angle)]
-                    vel[nid] = [0.0, 0.0]
+            tv.item(root, open=True)
+            status.set(f"Results: {len(results)} metasheets")
 
-            # Simple Fruchterman-Reingold style forces
-            N = len(nodes)
-            area = w * h
-            k = math.sqrt(area / max(1, N))  # ideal distance
-            iterations = min(200, 40 + 4 * N)
-            for _ in range(iterations):
-                disp = {nid: [0.0, 0.0] for nid in nodes.keys()}
-                # Repulsion
-                for a in nodes.keys():
-                    ax, ay = pos[a]
-                    for b in nodes.keys():
-                        if a >= b:
-                            continue
-                        bx, by = pos[b]
-                        dx = ax - bx
-                        dy = ay - by
-                        dist2 = dx * dx + dy * dy + 0.01
-                        dist = math.sqrt(dist2)
-                        force = (k * k) / dist
-                        ux = dx / dist
-                        uy = dy / dist
-                        disp[a][0] += ux * force
-                        disp[a][1] += uy * force
-                        disp[b][0] -= ux * force
-                        disp[b][1] -= uy * force
-                # Attraction on edges
-                for (u, v) in edges:
-                    ux, uy = pos[u]
-                    vx, vy = pos[v]
-                    dx = ux - vx
-                    dy = uy - vy
-                    dist2 = dx * dx + dy * dy + 0.01
-                    dist = math.sqrt(dist2)
-                    force = (dist * dist) / k
-                    nx = dx / dist
-                    ny = dy / dist
-                    disp[u][0] -= nx * force
-                    disp[u][1] -= ny * force
-                    disp[v][0] += nx * force
-                    disp[v][1] += ny * force
-                # Update positions
-                for nid in nodes.keys():
-                    if nid == wf_node_id:
-                        pos[nid] = [cx, cy]
+        def on_click(event):
+            row_id = tv.identify_row(event.y)
+            if not row_id:
+                return
+            ms = leaf_by_iid.get(row_id)
+            if ms:
+                try:
+                    self._show_metasheet_window(ms)
+                except Exception:
+                    pass
+        tv.bind("<Double-1>", on_click)
+
+        def do_search():
+            nonlocal group_fields
+            def extract(rows: List[Dict[str, Any]]) -> List[tuple]:
+                out = []
+                for r in rows:
+                    k = (r["field"].get() or "").strip()
+                    v = (r["value"].get() or "").strip()
+                    if not k or v == "":
                         continue
-                    dx, dy = disp[nid]
-                    # limit step
-                    step = 4.0
-                    dl = math.sqrt(dx * dx + dy * dy) or 1.0
-                    vx = (dx / dl) * min(step, dl)
-                    vy = (dy / dl) * min(step, dl)
-                    vel[nid][0] = (vel[nid][0] + vx) * 0.8
-                    vel[nid][1] = (vel[nid][1] + vy) * 0.8
-                    pos[nid][0] = min(w - 30, max(30, pos[nid][0] + vel[nid][0]))
-                    pos[nid][1] = min(h - 30, max(30, pos[nid][1] + vel[nid][1]))
+                    out.append((k, wildcard_to_regex(v)))
+                return out
+            must_all = extract(all_rows)
+            must_any = extract(any_rows)
+            must_not = extract(not_rows)
+            case_sensitive = bool(case_var.get())
 
-            # Draw edges
-            edge_items = []
-            for (u, v) in edges:
-                x1, y1 = pos[u]
-                x2, y2 = pos[v]
-                edge_items.append(canvas.create_line(x1, y1, x2, y2, fill="#5f6b8a", width=1.0))
+            if not field_names:
+                load_all_fields_and_data()
+                avail.delete(0, tk.END)
+                for n in field_names:
+                    avail.insert(tk.END, n)
 
-            # Draw nodes
-            node_items = {}
-            for nid, meta in nodes.items():
-                x, y = pos[nid]
-                t = meta.get("type")
-                if t == "wf":
-                    r = 18
-                    fill = "#8e24aa"  # workflow purple
-                elif t == "job":
-                    r = 12
-                    fill = "#1976d2"  # job blue
-                else:
-                    r = 10
-                    fill = "#ff8f00"  # data orange
-                item = canvas.create_oval(x - r, y - r, x + r, y + r, fill=fill, outline="#eaeaea", width=1.0)
-                node_items[item] = nid
-                # Optional subtle label near node (shortened)
+            results: List[Metasheet] = []
+            for ms in all_sheets:
                 try:
-                    label = meta.get("label") or ""
-                    if len(label) > 18:
-                        label = label[:8] + "…" + label[-8:]
-                    canvas.create_text(x, y - (r + 10), text=label, fill="#d9e1f2", font=("TkDefaultFont", 9))
+                    if sheet_matches(ms, must_all, must_any, must_not, case_sensitive):
+                        results.append(ms)
                 except Exception:
-                    pass
+                    continue
+            if not group_fields:
+                group_fields = ["_workflowId", "_jobId"]
+            rebuild_tree(results)
 
-            # Click handling
-            def on_click(event):
-                # find closest node within hit radius
-                x = event.x
-                y = event.y
-                hit = canvas.find_closest(x, y)
-                if not hit:
-                    return
-                item = hit[0]
-                nid = node_items.get(item)
-                if not nid:
-                    return
-                try:
-                    if nid.startswith("job:"):
-                        jid = nid.split(":", 1)[1]
-                        self.show_job_status(job_id=jid, _workflow_id=workflow_id)
-                    elif nid.startswith("data:"):
-                        key = nid.split(":", 1)[1]
-                        group = data_groups.get(key)
-                        if group:
-                            # if multiple metasheets, show a chooser; else show the single sheet
-                            if len(group) == 1:
-                                self._show_metasheet_window(group[0])
-                            else:
-                                self._show_metasheet_group_window(label=nodes.get(nid, {}).get("label", key), sheets=group)
-                    else:
-                        # workflow node: no-op for now
+        ttk.Button(bottom, text="Search", command=do_search).pack(side=tk.RIGHT, padx=6, pady=6)
+        ttk.Button(bottom, text="Close", command=win.destroy).pack(side=tk.RIGHT, padx=6, pady=6)
+
+        def bootstrap_fields_async():
+            def worker():
+                load_all_fields_and_data()
+                def done():
+                    # Populate group-by available list
+                    avail.delete(0, tk.END)
+                    for n in field_names:
+                        avail.insert(tk.END, n)
+                    # Update comboboxes in all query rows with the loaded field names
+                    try:
+                        for r in (all_rows + any_rows + not_rows):
+                            cb = r.get("field")
+                            if cb:
+                                cb.configure(values=field_names)
+                                # leave selection empty to force explicit choice
+                    except Exception:
                         pass
+                try:
+                    win.after(0, done)
                 except Exception:
                     pass
+            threading.Thread(target=worker, daemon=True).start()
 
-            canvas.bind("<Button-1>", on_click)
+        bootstrap_fields_async()
 
-        # Draw now and on resize
-        def on_resize(_event):
-            layout_and_draw()
-        canvas.bind("<Configure>", on_resize)
-        # Initial draw
-        win.after(50, layout_and_draw)
 
     def _show_metasheet_window(self, ms: Metasheet):
         win = tk.Toplevel(self)
@@ -870,6 +741,59 @@ class LwfmGui(tk.Tk):
                 files_label,
             ), tags=((row_tag,) if row_tag else ()))
         self.set_status(f"Jobs: {len(rows)} (refreshed {datetime.now().strftime('%H:%M:%S')})")
+
+    def on_tree_click(self, event):
+        try:
+            region = self.tree.identify("region", event.x, event.y)
+            if region != "cell":
+                return
+            row_id = self.tree.identify_row(event.y)
+            col_id = self.tree.identify_column(event.x)
+            if not row_id or not col_id:
+                return
+            idx = int(col_id.replace('#', '')) - 1
+            cols = self.tree["columns"]
+            if idx < 0 or idx >= len(cols):
+                return
+            colname = cols[idx]
+            vals = self.tree.item(row_id, "values") or []
+            if not vals:
+                return
+            job_id = vals[0] if len(vals) >= 1 else ""
+            workflow_id = vals[3] if len(vals) >= 4 else ""
+            if colname == "files":
+                label = vals[-1] if vals else ""
+                if label:
+                    self.show_files(job_id)
+            elif colname in ("job_id", "status"):
+                if job_id:
+                    self.show_job_status(job_id, workflow_id)
+        except Exception:
+            pass
+
+    def on_tree_motion(self, event):
+        try:
+            region = self.tree.identify("region", event.x, event.y)
+            if region != "cell":
+                self.tree.configure(cursor="")
+                return
+            row_id = self.tree.identify_row(event.y)
+            col_id = self.tree.identify_column(event.x)
+            cursor = ""
+            if row_id and col_id:
+                idx = int(col_id.replace('#', '')) - 1
+                cols = self.tree["columns"]
+                if 0 <= idx < len(cols) and cols[idx] == "files":
+                    vals = self.tree.item(row_id, "values") or []
+                    label = vals[-1] if vals else ""
+                    if label:
+                        cursor = "hand2"
+            self.tree.configure(cursor=cursor)
+        except Exception:
+            try:
+                self.tree.configure(cursor="")
+            except Exception:
+                pass
 
     def show_job_status(self, job_id: str, _workflow_id: str):
         def worker():
@@ -1414,8 +1338,10 @@ class LwfmGui(tk.Tk):
                 pass
             win.destroy()
 
+        # Start auto-refresh and bind close
         win.protocol("WM_DELETE_WINDOW", on_close)
         timer_id = win.after(get_interval_ms(), tick)
+
 
 
 def main():
