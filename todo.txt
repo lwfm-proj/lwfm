@@ -7,24 +7,23 @@ Todo & misc notes
 + lwfm
     + top
         - lwfm ex09 IBM case triggered job fails - need to fix IBM driver
-        - revisit qtsuite tests for lwfm (qt03)
-        - gui throws repetitive error on empty db
-        - clearing out stale remote monitoring jobs
-
 
     + 2nd
         - qtsuite test04: sqd
+        - clearing out stale remote monitoring jobs
         - import/export (#73) - after ORNL DD
         - todo items (many are for log context - separate ticket)
         - inline docs esp. for .base & .midware (#84), keywords, pillars for meta search; ibm, tk
-        - full trigger impl & bugs
+        - full trigger impl & bugs; gui
         - normalize INFO logging data structure for job provenance, data provenance
         - lwfManager exec inline needs a way to handle runArgs for submit
         - lwfManager.dumpWorkflow() - all meta info of all kinds
         - test: do we handle jobDefn.getJobArgs() correctly for both data types? 
         - do we need submit() to take a list[str] in addition to dict for args?
         - AWS Braket site driver
-
+        - utility functions for site drivers which takes objects of different types 
+            which are potentially serialized and returns them in a set form - submit,get,put
+        - more granular "find event" method in lwfm and get IBM driver submit() to use it
 
 + IBM site driver, quantum info
     - VSCode linting

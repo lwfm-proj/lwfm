@@ -24,6 +24,7 @@ from lwfm.midware.LwfManager import lwfManager
 from lwfm.midware._impl.SiteConfig import SiteConfig
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.Metasheet import Metasheet
+from lwfm.base.WorkflowEvent import WorkflowEvent, JobEvent, MetadataEvent, NotificationEvent
 
 
 RefreshIntervalSecDefault = 5
@@ -101,7 +102,8 @@ class LwfmGui(tk.Tk):
         ctrl.pack(side=tk.TOP, fill=tk.X, padx=8, pady=6)
 
         ttk.Label(ctrl, text="Filter:").pack(side=tk.LEFT)
-        self.filter_entry = ttk.Entry(ctrl, width=30)
+        # Make this a bit narrower so the interval field is fully visible
+        self.filter_entry = ttk.Entry(ctrl, width=24)
         self.filter_entry.pack(side=tk.LEFT, padx=(4, 10))
         self.filter_entry.bind("<Return>", lambda e: self.rebuild_table())
 
@@ -136,10 +138,11 @@ class LwfmGui(tk.Tk):
         self.viewlog_btn = ttk.Button(ctrl, text="View Server Log", command=self.view_server_log)
         self.viewlog_btn.pack(side=tk.LEFT, padx=(10, 0))
 
-        ttk.Label(ctrl, text="Every (s):").pack(side=tk.LEFT, padx=(10, 2))
-        self.interval_entry = ttk.Entry(ctrl, width=5)
-        self.interval_entry.insert(0, str(self.refresh_interval))
-        self.interval_entry.pack(side=tk.LEFT)
+        # View events button
+        self.viewevents_btn = ttk.Button(ctrl, text="View Events", command=self.view_events)
+        self.viewevents_btn.pack(side=tk.LEFT, padx=(10, 0))
+
+    # Interval control moved to status bar
 
         # Table frame containing tree and scrollbar
         table = ttk.Frame(self)
@@ -182,16 +185,23 @@ class LwfmGui(tk.Tk):
             pass
         self.tree.bind("<Button-1>", self.on_tree_click)
         self.tree.bind("<Motion>", self.on_tree_motion)
-
         # Scrollbar
         ysb = ttk.Scrollbar(table, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=ysb.set)
         ysb.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Status bar
+        # Status bar with refresh-interval control
         self.status_var = tk.StringVar(value="Ready")
-        sbar = ttk.Label(self, textvariable=self.status_var, anchor=tk.W)
+        sbar = ttk.Frame(self)
         sbar.pack(side=tk.BOTTOM, fill=tk.X)
+        left = ttk.Label(sbar, textvariable=self.status_var, anchor=tk.W)
+        left.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 4))
+        right = ttk.Frame(sbar)
+        right.pack(side=tk.RIGHT)
+        ttk.Label(right, text="Every (s):").pack(side=tk.LEFT, padx=(4, 2))
+        self.interval_entry = ttk.Entry(right, width=5)
+        self.interval_entry.insert(0, str(self.refresh_interval))
+        self.interval_entry.pack(side=tk.LEFT, padx=(0, 6))
 
     def stop_server_async(self):
         if not messagebox.askyesno("Confirm", "Stop the lwfm server for this machine?\nThis will terminate the background middleware until it is started again."):
@@ -1148,6 +1158,264 @@ class LwfmGui(tk.Tk):
         except Exception:
             pass
         win.after(1000, poll)
+
+
+    def view_events(self):
+        """Open a panel listing active workflow events with filtering, sorting, and unset."""
+        win = tk.Toplevel(self)
+        win.title("Pending Events")
+        win.geometry("1000x560")
+
+        # State
+        events: List[WorkflowEvent] = []
+        rows: List[Dict[str, Any]] = []
+        sort_by = "event_id"  # default sort by id for stability
+        sort_asc = True
+        filter_text = ""
+
+        # Top controls
+        top = ttk.Frame(win)
+        top.pack(side=tk.TOP, fill=tk.X, padx=8, pady=6)
+        ttk.Label(top, text="Filter:").pack(side=tk.LEFT)
+        filt_entry = ttk.Entry(top, width=30)
+        filt_entry.pack(side=tk.LEFT, padx=(4, 10))
+
+        # Table
+        table = ttk.Frame(win)
+        table.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=6)
+        cols = ("event_id", "type", "site", "workflow_id", "rule_or_query", "fire_job_id", "parent", "action")
+        tv = ttk.Treeview(table, columns=cols, show="headings", selectmode="browse")
+        headings = {
+            "event_id": "Event ID",
+            "type": "Type",
+            "site": "Site",
+            "workflow_id": "Workflow",
+            "rule_or_query": "Rule / Query",
+            "fire_job_id": "Fire Job",
+            "parent": "Parent Job",
+            "action": "",
+        }
+        widths = {
+            "event_id": 180,
+            "type": 110,
+            "site": 100,
+            "workflow_id": 160,
+            "rule_or_query": 320,
+            "fire_job_id": 160,
+            "parent": 160,
+            "action": 90,
+        }
+
+        def on_sort(column: str):
+            nonlocal sort_by, sort_asc
+            if sort_by == column:
+                sort_asc = not sort_asc
+            else:
+                sort_by = column
+                sort_asc = True
+            rebuild()
+
+        for cid in cols:
+            tv.heading(cid, text=headings[cid], command=(lambda c=cid: on_sort(c)))
+            anchor = tk.CENTER if cid in ("action",) else tk.W
+            tv.column(cid, width=widths[cid], anchor=anchor)
+        tv.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        ysb = ttk.Scrollbar(table, orient=tk.VERTICAL, command=tv.yview)
+        tv.configure(yscrollcommand=ysb.set)
+        ysb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Details area
+        bottom = ttk.Frame(win)
+        bottom.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=False)
+        ttk.Label(bottom, text="Details:").pack(side=tk.TOP, anchor=tk.W)
+        details = tk.Text(bottom, height=8, wrap=tk.WORD)
+        dscroll = ttk.Scrollbar(bottom, orient=tk.VERTICAL, command=details.yview)
+        details.configure(yscrollcommand=dscroll.set)
+        details.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        dscroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Mapping from iid to event
+        by_iid: Dict[str, WorkflowEvent] = {}
+
+        def describe_event(ev: WorkflowEvent) -> Dict[str, Any]:
+            try:
+                if isinstance(ev, NotificationEvent):
+                    etype = "NotificationEvent"
+                elif isinstance(ev, MetadataEvent):
+                    etype = "MetadataEvent"
+                elif isinstance(ev, JobEvent):
+                    etype = "JobEvent"
+                else:
+                    etype = "WorkflowEvent"
+                site = ev.getFireSite() if hasattr(ev, "getFireSite") else ""
+                wid = ev.getWorkflowId() if hasattr(ev, "getWorkflowId") else ""
+                fire_job = ev.getFireJobId() if hasattr(ev, "getFireJobId") else ""
+                parent = ev.getParentId() if hasattr(ev, "getParentId") else ""
+                rule_or_query = ""
+                if isinstance(ev, JobEvent):
+                    try:
+                        rule_or_query = f"job={ev.getRuleJobId()} status={ev.getRuleStatus()}"
+                    except Exception:
+                        rule_or_query = "job/status"
+                elif isinstance(ev, MetadataEvent):
+                    try:
+                        rule_or_query = json.dumps(ev.getQueryRegExs(), separators=(",", ":"))
+                    except Exception:
+                        rule_or_query = "query"
+                return {
+                    "event_id": ev.getEventId(),
+                    "type": etype,
+                    "site": site,
+                    "workflow_id": wid,
+                    "rule_or_query": rule_or_query,
+                    "fire_job_id": fire_job,
+                    "parent": parent,
+                }
+            except Exception:
+                return {"event_id": "", "type": "", "site": "", "workflow_id": "",
+                        "rule_or_query": "", "fire_job_id": "", "parent": ""}
+
+        def fetch() -> List[WorkflowEvent]:
+            try:
+                return lwfManager.getActiveWfEvents() or []
+            except Exception:
+                return []
+
+        def apply_filter_sort(in_rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+            f = (filter_text or "").lower()
+            filt_rows: List[Dict[str, Any]] = []
+            for r in in_rows:
+                hay = " ".join([
+                    str(r.get(k, "")) for k in (
+                        "event_id", "type", "site", "workflow_id", "rule_or_query", "fire_job_id", "parent"
+                    )
+                ]).lower()
+                if f and f not in hay:
+                    continue
+                filt_rows.append(r)
+            key = sort_by
+            rev = not sort_asc
+            return sorted(filt_rows, key=lambda rr: str(rr.get(key, "")), reverse=rev)
+
+        def rebuild():
+            tv.delete(*tv.get_children())
+            show_rows = apply_filter_sort(rows)
+            by_iid.clear()
+            by_id = {e.getEventId(): e for e in events}
+            for r in show_rows:
+                vals = (
+                    r.get("event_id", ""), r.get("type", ""), r.get("site", ""), r.get("workflow_id", ""),
+                    r.get("rule_or_query", ""), r.get("fire_job_id", ""), r.get("parent", ""), "[ Unset ]"
+                )
+                iid = tv.insert("", tk.END, values=vals)
+                ev_obj = by_id.get(r.get("event_id", ""))
+                if ev_obj:
+                    by_iid[iid] = ev_obj
+            try:
+                win.title(f"Pending Events ({len(show_rows)})")
+            except Exception:
+                pass
+
+        def refresh(load: bool = False):
+            nonlocal events, rows
+            if load:
+                events = fetch()
+                rows = [describe_event(ev) for ev in events]
+            rebuild()
+
+        def unset_selected():
+            sel = tv.selection()
+            if not sel:
+                messagebox.showinfo("Unset", "Select an event to unset.")
+                return
+            ev = by_iid.get(sel[0])
+            if not ev:
+                return
+            try:
+                lwfManager.unsetEvent(ev)
+                refresh(load=True)
+            except Exception as ex:
+                messagebox.showerror("Unset", f"Error unsetting event: {ex}")
+
+        def on_row_click(event):
+            region = tv.identify("region", event.x, event.y)
+            if region != "cell":
+                return
+            row_id = tv.identify_row(event.y)
+            col_id = tv.identify_column(event.x)
+            if not row_id or not col_id:
+                return
+            col_index = int(col_id.replace('#', '')) - 1
+            if cols[col_index] == "action":
+                ev = by_iid.get(row_id)
+                if ev:
+                    try:
+                        lwfManager.unsetEvent(ev)
+                        refresh(load=True)
+                    except Exception as ex:
+                        messagebox.showerror("Unset", f"Error unsetting event: {ex}")
+                return
+            # update details
+            ev = by_iid.get(row_id)
+            details.delete(1.0, tk.END)
+            try:
+                details.insert(tk.END, str(ev) if ev else "")
+            except Exception as ex:
+                details.insert(tk.END, f"Error: {ex}")
+
+        # Bindings and buttons now that handlers exist
+        def apply_from_entry():
+            nonlocal filter_text
+            filter_text = (filt_entry.get() or "").strip()
+            rebuild()
+
+        filt_entry.bind("<Return>", lambda e: apply_from_entry())
+        ttk.Button(top, text="Apply", command=apply_from_entry).pack(side=tk.LEFT)
+        ttk.Button(top, text="Refresh", command=lambda: refresh(load=True)).pack(side=tk.LEFT, padx=(10, 0))
+        unset_btn = ttk.Button(top, text="Unset Selected", command=unset_selected)
+        unset_btn.pack(side=tk.LEFT, padx=(10, 0))
+        tv.bind("<Button-1>", on_row_click)
+
+        # Initial load
+        refresh(load=True)
+
+        # Auto-refresh loop tied to the main interval; cancels on window close
+        timer_id = None
+        closed = False
+
+        def get_interval_ms() -> int:
+            try:
+                txt = self.interval_entry.get()
+                n = int(txt)
+                if n <= 0:
+                    n = RefreshIntervalSecDefault
+            except Exception:
+                n = self.refresh_interval or RefreshIntervalSecDefault
+            return n * 1000
+
+        def tick():
+            nonlocal timer_id
+            if closed:
+                return
+            refresh(load=True)
+            try:
+                ms = get_interval_ms()
+            except Exception:
+                ms = RefreshIntervalSecDefault * 1000
+            timer_id = win.after(ms, tick)
+
+        def on_close():
+            nonlocal closed, timer_id
+            closed = True
+            try:
+                if timer_id:
+                    win.after_cancel(timer_id)
+            except Exception:
+                pass
+            win.destroy()
+
+        win.protocol("WM_DELETE_WINDOW", on_close)
+        timer_id = win.after(get_interval_ms(), tick)
 
 
 def main():
