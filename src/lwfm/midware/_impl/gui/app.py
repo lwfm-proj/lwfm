@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import traceback
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -34,17 +35,25 @@ class LwfmGui(tk.Tk):
         toolbar = ttk.Frame(self)
         toolbar.pack(side=tk.TOP, fill=tk.X)
         ttk.Button(toolbar, text="Refresh", command=self.refresh).pack(side=tk.LEFT, padx=6, pady=6)
+        ttk.Label(toolbar, text="Interval (s):").pack(side=tk.LEFT, padx=(4, 4))
+        self.interval_entry = ttk.Entry(toolbar, width=6)
+        self.interval_entry.insert(0, str(RefreshIntervalSecDefault))
+        self.interval_entry.pack(side=tk.LEFT, padx=(0, 16))
         ttk.Button(toolbar, text="Metasheets", command=self.view_metasheets).pack(side=tk.LEFT)
         ttk.Button(toolbar, text="Events", command=self.view_events).pack(side=tk.LEFT)
         ttk.Button(toolbar, text="Server Log", command=self.view_server_log).pack(side=tk.LEFT)
-        ttk.Label(toolbar, text="Interval (s):").pack(side=tk.LEFT, padx=(16, 4))
-        self.interval_entry = ttk.Entry(toolbar, width=6)
-        self.interval_entry.insert(0, str(RefreshIntervalSecDefault))
-        self.interval_entry.pack(side=tk.LEFT)
+        ttk.Label(toolbar, text="Filter:").pack(side=tk.LEFT, padx=(16, 4))
+        self.filter_entry = ttk.Entry(toolbar, width=30)
+        self.filter_entry.pack(side=tk.LEFT, padx=(0, 8))
+        self.filter_entry.bind("<KeyRelease>", self._on_filter_change)
+        ttk.Button(toolbar, text="Clear", command=self._clear_filter).pack(side=tk.LEFT)
 
-        # Jobs table
+        # Jobs table with scrollbar in a frame
+        table_frame = ttk.Frame(self)
+        table_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=8)
+        
         cols = ("job_id", "workflow", "status", "native", "last_update", "files")
-        self.tree = ttk.Treeview(self, columns=cols, show="headings", selectmode="browse")
+        self.tree = ttk.Treeview(table_frame, columns=cols, show="headings", selectmode="browse")
         headings = {
             "job_id": "Job ID",
             "workflow": "Workflow",
@@ -62,13 +71,14 @@ class LwfmGui(tk.Tk):
             "files": 80,
         }
         for c in cols:
-            self.tree.heading(c, text=headings[c])
+            self.tree.heading(c, text=headings[c], command=lambda col=c: self._sort_by_column(col))
             anchor = tk.CENTER if c == "files" else tk.W
             self.tree.column(c, width=widths[c], anchor=anchor)
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(8, 0), pady=8)
-        ysb = ttk.Scrollbar(self, orient=tk.VERTICAL, command=self.tree.yview)
+        
+        ysb = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=ysb.set)
-        ysb.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 8), pady=8)
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        ysb.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Color tags
         try:
@@ -81,14 +91,168 @@ class LwfmGui(tk.Tk):
         self.tree.bind("<Button-1>", self.on_tree_click)
         self.tree.bind("<Motion>", self.on_tree_motion)
 
-        # Status bar
-        self.status_var = tk.StringVar(value="")
-        ttk.Label(self, textvariable=self.status_var, anchor=tk.W).pack(side=tk.BOTTOM, fill=tk.X)
+        # Status bar with connection indicator
+        status_frame = ttk.Frame(self)
+        status_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=(0, 8))
+        self.status_var = tk.StringVar(value="Ready")
+        self.connection_var = tk.StringVar(value="●")
+        ttk.Label(status_frame, textvariable=self.status_var, anchor=tk.W).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.connection_label = ttk.Label(status_frame, textvariable=self.connection_var, foreground="green")
+        self.connection_label.pack(side=tk.RIGHT)
 
         self.refresh_interval = RefreshIntervalSecDefault
         self._timer_id: Optional[str] = None
+        self._loading = False
+        self._connection_ok = True
+        self._sort_column = "last_update"
+        self._sort_reverse = True  # Newest first by default
+        self._filter_text = ""
+        self._all_rows = []  # Store unfiltered data
+        
+        # Keyboard shortcuts
+        self.bind_all("<F5>", lambda e: self.refresh())
+        self.bind_all("<Control-r>", lambda e: self.refresh())
+        self.bind_all("<Control-m>", lambda e: self.view_metasheets())
+        self.bind_all("<Control-e>", lambda e: self.view_events())
+        self.bind_all("<Control-l>", lambda e: self.view_server_log())
+        self.bind_all("<Control-f>", lambda e: self.filter_entry.focus_set())
+        self.bind_all("<Control-q>", lambda e: self.quit())
+        
         self.refresh()
         self._tick()
+
+    def _create_progress_dialog(self, title: str, message: str) -> tuple:
+        """Create a centered progress dialog with indeterminate progress bar."""
+        progress_win = tk.Toplevel(self)
+        progress_win.title(title)
+        progress_win.geometry("350x120")
+        progress_win.transient(self)
+        progress_win.grab_set()
+        progress_win.resizable(False, False)
+        
+        # Center the progress window
+        progress_win.update_idletasks()
+        x = (progress_win.winfo_screenwidth() // 2) - (350 // 2)
+        y = (progress_win.winfo_screenheight() // 2) - (120 // 2)
+        progress_win.geometry(f"350x120+{x}+{y}")
+        
+        ttk.Label(progress_win, text=message).pack(pady=(20, 10))
+        progress_bar = ttk.Progressbar(progress_win, mode='indeterminate')
+        progress_bar.pack(pady=10, padx=20, fill=tk.X)
+        progress_bar.start()
+        
+        return progress_win, progress_bar
+
+    def _update_connection_status(self, connected: bool):
+        """Update the connection status indicator."""
+        self._connection_ok = connected
+        if connected:
+            self.connection_var.set("●")
+            self.connection_label.configure(foreground="green")
+        else:
+            self.connection_var.set("●")
+            self.connection_label.configure(foreground="red")
+
+    def _sort_by_column(self, column: str):
+        """Sort the table by the specified column."""
+        if self._sort_column == column:
+            # Toggle sort direction if clicking same column
+            self._sort_reverse = not self._sort_reverse
+        else:
+            # New column, default to ascending (except for last_update which defaults to descending)
+            self._sort_column = column
+            self._sort_reverse = (column == "last_update")
+        
+        # Update column headers to show sort direction
+        cols = ("job_id", "workflow", "status", "native", "last_update", "files")
+        headings = {
+            "job_id": "Job ID",
+            "workflow": "Workflow", 
+            "status": "Status",
+            "native": "Native",
+            "last_update": "Last Update",
+            "files": "Files",
+        }
+        
+        for c in cols:
+            if c == column:
+                arrow = " ▼" if self._sort_reverse else " ▲"
+                text = headings[c] + arrow
+            else:
+                text = headings[c]
+            self.tree.heading(c, text=text)
+        
+        self._apply_filter_and_sort()
+
+
+    def _on_filter_change(self, event):
+        """Handle filter text changes."""
+        self._filter_text = self.filter_entry.get().strip().lower()
+        self._apply_filter_and_sort()
+
+    def _clear_filter(self):
+        """Clear the filter text and refresh display."""
+        self.filter_entry.delete(0, tk.END)
+        self._filter_text = ""
+        self._apply_filter_and_sort()
+
+    def _apply_filter_and_sort(self):
+        """Apply current filter and sort to the stored data."""
+        if not self._all_rows:
+            return
+        
+        # Apply filter
+        filtered_rows = []
+        for row in self._all_rows:
+            if self._matches_filter(row):
+                filtered_rows.append(row)
+        
+        # Apply sorting
+        if filtered_rows:
+            col_index = {"job_id": 0, "workflow": 1, "status": 2, "native": 3, "last_update": 4}[self._sort_column]
+            
+            def sort_key(row):
+                val = row[col_index] if col_index < len(row) else ""
+                if self._sort_column == "last_update" and val:
+                    return val  # Already in YYYY-MM-DD HH:MM:SS format
+                return val.lower() if isinstance(val, str) else str(val)
+            
+            filtered_rows.sort(key=sort_key, reverse=self._sort_reverse)
+        
+        # Update display
+        self.tree.delete(*self.tree.get_children())
+        for jid, wid, stat, nat, ts in filtered_rows:
+            tag = ()
+            up = (stat or "").upper()
+            if up in (JobStatus.FAILED, JobStatus.CANCELLED):
+                tag = ("status-bad",)
+            elif up == JobStatus.COMPLETE:
+                tag = ("status-good",)
+            self.tree.insert("", tk.END, values=(jid, wid, stat, nat, ts, "[ Files ]"), tags=tag)
+        
+        # Update status with filter info
+        total_count = len(self._all_rows)
+        filtered_count = len(filtered_rows)
+        if self._filter_text:
+            self.status_var.set(f"Jobs: {filtered_count}/{total_count} (filtered) | Last updated: {datetime.now().strftime('%H:%M:%S')}")
+        else:
+            self.status_var.set(f"Jobs: {filtered_count} | Last updated: {datetime.now().strftime('%H:%M:%S')}")
+
+    def _matches_filter(self, row) -> bool:
+        """Check if a row matches the current filter text."""
+        if not self._filter_text:
+            return True
+        
+        # Search across all visible columns
+        search_text = " ".join([
+            row[0] or "",  # job_id
+            row[1] or "",  # workflow
+            row[2] or "",  # status
+            row[3] or "",  # native
+            row[4] or "",  # last_update
+        ]).lower()
+        
+        return self._filter_text in search_text
 
     # --- Main table data ---
     def _tick(self):
@@ -106,15 +270,19 @@ class LwfmGui(tk.Tk):
             # Best effort; try again later with default
             self._timer_id = self.after(RefreshIntervalSecDefault * 1000, self._tick)
 
-    def fetch_job_rows(self) -> List[Tuple[str, str, str, str, str]]:
-        """Return rows: (job_id, workflow_id, status, native, last_update).
+    def fetch_job_rows(self) -> Tuple[List[Tuple[str, str, str, str, str]], Optional[str]]:
+        """Return (rows, error_msg): rows are (job_id, workflow_id, status, native, last_update).
         Aggregates latest statuses per job across all workflows.
+        Returns error message if connection fails.
         """
         latest_by_job: Dict[str, JobStatus] = {}
         try:
             workflows = lwfManager.getAllWorkflows() or []
-        except Exception:
-            workflows = []
+            self._update_connection_status(True)
+        except Exception as e:
+            self._update_connection_status(False)
+            return [], f"Failed to connect to lwfm service: {str(e)}"
+        
         for wf in workflows:
             try:
                 wid = wf.getWorkflowId()
@@ -125,52 +293,71 @@ class LwfmGui(tk.Tk):
                     cur = latest_by_job.get(jid)
                     if (cur is None) or (s.getEmitTime() > cur.getEmitTime()):
                         latest_by_job[jid] = s
-            except Exception:
+            except Exception as e:
+                # Log individual workflow errors but continue
+                print(f"Warning: Failed to get statuses for workflow {wid}: {e}")
                 continue
+        
         rows: List[Tuple[str, str, str, str, str]] = []
         for s in latest_by_job.values():
-            ctx = s.getJobContext()
-            jid = ctx.getJobId()
-            wid = ctx.getWorkflowId() or ""
-            stat = (s.getStatus() or "")
-            nat = s.getNativeStatusStr() or ""
-            ts = s.getEmitTime().strftime('%Y-%m-%d %H:%M:%S') if s.getEmitTime() else ""
-            rows.append((jid, wid, stat, nat, ts))
-        # Sort newest first by time string (same format; safe lexicographically)
-        rows.sort(key=lambda r: r[4], reverse=True)
-        return rows
+            try:
+                ctx = s.getJobContext()
+                jid = ctx.getJobId()
+                wid = ctx.getWorkflowId() or ""
+                stat = (s.getStatus() or "")
+                nat = s.getNativeStatusStr() or ""
+                ts = s.getEmitTime().strftime('%Y-%m-%d %H:%M:%S') if s.getEmitTime() else ""
+                rows.append((jid, wid, stat, nat, ts))
+            except Exception as e:
+                print(f"Warning: Failed to process job status: {e}")
+                continue
+        
+        return rows, None
 
     def rebuild_table(self):
+        """Rebuild the table with current data (synchronous version for internal use)."""
         self.tree.delete(*self.tree.get_children())
-        rows = self.fetch_job_rows()
-        for jid, wid, stat, nat, ts in rows:
-            tag = ()
-            up = (stat or "").upper()
-            if up in (JobStatus.FAILED, JobStatus.CANCELLED):
-                tag = ("status-bad",)
-            elif up == JobStatus.COMPLETE:
-                tag = ("status-good",)
-            self.tree.insert("", tk.END, values=(jid, wid, stat, nat, ts, "[ Files ]"), tags=tag)
-        self.status_var.set(f"Jobs: {len(rows)}")
+        try:
+            rows, error_msg = self.fetch_job_rows()
+            if error_msg:
+                self.status_var.set(f"Error: {error_msg}")
+                return
+            
+            # Store all rows and apply filter/sort
+            self._all_rows = rows
+            self._apply_filter_and_sort()
+        except Exception as e:
+            self.status_var.set(f"Error rebuilding table: {str(e)}")
+            messagebox.showerror("Error", f"Failed to rebuild job table: {str(e)}")
 
     def refresh(self):
+        if self._loading:
+            return  # Prevent multiple simultaneous refreshes
+        
+        self._loading = True
+        self.status_var.set("Loading...")
+        
         def worker():
             try:
-                rows = self.fetch_job_rows()
-            except Exception:
-                rows = []
+                rows, error_msg = self.fetch_job_rows()
+            except Exception as e:
+                rows, error_msg = [], f"Unexpected error: {str(e)}"
+            
             def done():
-                self.tree.delete(*self.tree.get_children())
-                for jid, wid, stat, nat, ts in rows:
-                    tag = ()
-                    up = (stat or "").upper()
-                    if up in (JobStatus.FAILED, JobStatus.CANCELLED):
-                        tag = ("status-bad",)
-                    elif up == JobStatus.COMPLETE:
-                        tag = ("status-good",)
-                    self.tree.insert("", tk.END, values=(jid, wid, stat, nat, ts, "[ Files ]"), tags=tag)
-                self.status_var.set(f"Jobs: {len(rows)}")
+                self._loading = False
+                if error_msg:
+                    self.status_var.set(f"Error: {error_msg}")
+                    # Show error dialog for connection issues
+                    if "connect" in error_msg.lower():
+                        messagebox.showerror("Connection Error", 
+                                           f"{error_msg}\n\nPlease ensure the lwfm service is running.")
+                else:
+                    # Store all rows and apply filter/sort
+                    self._all_rows = rows
+                    self._apply_filter_and_sort()
+            
             self.after(0, done)
+        
         threading.Thread(target=worker, daemon=True).start()
 
     # --- Click handling ---
@@ -209,25 +396,55 @@ class LwfmGui(tk.Tk):
 
     # --- Dialog delegations ---
     def view_metasheets(self):
-        open_metasheets_dialog(self)
+        progress_win, progress_bar = self._create_progress_dialog("Loading...", "Loading metasheets...")
+        
+        def worker():
+            try:
+                # This will be handled by the dialog itself, but we show progress first
+                def show_dialog():
+                    progress_win.destroy()
+                    open_metasheets_dialog(self)
+                self.after(0, show_dialog)
+            except Exception as e:
+                def show_error():
+                    progress_win.destroy()
+                    messagebox.showerror("Error", f"Failed to open metasheets dialog: {str(e)}")
+                self.after(0, show_error)
+        
+        # Small delay to show progress indicator
+        self.after(100, lambda: threading.Thread(target=worker, daemon=True).start())
 
     def view_workflow(self, workflow_id: str):
         open_workflow_dialog(self, workflow_id)
 
     # --- Status history ---
     def show_job_status(self, job_id: str, workflow_id: str = ""):
+        progress_win, progress_bar = self._create_progress_dialog("Loading...", f"Loading status for job {job_id}...")
+        
         def worker():
             try:
                 if workflow_id:
                     statuses = lwfManager.getAllJobStatusesForWorkflow(workflow_id) or []
                     statuses = [s for s in statuses if s.getJobContext().getJobId() == job_id]
                 else:
-                    s = lwfManager.getStatus(job_id)
-                    statuses = [s] if s else []
+                    statuses = lwfManager.getAllStatus(job_id) or []
                 statuses.sort(key=lambda x: x.getEmitTime())
-            except Exception:
+            except Exception as e:
                 statuses = []
-            self.after(0, lambda: self._show_status_window(job_id, statuses))
+                # Show error in main thread
+                def show_error():
+                    progress_win.destroy()
+                    messagebox.showerror("Error", 
+                        f"Failed to load job status for {job_id}: {str(e)}")
+                self.after(0, show_error)
+                return
+            
+            def show_results():
+                progress_win.destroy()
+                self._show_status_window(job_id, statuses)
+            
+            self.after(0, show_results)
+
         threading.Thread(target=worker, daemon=True).start()
 
     def _show_status_window(self, job_id: str, statuses: List[JobStatus]):
@@ -235,6 +452,36 @@ class LwfmGui(tk.Tk):
         win = tk.Toplevel(self)
         win.title(f"Status history for {job_id}")
         win.geometry("900x500")
+
+        # Header with job info
+        header = ttk.Frame(win)
+        header.pack(side=tk.TOP, fill=tk.X, padx=8, pady=8)
+        
+        # Get job context info from first status
+        parent_job_id = ""
+        workflow_id = ""
+        if statuses:
+            try:
+                context = statuses[0].getJobContext()
+                parent_job_id = context.getParentJobId() or ""
+                workflow_id = context.getWorkflowId() or ""
+            except Exception:
+                pass
+        
+        # Job ID (non-clickable)
+        ttk.Label(header, text=f"Job ID: {job_id}").pack(side=tk.LEFT, padx=(0, 16))
+        
+        # Parent Job ID (clickable if exists)
+        if parent_job_id:
+            parent_label = ttk.Label(header, text=f"Parent Job: {parent_job_id}", foreground="#FF6B35", cursor="hand2")
+            parent_label.pack(side=tk.LEFT, padx=(0, 16))
+            parent_label.bind("<Button-1>", lambda e: self.show_job_status(parent_job_id))
+        
+        # Workflow ID (clickable if exists)
+        if workflow_id:
+            workflow_label = ttk.Label(header, text=f"Workflow: {workflow_id}", foreground="#FF6B35", cursor="hand2")
+            workflow_label.pack(side=tk.LEFT)
+            workflow_label.bind("<Button-1>", lambda e: self.view_workflow(workflow_id))
 
         top = ttk.Frame(win)
         top.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -373,7 +620,6 @@ class LwfmGui(tk.Tk):
 
         if log_path and os.path.exists(log_path):
             ttk.Button(btns, text="Open Log", command=open_log).pack(side=tk.LEFT, padx=6, pady=6)
-        ttk.Button(btns, text="Close", command=win.destroy).pack(side=tk.RIGHT, padx=6, pady=6)
 
     def cancel_job(self, job_id: str, site: str):
         def worker():
@@ -386,9 +632,26 @@ class LwfmGui(tk.Tk):
         threading.Thread(target=worker, daemon=True).start()
 
     def show_files(self, job_id: str):
+        progress_win, progress_bar = self._create_progress_dialog("Loading...", f"Loading files for job {job_id}...")
+        
         def worker():
-            metas: List[Metasheet] = lwfManager.find({"_jobId": job_id}) or []
-            self.after(0, lambda: self._show_files_window(job_id, metas))
+            try:
+                metasheets = lwfManager.find({"_jobId": job_id}) or []
+            except Exception as e:
+                # Show error in main thread
+                def show_error():
+                    progress_win.destroy()
+                    messagebox.showerror("Error", 
+                        f"Failed to load files for {job_id}: {str(e)}")
+                self.after(0, show_error)
+                return
+            
+            def show_results():
+                progress_win.destroy()
+                self._show_files_window(job_id, metasheets)
+            
+            self.after(0, show_results)
+
         threading.Thread(target=worker, daemon=True).start()
 
     def _show_files_window(self, job_id: str, metas: List[Metasheet]):
@@ -536,12 +799,31 @@ class LwfmGui(tk.Tk):
 
     def view_events(self):
         """Open a panel listing active workflow events with filtering, sorting, and unset."""
+        progress_win, progress_bar = self._create_progress_dialog("Loading...", "Loading workflow events...")
+        
+        def load_events():
+            try:
+                events = lwfManager.getActiveWfEvents() or []
+                def show_events_window():
+                    progress_win.destroy()
+                    self._show_events_window(events)
+                self.after(0, show_events_window)
+            except Exception as e:
+                def show_error():
+                    progress_win.destroy()
+                    messagebox.showerror("Error", f"Failed to load events: {str(e)}")
+                self.after(0, show_error)
+        
+        threading.Thread(target=load_events, daemon=True).start()
+    
+    def _show_events_window(self, initial_events):
+        """Display the events window with the loaded events."""
         win = tk.Toplevel(self)
         win.title("Pending Events")
         win.geometry("1000x560")
 
         # State
-        events: List[WorkflowEvent] = []
+        events: List[WorkflowEvent] = initial_events
         rows: List[Dict[str, Any]] = []
         sort_by = "event_id"  # default sort by id for stability
         sort_asc = True

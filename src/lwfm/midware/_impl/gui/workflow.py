@@ -17,6 +17,18 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
     win.title(f"Workflow {workflow_id}")
     win.geometry("1100x680")
 
+    # Load workflow data immediately
+    try:
+        wf = lwfManager.getWorkflow(workflow_id)
+        wf_name = wf.getName() if wf else "(not found)"
+        wf_desc = wf.getDescription() if wf else "(not found)"
+        wf_props = wf.getProps() if wf else {}
+    except Exception:
+        wf = None
+        wf_name = "(error loading)"
+        wf_desc = "(error loading)"
+        wf_props = {}
+
     nb = ttk.Notebook(win)
     nb.pack(fill=tk.BOTH, expand=True)
 
@@ -25,32 +37,33 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
     nb.add(tab_overview, text="Overview")
     ov_top = ttk.Frame(tab_overview)
     ov_top.pack(side=tk.TOP, fill=tk.X, padx=8, pady=8)
-    name_var = tk.StringVar(value="")
-    desc_var = tk.StringVar(value="")
-    jobs_count = tk.StringVar(value="0")
-    data_count = tk.StringVar(value="0")
-    wf_id_var = tk.StringVar(value=workflow_id)
-    ttk.Label(ov_top, text="Name:").grid(row=0, column=0, sticky=tk.W)
-    ttk.Label(ov_top, textvariable=name_var).grid(row=0, column=1, sticky=tk.W, padx=(4, 16))
-    ttk.Label(ov_top, text="Description:").grid(row=1, column=0, sticky=tk.W)
-    ttk.Label(ov_top, textvariable=desc_var).grid(row=1, column=1, sticky=tk.W, padx=(4, 16))
-    ttk.Label(ov_top, text="Workflow ID:").grid(row=2, column=0, sticky=tk.W)
-    ttk.Entry(ov_top, textvariable=wf_id_var, width=60, state="readonly").grid(row=2, column=1, sticky=tk.W, padx=(4, 16))
-    ttk.Label(ov_top, text="Jobs:").grid(row=0, column=2, sticky=tk.W)
-    ttk.Label(ov_top, textvariable=jobs_count).grid(row=0, column=3, sticky=tk.W, padx=(4, 16))
-    ttk.Label(ov_top, text="Data items:").grid(row=1, column=2, sticky=tk.W)
-    ttk.Label(ov_top, textvariable=data_count).grid(row=1, column=3, sticky=tk.W, padx=(4, 16))
+    
+    ttk.Label(ov_top, text="Workflow ID:").grid(row=0, column=0, sticky=tk.W)
+    wf_id_entry = ttk.Entry(ov_top, width=60, state="readonly")
+    wf_id_entry.grid(row=0, column=1, sticky=tk.W, padx=(4, 16))
+    wf_id_entry.configure(state="normal")
+    wf_id_entry.insert(0, workflow_id)
+    wf_id_entry.configure(state="readonly")
+    ttk.Label(ov_top, text="Name:").grid(row=1, column=0, sticky=tk.W)
+    ttk.Label(ov_top, text=wf_name, wraplength=400).grid(row=1, column=1, sticky=tk.W, padx=(4, 16))
+    ttk.Label(ov_top, text="Description:").grid(row=2, column=0, sticky=tk.W)
+    ttk.Label(ov_top, text=wf_desc, wraplength=400).grid(row=2, column=1, sticky=tk.W, padx=(4, 16))
+    
     # Properties viewer
     ttk.Label(tab_overview, text="Properties:").pack(side=tk.TOP, anchor=tk.W, padx=8)
     props_text = tk.Text(tab_overview, height=10, wrap=tk.NONE)
     px = ttk.Scrollbar(tab_overview, orient=tk.HORIZONTAL, command=props_text.xview)
     py = ttk.Scrollbar(tab_overview, orient=tk.VERTICAL, command=props_text.yview)
-    props_text.configure(xscrollcommand=px.set, yscrollcommand=py.set, state=tk.DISABLED)
+    props_text.configure(xscrollcommand=px.set, yscrollcommand=py.set)
     props_frame = ttk.Frame(tab_overview)
     props_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
     props_text.pack(in_=props_frame, side=tk.LEFT, fill=tk.BOTH, expand=True)
     py.pack(in_=props_frame, side=tk.RIGHT, fill=tk.Y)
     px.pack(in_=props_frame, side=tk.BOTTOM, fill=tk.X)
+    
+    # Insert properties
+    props_text.insert(tk.END, json.dumps(wf_props, indent=2, sort_keys=True))
+    props_text.configure(state=tk.DISABLED)
 
     # --- Jobs tab ---
     tab_jobs = ttk.Frame(nb)
@@ -145,13 +158,9 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
             except Exception:
                 pass
         else:
-            ss = jobs_map.get(job_id, [])
+            # Any other column click opens job status popup
             try:
-                details_jobs.delete(1.0, tk.END)
-                for s in ss:
-                    t = s.getEmitTime().strftime('%Y-%m-%d %H:%M:%S')
-                    details_jobs.insert(tk.END, f"[{t}] {s.getStatus()} {s.getNativeStatusStr() or ''}\n")
-                details_jobs.see(tk.END)
+                gui.show_job_status(job_id, workflow_id)  # type: ignore[attr-defined]
             except Exception:
                 pass
     tv_jobs.bind("<Button-1>", on_jobs_click)
@@ -301,44 +310,25 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
             pass
     canvas.bind("<Configure>", _on_cfg)
 
-    def worker():
-        try:
-            wf = lwfManager.getWorkflow(workflow_id)
-            if wf:
-                try:
-                    name_var.set(wf.getName() or "")
-                    desc_var.set(wf.getDescription() or "")
-                    # properties
-                    props = wf.getProps() or {}
-                    props_text.configure(state=tk.NORMAL)
-                    props_text.delete(1.0, tk.END)
-                    props_text.insert(tk.END, json.dumps(props, indent=2, sort_keys=True))
-                    props_text.configure(state=tk.DISABLED)
-                except Exception:
-                    pass
-            all_stats = lwfManager.getAllJobStatusesForWorkflow(workflow_id) or []
-            jmap: Dict[str, List[JobStatus]] = {}
-            for s in all_stats:
-                jid = s.getJobContext().getJobId()
-                jmap.setdefault(jid, []).append(s)
-            for lst in jmap.values():
-                lst.sort(key=lambda x: x.getEmitTime())
-            ms = lwfManager.find({"_workflowId": workflow_id}) or []
-        except Exception:
-            jmap = {}
-            ms = []
-        def done():
-            nonlocal jobs_map, metas
-            jobs_map = jmap
-            metas = ms
-            jobs_count.set(str(len(jobs_map)))
-            data_count.set(str(len(metas)))
-            jobs_rebuild()
-            data_rebuild()
-            draw_graph()
-        try:
-            gui.after(0, done)  # type: ignore[attr-defined]
-        except Exception:
-            pass
-
-    threading.Thread(target=worker, daemon=True).start()
+    # Load job and metadata for other tabs
+    jobs_map: Dict[str, List[JobStatus]] = {}
+    metas: List[Metasheet] = []
+    
+    try:
+        all_stats = lwfManager.getAllJobStatusesForWorkflow(workflow_id) or []
+        for s in all_stats:
+            jid = s.getJobContext().getJobId()
+            jobs_map.setdefault(jid, []).append(s)
+        for lst in jobs_map.values():
+            lst.sort(key=lambda x: x.getEmitTime())
+    except Exception:
+        pass
+        
+    try:
+        metas = lwfManager.find({"_workflowId": workflow_id}) or []
+    except Exception:
+        pass
+    
+    jobs_rebuild()
+    data_rebuild()
+    draw_graph()
