@@ -83,8 +83,7 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
     except Exception:
         pass
 
-    details_jobs = tk.Text(tab_jobs, height=10, wrap=tk.WORD)
-    details_jobs.pack(side=tk.BOTTOM, fill=tk.X, padx=8, pady=(0, 8))
+    # Removed unused details text widget that appeared in the bottom-right
 
     # --- Data tab ---
     tab_data = ttk.Frame(nb)
@@ -113,6 +112,17 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
 
     def jobs_rebuild():
         tv_jobs.delete(*tv_jobs.get_children())
+        # Precompute which jobs have files based on metas (_jobId present)
+        jobs_with_files = set()
+        try:
+            for ms in metas:
+                p = ms.getProps() or {}
+                jid = str(p.get("_jobId") or "")
+                if jid:
+                    jobs_with_files.add(jid)
+        except Exception:
+            pass
+
         for job_id, statuses in jobs_map.items():
             latest = None
             if statuses:
@@ -126,7 +136,8 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
                 tag = ("status-good",)
             last_time = latest.getEmitTime().strftime('%Y-%m-%d %H:%M:%S') if latest else ""
             nat = latest.getNativeStatusStr() if latest else ""
-            tv_jobs.insert("", tk.END, values=(job_id, stat, nat, last_time, "[ Files ]", "[ Status ]"), tags=tag)
+            files_cell = "[ Files ]" if job_id in jobs_with_files else ""
+            tv_jobs.insert("", tk.END, values=(job_id, stat, nat, last_time, files_cell, "[ Status ]"), tags=tag)
 
     def data_rebuild():
         tv_data.delete(*tv_data.get_children())
@@ -149,7 +160,9 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
         job_id = vals[0]
         if cols[idx] == "files":
             try:
-                gui.show_files(job_id)  # type: ignore[attr-defined]
+                # Only open files if this row actually has a Files link
+                if (vals[4] or "").strip():
+                    gui.show_files(job_id)  # type: ignore[attr-defined]
             except Exception:
                 pass
         elif cols[idx] == "actions":

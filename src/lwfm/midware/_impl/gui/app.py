@@ -31,37 +31,35 @@ class LwfmGui(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("lwfm GUI")
-        self.geometry("1200x720")
+        self.geometry("1240x720")
 
         # Top toolbar
         toolbar = ttk.Frame(self)
         toolbar.pack(side=tk.TOP, fill=tk.X)
-        ttk.Button(toolbar, text="Refresh", command=self.refresh).pack(side=tk.LEFT, padx=6, pady=6)
         ttk.Label(toolbar, text="Interval (s):").pack(side=tk.LEFT, padx=(4, 4))
         self.interval_entry = ttk.Entry(toolbar, width=6)
         self.interval_entry.insert(0, str(RefreshIntervalSecDefault))
         self.interval_entry.pack(side=tk.LEFT, padx=(0, 16))
-        ttk.Button(toolbar, text="Metasheets", command=self.view_metasheets).pack(side=tk.LEFT)
-        ttk.Button(toolbar, text="Events", command=self.view_events).pack(side=tk.LEFT)
-        ttk.Button(toolbar, text="Server Log", command=self.view_server_log).pack(side=tk.LEFT)
-        ttk.Button(toolbar, text="Shutdown Server", command=self.shutdown_server).pack(side=tk.LEFT, padx=(16, 0))
-        ttk.Label(toolbar, text="Filter:").pack(side=tk.LEFT, padx=(16, 4))
+        ttk.Label(toolbar, text="Filter:").pack(side=tk.LEFT, padx=(8, 4))
         self.filter_entry = ttk.Entry(toolbar, width=30)
         self.filter_entry.pack(side=tk.LEFT, padx=(0, 8))
         self.filter_entry.bind("<KeyRelease>", self._on_filter_change)
-        ttk.Button(toolbar, text="Clear", command=self._clear_filter).pack(side=tk.LEFT)
+        ttk.Button(toolbar, text="Metasheets", command=self.view_metasheets).pack(side=tk.LEFT)
+        ttk.Button(toolbar, text="Events", command=self.view_events).pack(side=tk.LEFT)
+        ttk.Button(toolbar, text="Server Log", command=self.view_server_log).pack(side=tk.LEFT)
 
         # Jobs table with scrollbar in a frame
         table_frame = ttk.Frame(self)
         table_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=8)
         
-        cols = ("job_id", "workflow", "status", "native", "last_update", "files")
+        cols = ("job_id", "workflow", "status", "native", "site", "last_update", "files")
         self.tree = ttk.Treeview(table_frame, columns=cols, show="headings", selectmode="browse")
         headings = {
             "job_id": "Job ID",
             "workflow": "Workflow",
             "status": "Status",
             "native": "Native",
+            "site": "Site",
             "last_update": "Last Update",
             "files": "Files",
         }
@@ -70,6 +68,7 @@ class LwfmGui(tk.Tk):
             "workflow": 200,
             "status": 100,
             "native": 200,
+            "site": 160,
             "last_update": 180,
             "files": 80,
         }
@@ -204,12 +203,13 @@ class LwfmGui(tk.Tk):
             self._sort_reverse = (column == "last_update")
         
         # Update column headers to show sort direction
-        cols = ("job_id", "workflow", "status", "native", "last_update", "files")
+        cols = ("job_id", "workflow", "status", "native", "site", "last_update", "files")
         headings = {
             "job_id": "Job ID",
             "workflow": "Workflow", 
             "status": "Status",
             "native": "Native",
+            "site": "Site",
             "last_update": "Last Update",
             "files": "Files",
         }
@@ -249,7 +249,7 @@ class LwfmGui(tk.Tk):
         
         # Apply sorting
         if filtered_rows:
-            col_index = {"job_id": 0, "workflow": 1, "status": 2, "native": 3, "last_update": 4}[self._sort_column]
+            col_index = {"job_id": 0, "workflow": 1, "status": 2, "native": 3, "site": 4, "last_update": 5}[self._sort_column]
             
             def sort_key(row):
                 val = row[col_index] if col_index < len(row) else ""
@@ -261,14 +261,14 @@ class LwfmGui(tk.Tk):
         
         # Update display
         self.tree.delete(*self.tree.get_children())
-        for jid, wid, stat, nat, ts in filtered_rows:
+        for jid, wid, stat, nat, site, ts in filtered_rows:
             tag = ()
             up = (stat or "").upper()
             if up in (JobStatus.FAILED, JobStatus.CANCELLED):
                 tag = ("status-bad",)
             elif up == JobStatus.COMPLETE:
                 tag = ("status-good",)
-            self.tree.insert("", tk.END, values=(jid, wid, stat, nat, ts, "[ Files ]"), tags=tag)
+            self.tree.insert("", tk.END, values=(jid, wid, stat, nat, site, ts, "[ Files ]"), tags=tag)
         
         # Update status text only when counts/filter state change to avoid flicker
         total_count = len(self._all_rows)
@@ -287,13 +287,14 @@ class LwfmGui(tk.Tk):
         if not self._filter_text:
             return True
         
-        # Search across all visible columns
+        # Search across key columns
         search_text = " ".join([
             row[0] or "",  # job_id
             row[1] or "",  # workflow
             row[2] or "",  # status
             row[3] or "",  # native
-            row[4] or "",  # last_update
+            row[4] or "",  # site
+            row[5] or "",  # last_update
         ]).lower()
         
         return self._filter_text in search_text
@@ -314,8 +315,8 @@ class LwfmGui(tk.Tk):
             # Best effort; try again later with default
             self._timer_id = self.after(RefreshIntervalSecDefault * 1000, self._tick)
 
-    def fetch_job_rows(self) -> Tuple[List[Tuple[str, str, str, str, str]], Optional[str]]:
-        """Return (rows, error_msg): rows are (job_id, workflow_id, status, native, last_update).
+    def fetch_job_rows(self) -> Tuple[List[Tuple[str, str, str, str, str, str]], Optional[str]]:
+        """Return (rows, error_msg): rows are (job_id, workflow_id, status, native, site, last_update).
         Aggregates latest statuses per job across all workflows.
         Returns error message if connection fails.
         """
@@ -343,7 +344,7 @@ class LwfmGui(tk.Tk):
                     print(f"Warning: Failed to get statuses for workflow {wid}: {e}")
                 continue
         
-        rows: List[Tuple[str, str, str, str, str]] = []
+        rows: List[Tuple[str, str, str, str, str, str]] = []
         for s in latest_by_job.values():
             try:
                 ctx = s.getJobContext()
@@ -352,7 +353,17 @@ class LwfmGui(tk.Tk):
                 stat = (s.getStatus() or "")
                 nat = s.getNativeStatusStr() or ""
                 ts = s.getEmitTime().strftime('%Y-%m-%d %H:%M:%S') if s.getEmitTime() else ""
-                rows.append((jid, wid, stat, nat, ts))
+                try:
+                    site = ctx.getSiteName() or ""
+                except Exception:
+                    site = ""
+                if not site:
+                    try:
+                        st = lwfManager.getStatus(jid)
+                        site = st.getJobContext().getSiteName() if st else ""
+                    except Exception:
+                        site = ""
+                rows.append((jid, wid, stat, nat, site, ts))
             except Exception as e:
                 if os.environ.get("LWFM_GUI_DEBUG"):
                     print(f"Warning: Failed to process job status: {e}")
@@ -421,7 +432,7 @@ class LwfmGui(tk.Tk):
             # Workflow column
             self.view_workflow(workflow_id)
             return
-        if col_index == 5:
+        if col_index == 6:
             self.show_files(job_id)
             return
         # Otherwise, show status details
@@ -431,7 +442,7 @@ class LwfmGui(tk.Tk):
         # Change cursor to hand over clickable cells
         row_id = self.tree.identify_row(event.y)
         col_id = self.tree.identify_column(event.x)
-        if row_id and col_id in ('#2', '#6'):
+        if row_id and col_id in ('#2', '#7'):
             self.tree.configure(cursor="hand2")
         else:
             self.tree.configure(cursor="")

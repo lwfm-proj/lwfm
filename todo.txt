@@ -7,10 +7,6 @@ Todo & misc notes
 + lwfm
     + top
         - mtv is broken
-        - event page broken
-        - throwing connection errors if the server is not running 
-        - server shutdown becomes server restart
-        - workflow jobs tab has extra text area
         - graph view
 
     + 2nd
