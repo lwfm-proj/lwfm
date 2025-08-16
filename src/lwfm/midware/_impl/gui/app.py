@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import tkinter as tk
 from tkinter import messagebox, ttk
+from urllib import request, error
 
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.Metasheet import Metasheet  # type: ignore
@@ -100,13 +101,15 @@ class LwfmGui(tk.Tk):
         self.connection_var = tk.StringVar(value="●")
         ttk.Label(status_frame, textvariable=self.status_var, anchor=tk.W).pack(side=tk.LEFT, fill=tk.X, expand=True)
         # Use tk.Label so foreground color changes reliably reflect (ttk.Label can ignore foreground on some themes)
-        self.connection_label = tk.Label(status_frame, textvariable=self.connection_var, fg="green")
+        # Start as red (assume disconnected) until a successful refresh proves connectivity
+        self.connection_label = tk.Label(status_frame, textvariable=self.connection_var, fg="red")
         self.connection_label.pack(side=tk.RIGHT)
 
         self.refresh_interval = RefreshIntervalSecDefault
         self._timer_id: Optional[str] = None
         self._loading = False
-        self._connection_ok = True
+        # Assume disconnected until we confirm connection
+        self._connection_ok = False
         self._sort_column = "last_update"
         self._sort_reverse = True  # Newest first by default
         self._filter_text = ""
@@ -124,6 +127,7 @@ class LwfmGui(tk.Tk):
         
         self.refresh()
         self._tick()
+        self._start_health_checks()
 
     def _create_progress_dialog(self, title: str, message: str) -> tuple:
         """Create a centered progress dialog with indeterminate progress bar."""
@@ -156,6 +160,38 @@ class LwfmGui(tk.Tk):
         else:
             self.connection_var.set("●")
             self.connection_label.configure(fg="red")
+
+    # --- Health check ---
+    def _health_check_once(self) -> bool:
+        """Ping the server /isRunning; return True if HTTP 200."""
+        try:
+            props = SiteConfig.getSiteProperties("lwfm") or {}
+            host = props.get("host", "127.0.0.1")
+            port = str(props.get("port", "3000"))
+            url = f"http://{host}:{port}/isRunning"
+            req = request.Request(url, method="GET")
+            with request.urlopen(req, timeout=2.5) as resp:
+                return 200 <= resp.getcode() < 300
+        except Exception:
+            return False
+
+    def _start_health_checks(self):
+        """Begin periodic health checks in the UI loop."""
+        self._health_timer_id: Optional[str] = None
+
+        def tick():
+            ok = self._health_check_once()
+            self._update_connection_status(ok)
+            try:
+                n = int(self.interval_entry.get())
+                if n <= 0:
+                    n = RefreshIntervalSecDefault
+            except Exception:
+                n = self.refresh_interval or RefreshIntervalSecDefault
+            self._health_timer_id = self.after(n * 1000, tick)
+
+        # initial schedule
+        self._health_timer_id = self.after(500, tick)
 
     def _sort_by_column(self, column: str):
         """Sort the table by the specified column."""

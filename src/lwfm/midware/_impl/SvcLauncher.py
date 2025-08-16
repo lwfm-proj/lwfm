@@ -297,11 +297,11 @@ class SvcLauncher:
                     print("*** lwfm server initialization wait complete")
                     print("*** READY to process jobs.")
             # Optionally start GUI after server launch if enabled
-            try:
-                self._startGui()
-            except Exception as ex:
-                if os.getenv("LWFM_VERBOSE", "0") == "1":
-                    print(f"*** GUI autostart failed or skipped: {ex}")
+            # try:
+            #     self._startGui()
+            # except Exception as ex:
+            #     if os.getenv("LWFM_VERBOSE", "0") == "1":
+            #         print(f"*** GUI autostart failed or skipped: {ex}")
             return _middleware_process
         finally:
             # Release inter-process lock

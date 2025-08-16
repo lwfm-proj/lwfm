@@ -6,8 +6,6 @@ Todo & misc notes
 
 + lwfm
     + top
-        - show red indicator
-        - one copy of the gui per lwfm.sh run
         - mtv is broken
         - event page broken
         - throwing connection errors if the server is not running 
