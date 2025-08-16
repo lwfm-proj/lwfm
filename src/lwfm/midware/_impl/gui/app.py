@@ -10,6 +10,7 @@ import os
 import threading
 import traceback
 from datetime import datetime
+import signal
 from typing import Any, Dict, List, Optional, Tuple
 
 import tkinter as tk
@@ -29,7 +30,7 @@ class LwfmGui(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("lwfm GUI")
-        self.geometry("1120x720")
+        self.geometry("1200x720")
 
         # Top toolbar
         toolbar = ttk.Frame(self)
@@ -42,6 +43,7 @@ class LwfmGui(tk.Tk):
         ttk.Button(toolbar, text="Metasheets", command=self.view_metasheets).pack(side=tk.LEFT)
         ttk.Button(toolbar, text="Events", command=self.view_events).pack(side=tk.LEFT)
         ttk.Button(toolbar, text="Server Log", command=self.view_server_log).pack(side=tk.LEFT)
+        ttk.Button(toolbar, text="Shutdown Server", command=self.shutdown_server).pack(side=tk.LEFT, padx=(16, 0))
         ttk.Label(toolbar, text="Filter:").pack(side=tk.LEFT, padx=(16, 4))
         self.filter_entry = ttk.Entry(toolbar, width=30)
         self.filter_entry.pack(side=tk.LEFT, padx=(0, 8))
@@ -97,7 +99,8 @@ class LwfmGui(tk.Tk):
         self.status_var = tk.StringVar(value="Ready")
         self.connection_var = tk.StringVar(value="●")
         ttk.Label(status_frame, textvariable=self.status_var, anchor=tk.W).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.connection_label = ttk.Label(status_frame, textvariable=self.connection_var, foreground="green")
+        # Use tk.Label so foreground color changes reliably reflect (ttk.Label can ignore foreground on some themes)
+        self.connection_label = tk.Label(status_frame, textvariable=self.connection_var, fg="green")
         self.connection_label.pack(side=tk.RIGHT)
 
         self.refresh_interval = RefreshIntervalSecDefault
@@ -108,6 +111,7 @@ class LwfmGui(tk.Tk):
         self._sort_reverse = True  # Newest first by default
         self._filter_text = ""
         self._all_rows = []  # Store unfiltered data
+        self._last_status_counts: Optional[Tuple[int, int, bool]] = None  # (filtered, total, has_filter)
         
         # Keyboard shortcuts
         self.bind_all("<F5>", lambda e: self.refresh())
@@ -148,10 +152,10 @@ class LwfmGui(tk.Tk):
         self._connection_ok = connected
         if connected:
             self.connection_var.set("●")
-            self.connection_label.configure(foreground="green")
+            self.connection_label.configure(fg="green")
         else:
             self.connection_var.set("●")
-            self.connection_label.configure(foreground="red")
+            self.connection_label.configure(fg="red")
 
     def _sort_by_column(self, column: str):
         """Sort the table by the specified column."""
@@ -230,13 +234,17 @@ class LwfmGui(tk.Tk):
                 tag = ("status-good",)
             self.tree.insert("", tk.END, values=(jid, wid, stat, nat, ts, "[ Files ]"), tags=tag)
         
-        # Update status with filter info
+        # Update status text only when counts/filter state change to avoid flicker
         total_count = len(self._all_rows)
         filtered_count = len(filtered_rows)
-        if self._filter_text:
-            self.status_var.set(f"Jobs: {filtered_count}/{total_count} (filtered) | Last updated: {datetime.now().strftime('%H:%M:%S')}")
-        else:
-            self.status_var.set(f"Jobs: {filtered_count} | Last updated: {datetime.now().strftime('%H:%M:%S')}")
+        has_filter = bool(self._filter_text)
+        sig = (filtered_count, total_count, has_filter)
+        if sig != (self._last_status_counts or (-1, -1, None)):
+            if has_filter:
+                self.status_var.set(f"Jobs: {filtered_count}/{total_count} (filtered)")
+            else:
+                self.status_var.set(f"Jobs: {filtered_count}")
+            self._last_status_counts = sig
 
     def _matches_filter(self, row) -> bool:
         """Check if a row matches the current filter text."""
@@ -294,8 +302,9 @@ class LwfmGui(tk.Tk):
                     if (cur is None) or (s.getEmitTime() > cur.getEmitTime()):
                         latest_by_job[jid] = s
             except Exception as e:
-                # Log individual workflow errors but continue
-                print(f"Warning: Failed to get statuses for workflow {wid}: {e}")
+                # Quiet by default; enable with LWFM_GUI_DEBUG=1
+                if os.environ.get("LWFM_GUI_DEBUG"):
+                    print(f"Warning: Failed to get statuses for workflow {wid}: {e}")
                 continue
         
         rows: List[Tuple[str, str, str, str, str]] = []
@@ -309,7 +318,8 @@ class LwfmGui(tk.Tk):
                 ts = s.getEmitTime().strftime('%Y-%m-%d %H:%M:%S') if s.getEmitTime() else ""
                 rows.append((jid, wid, stat, nat, ts))
             except Exception as e:
-                print(f"Warning: Failed to process job status: {e}")
+                if os.environ.get("LWFM_GUI_DEBUG"):
+                    print(f"Warning: Failed to process job status: {e}")
                 continue
         
         return rows, None
@@ -335,7 +345,6 @@ class LwfmGui(tk.Tk):
             return  # Prevent multiple simultaneous refreshes
         
         self._loading = True
-        self.status_var.set("Loading...")
         
         def worker():
             try:
@@ -346,11 +355,8 @@ class LwfmGui(tk.Tk):
             def done():
                 self._loading = False
                 if error_msg:
-                    self.status_var.set(f"Error: {error_msg}")
-                    # Show error dialog for connection issues
-                    if "connect" in error_msg.lower():
-                        messagebox.showerror("Connection Error", 
-                                           f"{error_msg}\n\nPlease ensure the lwfm service is running.")
+                    # Connection status shown only via colored dot indicator
+                    pass
                 else:
                     # Store all rows and apply filter/sort
                     self._all_rows = rows
@@ -791,11 +797,59 @@ class LwfmGui(tk.Tk):
             if os.path.exists(log_path):
                 with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
                     text.insert(tk.END, f.read())
-                last_size = os.path.getsize(log_path)
-                text.see(tk.END)
         except Exception:
             pass
-        win.after(1000, poll)
+        poll()
+
+    def shutdown_server(self):
+        """Send a graceful shutdown signal to the lwfm server using its PID file."""
+        # Confirm intent
+        if not messagebox.askyesno(
+            "Shutdown Server",
+            "Are you sure you want to shut down the lwfm server?\n\nActive operations will be stopped.",
+        ):
+            return
+        try:
+            log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+            pid_path = os.path.join(log_dir, 'midware.pid')
+        except Exception as ex:
+            messagebox.showerror("Shutdown Server", f"Could not resolve PID file path: {ex}")
+            return
+
+        if not os.path.exists(pid_path):
+            messagebox.showinfo("Shutdown Server", "Server PID file not found. The server may not be running.")
+            return
+
+        try:
+            with open(pid_path, 'r', encoding='utf-8') as pf:
+                pid_str = pf.read().strip()
+            pid = int(pid_str)
+        except Exception as ex:
+            messagebox.showerror("Shutdown Server", f"Failed to read PID file: {ex}")
+            return
+
+        # Check if process appears alive
+        try:
+            os.kill(pid, 0)
+        except Exception:
+            messagebox.showinfo("Shutdown Server", "The server process is not running (stale PID file).")
+            return
+
+        # Try to send SIGTERM to the process group first (SvcLauncher uses start_new_session)
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGTERM)
+            message = "Shutdown signal sent to server (process group)."
+        except Exception:
+            try:
+                os.kill(pid, signal.SIGTERM)
+                message = "Shutdown signal sent to server (PID)."
+            except Exception as ex:
+                messagebox.showerror("Shutdown Server", f"Failed to send shutdown signal: {ex}")
+                return
+
+        # Nudge UI to reflect disconnect after a short delay
+        self.after(1500, self.refresh)
+        messagebox.showinfo("Shutdown Server", message)
 
     def view_events(self):
         """Open a panel listing active workflow events with filtering, sorting, and unset."""

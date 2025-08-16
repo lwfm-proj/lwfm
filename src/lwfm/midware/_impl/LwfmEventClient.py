@@ -241,12 +241,14 @@ class LwfmEventClient:
                 timeout=self._REST_TIMEOUT)
             if response.ok:
                 return
-            # use the plain logger when logging logging errors
-            logging.error(f"emitLogging error: {response.text}")
+            # Only log when debug mode is enabled
+            if os.environ.get("LWFM_GUI_DEBUG"):
+                logging.error(f"emitLogging error: {response.text}")
             return
         except Exception as ex:
-            # use the plain logger when logging logging errors
-            logging.error("error emitting logging: " + str(ex))
+            # Only log connection errors when debug mode is enabled
+            if os.environ.get("LWFM_GUI_DEBUG"):
+                logging.error("error emitting logging: " + str(ex))
 
 
     def getLoggingByWorkflowId(self, workflowId: str) -> Optional[List[str]]:
