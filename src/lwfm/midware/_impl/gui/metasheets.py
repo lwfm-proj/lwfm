@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
+import os
 import tkinter as tk
 from tkinter import ttk
 
@@ -12,7 +13,11 @@ def open_metasheets_dialog(parent: tk.Misc):
     """Open the Search Metasheets dialog (was LwfmGui.view_metasheets)."""
     win = tk.Toplevel(parent)
     win.title("Search Metasheets")
-    win.geometry("1100x650")
+    win.geometry("1200x800")
+    try:
+        win.minsize(1100, 720)
+    except Exception:
+        pass
 
     # Local state
     all_sheets: List[Metasheet] = []
@@ -77,7 +82,7 @@ def open_metasheets_dialog(parent: tk.Misc):
         def add_row():
             row = ttk.Frame(frm)
             row.pack(side=tk.TOP, fill=tk.X, pady=2)
-            field_cb = ttk.Combobox(row, values=field_names, width=24)
+            field_cb = ttk.Combobox(row, values=field_names, width=24, state="readonly")
             field_cb.pack(side=tk.LEFT, padx=(0, 6))
             val_ent = ttk.Entry(row, width=28)
             val_ent.pack(side=tk.LEFT, padx=(0, 6))
@@ -106,13 +111,17 @@ def open_metasheets_dialog(parent: tk.Misc):
     ttk.Checkbutton(opts, text="Case sensitive", variable=case_var).pack(side=tk.TOP, anchor=tk.W)
     ttk.Checkbutton(opts, text="Show nulls", variable=show_nulls_var).pack(side=tk.TOP, anchor=tk.W)
 
-    # Group by controls
-    grp = ttk.Labelframe(win, text="Group by")
+    # Field display order builder (group-by fields)
+    grp = ttk.Labelframe(win, text="Field display / grouping order")
     grp.pack(side=tk.TOP, fill=tk.X, padx=8, pady=(0, 6))
-    listbox = tk.Listbox(grp, selectmode=tk.SINGLE, exportselection=False)
-    listbox.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 6), pady=6)
+
+    # Available (all) fields list
+    listbox = tk.Listbox(grp, selectmode=tk.SINGLE, exportselection=False, height=8)
+    listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(6, 6), pady=6)
+
+    # Controls
     btns = ttk.Frame(grp)
-    btns.pack(side=tk.LEFT, padx=6)
+    btns.pack(side=tk.LEFT, padx=6, pady=6)
 
     def add_field():
         sel = listbox.curselection()
@@ -122,30 +131,59 @@ def open_metasheets_dialog(parent: tk.Misc):
         if name in group_fields:
             return
         group_fields.append(name)
+        sel_listbox.insert(tk.END, name)
         rebuild_tree([])
 
     def remove_field():
-        if not group_fields:
+        sel = sel_listbox.curselection()
+        if not sel:
             return
-        group_fields.pop()
-        rebuild_tree([])
+        idx = sel[0]
+        if 0 <= idx < len(group_fields):
+            group_fields.pop(idx)
+            sel_listbox.delete(idx)
+            rebuild_tree([])
 
     def move_up():
-        if len(group_fields) < 2:
+        sel = sel_listbox.curselection()
+        if not sel:
             return
-        group_fields[0], group_fields[1] = group_fields[1], group_fields[0]
+        idx = sel[0]
+        if idx <= 0:
+            return
+        group_fields[idx-1], group_fields[idx] = group_fields[idx], group_fields[idx-1]
+        # Update UI
+        name = sel_listbox.get(idx)
+        sel_listbox.delete(idx)
+        sel_listbox.insert(idx-1, name)
+        sel_listbox.selection_clear(0, tk.END)
+        sel_listbox.selection_set(idx-1)
         rebuild_tree([])
 
     def move_down():
-        if len(group_fields) < 2:
+        sel = sel_listbox.curselection()
+        if not sel:
             return
-        group_fields[1], group_fields[0] = group_fields[0], group_fields[1]
+        idx = sel[0]
+        if idx >= len(group_fields) - 1:
+            return
+        group_fields[idx+1], group_fields[idx] = group_fields[idx], group_fields[idx+1]
+        # Update UI
+        name = sel_listbox.get(idx)
+        sel_listbox.delete(idx)
+        sel_listbox.insert(idx+1, name)
+        sel_listbox.selection_clear(0, tk.END)
+        sel_listbox.selection_set(idx+1)
         rebuild_tree([])
 
     ttk.Button(btns, text="Add", command=add_field).pack(side=tk.TOP, fill=tk.X, pady=(6,2))
     ttk.Button(btns, text="Remove", command=remove_field).pack(side=tk.TOP, fill=tk.X, pady=2)
     ttk.Button(btns, text="Up", command=move_up).pack(side=tk.TOP, fill=tk.X, pady=2)
     ttk.Button(btns, text="Down", command=move_down).pack(side=tk.TOP, fill=tk.X, pady=(2,6))
+
+    # Selected (ordered) fields list
+    sel_listbox = tk.Listbox(grp, selectmode=tk.SINGLE, exportselection=False, height=8)
+    sel_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(6, 6), pady=6)
 
     # Results tree
     res_frame = ttk.Frame(win)
@@ -213,44 +251,64 @@ def open_metasheets_dialog(parent: tk.Misc):
             return tv.insert(parent, tk.END, text=text, values=values)
 
         def make_tree():
+            # Ensure default grouping fields and sync UI selection list
             if not group_fields:
-                default_fields = ["_workflowId", "_jobId", "_direction"]
+                default_fields = ["_workflowId", "_jobId"]
                 for f in default_fields:
                     if f not in group_fields:
                         group_fields.append(f)
+                sel_listbox.delete(0, tk.END)
+                for f in group_fields:
+                    sel_listbox.insert(tk.END, f)
+
+            # Header row
             _ins("", "", ("Field", "Value", "Count"))
 
-            def get_val(ms: Metasheet, key: str) -> str:
-                p = ms.getProps() or {}
-                v = p.get(key)
-                return "" if v is None else str(v)
+            fields = list(group_fields)
+            show_nulls = bool(show_nulls_var.get())
 
-            from collections import defaultdict
-            grouped: Dict[str, List[Metasheet]] = defaultdict(list)
-            for ms in results:
-                k0 = get_val(ms, group_fields[0])
-                grouped[k0].append(ms)
+            def get_raw(ms: Metasheet, key: str):
+                try:
+                    return (ms.getProps() or {}).get(key)
+                except Exception:
+                    return None
 
-            def insert_children(parent, depth, prefix):
-                if depth >= len(group_fields):
-                    for ms in prefix:
+            def label_for(v) -> str:
+                if v is None or str(v).strip() == "":
+                    return "None"
+                return str(v)
+
+            def build_level(parent, items: List[Metasheet], depth: int):
+                if depth >= len(fields):
+                    # Render leaves (files)
+                    for ms in items:
                         p = ms.getProps() or {}
-                        leaf = _ins(parent, "", (p.get("_sheetId", ""), p.get("_localPath", ""), 1))
+                        leaf_name = os.path.basename(p.get("_localPath", "") or "")
+                        if not leaf_name:
+                            leaf_name = str(p.get("_sheetId", ""))
+                        leaf = _ins(parent, f"📄 {leaf_name}", (p.get("_sheetId", ""), p.get("_localPath", ""), 1))
                         leaf_by_iid[leaf] = ms
                     return
-                field = group_fields[depth]
-                from collections import defaultdict as _dd
-                sub: Dict[str, List[Metasheet]] = _dd(list)
-                items = prefix if isinstance(prefix, list) else grouped.get(prefix, [])
-                for ms in items:
-                    sub[str((ms.getProps() or {}).get(field, ""))].append(ms)
-                for key, lst in sorted(sub.items(), key=lambda kv: (kv[0] or "")):
-                    node = _ins(parent, "", (field, key, len(lst)))
-                    insert_children(node, depth + 1, lst)
 
-            for k0, lst0 in sorted(grouped.items(), key=lambda kv: (kv[0] or "")):
-                n0 = _ins("", "", (group_fields[0], k0, len(lst0)))
-                insert_children(n0, 1, lst0)
+                field = fields[depth]
+                # Group by this field
+                from collections import defaultdict as _dd
+                buckets: Dict[str, List[Metasheet]] = _dd(list)
+                for ms in items:
+                    v = get_raw(ms, field)
+                    if (v is None or str(v).strip() == "") and not show_nulls:
+                        # Skip null/empty groups if Show nulls is OFF
+                        continue
+                    buckets[label_for(v)].append(ms)
+
+                # Insert child folders sorted by label
+                for k in sorted(buckets.keys(), key=lambda s: (s == "None", s)):
+                    lst = buckets[k]
+                    node = _ins(parent, f"📁 {field}: {k}", (field, k, len(lst)))
+                    build_level(node, lst, depth + 1)
+
+            # Start at root with all results
+            build_level("", results, 0)
 
         make_tree()
 
@@ -302,6 +360,18 @@ def open_metasheets_dialog(parent: tk.Misc):
     ttk.Button(btns_q, text="Search", command=do_search).pack(side=tk.LEFT)
     ttk.Button(btns_q, text="Close", command=win.destroy).pack(side=tk.RIGHT)
 
+    # Helper to update all clause comboboxes with latest field names
+    def _update_clause_field_choices(names: List[str]):
+        try:
+            for r in rows_all:
+                r["field"]["values"] = names
+            for r in rows_any:
+                r["field"]["values"] = names
+            for r in rows_not:
+                r["field"]["values"] = names
+        except Exception:
+            pass
+
     def bootstrap_fields_async():
         def worker():
             try:
@@ -313,6 +383,14 @@ def open_metasheets_dialog(parent: tk.Misc):
                 listbox.delete(0, tk.END)
                 for n in names:
                     listbox.insert(tk.END, n)
+                _update_clause_field_choices(names)
+                # Initialize selected list defaults if empty
+                if not group_fields:
+                    group_fields.extend(["_workflowId", "_jobId"])
+                sel_listbox.delete(0, tk.END)
+                for f in group_fields:
+                    if f in names:
+                        sel_listbox.insert(tk.END, f)
             parent.after(0, done)
         import threading as _t
         _t.Thread(target=worker, daemon=True).start()

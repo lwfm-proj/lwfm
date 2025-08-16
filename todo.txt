@@ -6,8 +6,6 @@ Todo & misc notes
 
 + lwfm
     + top
-        - mtv is broken
-        - graph view
 
     + 2nd
         - can we run a gui at oak ridge?
