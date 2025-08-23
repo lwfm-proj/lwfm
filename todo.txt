@@ -6,6 +6,7 @@ Todo & misc notes
 
 + lwfm
     + top
+        - status timestamps are off in the gui - in the data too?
 
     + 2nd
         - qtsuite test04: sqd
