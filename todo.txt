@@ -5,7 +5,6 @@ Todo & misc notes
 ******************************************************************************
 
 + IBM site driver, quantum info
-    - limit when venv updated 
     - send terminal status in submit on error
     + run prov
         - capture of current machine state

@@ -295,10 +295,12 @@ class LwfManager:
             return
 
         # Create venv if missing
+        venv_created = False
         if not os.path.isdir(venv_dir):
             try:
                 logger.info(f"Creating venv at {venv_dir} using uv venv (cwd={project_dir})")
                 subprocess.run([uv_bin, "venv"], cwd=project_dir, check=True)
+                venv_created = True
             except subprocess.CalledProcessError as ex:
                 logger.error(f"uv venv failed in {project_dir}: {ex}")
                 return
@@ -311,13 +313,14 @@ class LwfManager:
         if bin_dir not in env_path.split(":"):
             env_vars["PATH"] = f"{bin_dir}:{env_path}" if env_path else bin_dir
 
-        # Always sync to make sure deps are current with lock
-        try:
-            logger.info(f"Syncing dependencies via uv sync --upgrade (cwd={project_dir})")
-            subprocess.run([uv_bin, "sync", "--upgrade"], cwd=project_dir, check=True, env=env_vars)
-        except subprocess.CalledProcessError as ex:
-            logger.error(f"uv sync failed in {project_dir}: {ex}")
-            # proceed; site may still work if already satisfied
+        # Sync only if we created the venv during this call (avoid frequent syncs)
+        if venv_created:
+            try:
+                logger.info(f"Syncing dependencies via uv sync --upgrade (cwd={project_dir})")
+                subprocess.run([uv_bin, "sync", "--upgrade"], cwd=project_dir, check=True, env=env_vars)
+            except subprocess.CalledProcessError as ex:
+                logger.error(f"uv sync failed in {project_dir}: {ex}")
+                # proceed; site may still work if already satisfied
 
 
     #***********************************************************************
