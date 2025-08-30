@@ -322,6 +322,65 @@ class LwfManager:
                 logger.error(f"uv sync failed in {project_dir}: {ex}")
                 # proceed; site may still work if already satisfied
 
+    def _run_uv_sync(self, project_dir: str, env_vars: dict) -> None:
+        """Helper to run uv sync with logging; expects uv on PATH."""
+        uv_bin = shutil.which("uv")
+        if uv_bin is None:
+            logger.info("uv not found on PATH; skipping uv sync for %s", project_dir)
+            return
+        try:
+            logger.info(f"Syncing dependencies via uv sync --upgrade (cwd={project_dir})")
+            subprocess.run([uv_bin, "sync", "--upgrade"], cwd=project_dir, check=True, env=env_vars)
+        except subprocess.CalledProcessError as ex:
+            logger.error(f"uv sync failed in {project_dir}: {ex}")
+        except Exception as ex:
+            logger.error(f"Unexpected error during uv sync in {project_dir}: {ex}")
+
+    def updateSite(self, site: str) -> None:
+        """Ensure site venv exists; if missing create it and sync, otherwise sync.
+
+        This method performs the explicit action you requested: it ensures the
+        venv for the named site exists (creating it if necessary) and always
+        runs `uv sync` after ensuring the venv is present.
+        """
+        props = SiteConfig.getSiteProperties(site) or {}
+        venv_path = props.get("venv")
+        if not venv_path:
+            logger.info("updateSite: no venv configured for site %s; nothing to do", site)
+            return
+        venv_dir = os.path.abspath(os.path.expanduser(str(venv_path)))
+        project_dir = os.path.dirname(venv_dir)
+        if os.path.basename(venv_dir) != ".venv":
+            project_dir = os.path.dirname(venv_dir)
+
+        # Prepare environment for sync (use same logic as _ensure_site_venv)
+        env_vars = os.environ.copy()
+        env_vars["VIRTUAL_ENV"] = venv_dir
+        bin_dir = os.path.join(venv_dir, "bin")
+        env_path = env_vars.get("PATH", "")
+        if bin_dir not in env_path.split(":"):
+            env_vars["PATH"] = f"{bin_dir}:{env_path}" if env_path else bin_dir
+
+        # If venv exists, just sync; otherwise create then sync
+        if os.path.isdir(venv_dir):
+            self._run_uv_sync(project_dir, env_vars)
+            return
+
+        # Create venv then sync
+        uv_bin = shutil.which("uv")
+        if uv_bin is None:
+            logger.info("uv not found on PATH; cannot create venv for site '%s'", site)
+            return
+        try:
+            logger.info(f"Creating venv at {venv_dir} using uv venv (cwd={project_dir})")
+            subprocess.run([uv_bin, "venv"], cwd=project_dir, check=True)
+        except subprocess.CalledProcessError as ex:
+            logger.error(f"uv venv failed in {project_dir}: {ex}")
+            return
+
+        # Run sync after successful creation
+        self._run_uv_sync(project_dir, env_vars)
+
 
     #***********************************************************************
     # public workflow methods
