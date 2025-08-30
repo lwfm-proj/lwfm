@@ -9,7 +9,7 @@ import json
 import os
 import threading
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 import signal
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -44,6 +44,18 @@ class LwfmGui(tk.Tk):
         self.filter_entry = ttk.Entry(toolbar, width=30)
         self.filter_entry.pack(side=tk.LEFT, padx=(0, 8))
         self.filter_entry.bind("<KeyRelease>", self._on_filter_change)
+        # Time-range pick list (UI only for now). Default to 'today'.
+        self.time_range_var = tk.StringVar(value='today')
+        self.time_combo = ttk.Combobox(
+            toolbar,
+            width=10,
+            state='readonly',
+            values=['today', 'week', 'month', 'all'],
+            textvariable=self.time_range_var,
+        )
+        self.time_combo.pack(side=tk.LEFT, padx=(0, 8))
+        # Wire selection to refresh filter
+        self.time_combo.bind('<<ComboboxSelected>>', lambda _e: self._apply_filter_and_sort())
         ttk.Button(toolbar, text="Metasheets", command=self.view_metasheets).pack(side=tk.LEFT)
         ttk.Button(toolbar, text="Events", command=self.view_events).pack(side=tk.LEFT)
         ttk.Button(toolbar, text="Server Log", command=self.view_server_log).pack(side=tk.LEFT)
@@ -60,7 +72,7 @@ class LwfmGui(tk.Tk):
             "status": "Status",
             "native": "Native",
             "site": "Site",
-            "last_update": "Last Update",
+            "last_update": "Last Update (UTC)",
             "files": "Files",
         }
         widths = {
@@ -210,7 +222,7 @@ class LwfmGui(tk.Tk):
             "status": "Status",
             "native": "Native",
             "site": "Site",
-            "last_update": "Last Update",
+            "last_update": "Last Update (UTC)",
             "files": "Files",
         }
         
@@ -285,7 +297,8 @@ class LwfmGui(tk.Tk):
     def _matches_filter(self, row) -> bool:
         """Check if a row matches the current filter text."""
         if not self._filter_text:
-            return True
+            # still apply time-range check even if no text filter
+            return self._in_time_range(row[5])
         
         # Search across key columns
         search_text = " ".join([
@@ -297,7 +310,31 @@ class LwfmGui(tk.Tk):
             row[5] or "",  # last_update
         ]).lower()
         
-        return self._filter_text in search_text
+        if self._filter_text in search_text:
+            return self._in_time_range(row[5])
+        return False
+
+    def _in_time_range(self, ts: str) -> bool:
+        """Check if timestamp string (YYYY-MM-DD HH:MM:SS) falls within selected time range.
+
+        'today' = last 24 hours, 'week' = last 7 days, 'month' = last 30 days, 'all' = no filter.
+        Timestamps are assumed to be UTC strings.
+        """
+        choice = (self.time_range_var.get() or 'all').lower()
+        if choice == 'all' or not ts:
+            return True
+        try:
+            dt = datetime.strptime(ts, '%Y-%m-%d %H:%M:%S')
+            now = datetime.utcnow()
+            if choice == 'today':
+                return dt >= now - timedelta(hours=24)
+            if choice == 'week':
+                return dt >= now - timedelta(days=7)
+            if choice == 'month':
+                return dt >= now - timedelta(days=30)
+        except Exception:
+            return True
+        return True
 
     # --- Main table data ---
     def _tick(self):

@@ -4,45 +4,32 @@ Todo & misc notes
 
 ******************************************************************************
 
-+ lwfm
-    + top
-        - status timestamps are off in the gui - in the data too?
-
-    + 2nd
-        - qtsuite test04: sqd
-        - clearing out stale remote monitoring jobs - test the gui
-        - import/export (#73) - after ORNL DD
-        - todo items (many are for log context - separate ticket)
-        - inline docs esp. for .base & .midware (#84), keywords, pillars for meta search; ibm, tk
-        - full trigger impl & bugs; gui
-        - normalize INFO logging data structure for job provenance, data provenance
-        - lwfManager exec inline needs a way to handle runArgs for submit
-        - lwfManager.dumpWorkflow() - all meta info of all kinds
-        - test: do we handle jobDefn.getJobArgs() correctly for both data types? 
-        - do we need submit() to take a list[str] in addition to dict for args?
-        - AWS Braket site driver
-        - utility functions for site drivers which takes objects of different types 
-            which are potentially serialized and returns them in a set form - submit,get,put
-        - more granular "find event" method in lwfm and get IBM driver submit() to use it
-
 + IBM site driver, quantum info
-    + bugs  
-        - ex09 can fail if login fails, but shows as success
-        - is native status being recorded correctly?
+    - limit when venv updated 
+    - send terminal status in submit on error
+    + run prov
+        - capture of current machine state
+        - noise model, from backend, etc.
+        - set logger context, submit/put/get
+        - other qiskit run options, compiler passes
     + data prov
         - notating get from IBM by doing a local put?
         - metadata on get(), Workflow on get()/put()
         - get without a file involved - just a string return
         - unpacking qiskit results - show in qtsuite cfd
-    + run prov
-        - proper job status emits
-        - capture of current machine state
-        - noise model, from backend, etc.
-        - set logger context, submit/put/get
-        - other qiskit run options
-    + future 
-        - allow 1 session for many circuits
-        - custom pass manager steps as runtime args
+
+
++ lwfm 2nd
+    - clearing out stale remote monitoring jobs - test the gui
+    - todo items (many are for log context - separate ticket)
+    - normalize INFO logging data structure for job provenance, data provenance
+    - lwfManager exec inline needs a way to handle runArgs for submit
+    - lwfManager.dumpWorkflow() - all meta info of all kinds
+    - test: do we handle jobDefn.getJobArgs() correctly for both data types? 
+    - do we need submit() to take a list[str] in addition to dict for args?
+    - utility functions for site drivers which takes objects of different types 
+        which are potentially serialized and returns them in a set form - submit,get,put
+    - more granular "find event" method in lwfm and get IBM driver submit() to use it
 
 
 ******************************************************************************
