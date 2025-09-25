@@ -131,7 +131,6 @@ class LocalSiteRun(SiteRun):
             # site (e.g. HPC scheduler, cloud, etc.)
             if isinstance(parentContext, JobContext):
                 useContext = parentContext
-                useContext.setSiteName(self.getSiteName())
             elif isinstance(parentContext, Workflow):
                 useContext = JobContext()
                 useContext.setSiteName(self.getSiteName())
@@ -147,8 +146,6 @@ class LocalSiteRun(SiteRun):
                     useContext.setSiteName(self.getSiteName())
                     # assert readiness
                     lwfManager.emitStatus(useContext, JobStatus.READY)
-                else:
-                    useContext.setSiteName(self.getSiteName())
 
             # if we have runArgs, append them to the entryPoint space delimited
             jobDefn = cast(JobDefn, jobDefn)
