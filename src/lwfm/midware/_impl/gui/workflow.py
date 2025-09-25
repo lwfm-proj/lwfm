@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
+from datetime import datetime
 from typing import Any, Dict, List
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 from lwfm.base.JobStatus import JobStatus
 from lwfm.base.Metasheet import Metasheet  # type: ignore
 from lwfm.midware.LwfManager import lwfManager
+from lwfm.midware._impl.SiteConfig import SiteConfig
 
 
-def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
+def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str = ""):
     """Open the workflow details dialog with Overview, Jobs, Data, Graph tabs."""
     win = tk.Toplevel(gui)
     win.title(f"Workflow {workflow_id}")
@@ -68,22 +71,89 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
     # --- Jobs tab ---
     tab_jobs = ttk.Frame(nb)
     nb.add(tab_jobs, text="Jobs")
-    cols = ("job_id", "status", "native", "last_update", "files", "actions")
-    tv_jobs = ttk.Treeview(tab_jobs, columns=cols, show="headings", selectmode="browse")
-    for cid, w in zip(cols, (260, 120, 180, 180, 80, 120)):
+    
+    # Create split pane with jobs list on top and details on bottom
+    jobs_paned = ttk.PanedWindow(tab_jobs, orient=tk.VERTICAL)
+    jobs_paned.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+    
+    # Top pane: Jobs list
+    jobs_top_frame = ttk.Frame(jobs_paned)
+    jobs_paned.add(jobs_top_frame, weight=1)
+    
+    cols = ("job_id", "status", "native", "last_update", "files")
+    tv_jobs = ttk.Treeview(jobs_top_frame, columns=cols, show="headings", selectmode="browse")
+    for cid, w in zip(cols, (260, 120, 180, 180, 80)):
         tv_jobs.heading(cid, text=cid.replace("_", " ").title())
-        tv_jobs.column(cid, width=w, anchor=(tk.CENTER if cid in ("files", "actions") else tk.W))
-    tv_jobs.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(8, 0), pady=8)
-    ysb_jobs = ttk.Scrollbar(tab_jobs, orient=tk.VERTICAL, command=tv_jobs.yview)
+        tv_jobs.column(cid, width=w, anchor=(tk.CENTER if cid == "files" else tk.W))
+    tv_jobs.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    ysb_jobs = ttk.Scrollbar(jobs_top_frame, orient=tk.VERTICAL, command=tv_jobs.yview)
     tv_jobs.configure(yscrollcommand=ysb_jobs.set)
-    ysb_jobs.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 8), pady=8)
+    ysb_jobs.pack(side=tk.RIGHT, fill=tk.Y)
     try:
         tv_jobs.tag_configure("status-bad", foreground="#d32f2f")
         tv_jobs.tag_configure("status-good", foreground="#2e7d32")
     except Exception:
         pass
 
-    # Removed unused details text widget that appeared in the bottom-right
+    # Bottom pane: Job status details
+    jobs_bottom_frame = ttk.Frame(jobs_paned)
+    jobs_paned.add(jobs_bottom_frame, weight=1)
+    
+    # Job details header
+    details_header = ttk.Frame(jobs_bottom_frame)
+    details_header.pack(side=tk.TOP, fill=tk.X, padx=8, pady=8)
+    
+    # Job info labels (will be populated when job is selected)
+    job_info_frame = ttk.Frame(details_header)
+    job_info_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    
+    # Create horizontal split pane between status history and details
+    details_paned = ttk.PanedWindow(jobs_bottom_frame, orient=tk.HORIZONTAL)
+    details_paned.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
+    
+    # Left pane: Status history table
+    status_frame = ttk.Frame(details_paned)
+    details_paned.add(status_frame, weight=2)
+    
+    status_cols = ("time", "status", "native")
+    tv_status = ttk.Treeview(status_frame, columns=status_cols, show="headings")
+    try:
+        style = ttk.Style(tv_status)
+        style_name = "WorkflowStatus.Treeview"
+        style.map(style_name,
+                  background=[('selected', '#eaf2ff')],
+                  foreground=[('selected', '#000000')])
+        tv_status.configure(style=style_name)
+    except Exception:
+        pass
+    try:
+        tv_status.tag_configure("status-bad", foreground="#d32f2f")
+        tv_status.tag_configure("status-good", foreground="#2e7d32")
+        tv_status.tag_configure("status-info", foreground="#1565c0")
+    except Exception:
+        pass
+    tv_status.heading("time", text="Time")
+    tv_status.heading("status", text="Status")
+    tv_status.heading("native", text="Native")
+    tv_status.column("time", width=200)
+    tv_status.column("status", width=140)
+    tv_status.column("native", width=200)
+    tv_status.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    
+    ysb_status = ttk.Scrollbar(status_frame, orient=tk.VERTICAL, command=tv_status.yview)
+    tv_status.configure(yscrollcommand=ysb_status.set)
+    ysb_status.pack(side=tk.RIGHT, fill=tk.Y)
+    
+    # Right pane: Details text area
+    details_frame = ttk.Frame(details_paned)
+    details_paned.add(details_frame, weight=1)
+    
+    ttk.Label(details_frame, text="Details:").pack(side=tk.TOP, anchor=tk.W)
+    details_text = tk.Text(details_frame, wrap=tk.WORD)
+    details_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    details_scroll = ttk.Scrollbar(details_frame, orient=tk.VERTICAL, command=details_text.yview)
+    details_text.configure(yscrollcommand=details_scroll.set)
+    details_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
     # --- Data tab ---
     tab_data = ttk.Frame(nb)
@@ -159,7 +229,116 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
             last_time = latest.getEmitTime().strftime('%Y-%m-%d %H:%M:%S') if latest else ""
             nat = latest.getNativeStatusStr() if latest else ""
             files_cell = "[ Files ]" if job_id in jobs_with_files else ""
-            tv_jobs.insert("", tk.END, values=(job_id, stat, nat, last_time, files_cell, "[ Status ]"), tags=tag)
+            tv_jobs.insert("", tk.END, values=(job_id, stat, nat, last_time, files_cell), tags=tag)
+
+    def populate_job_details(job_id: str):
+        """Populate the job details pane with status history for the selected job."""
+        # Clear existing details
+        tv_status.delete(*tv_status.get_children())
+        details_text.delete(1.0, tk.END)
+        
+        # Clear and rebuild job info header
+        for widget in job_info_frame.winfo_children():
+            widget.destroy()
+        
+        # Get job statuses
+        statuses = jobs_map.get(job_id, [])
+        if not statuses:
+            ttk.Label(job_info_frame, text=f"Job ID: {job_id} (no status data)").pack(side=tk.LEFT)
+            return
+        
+        # Get job context info from first status
+        parent_job_id = ""
+        try:
+            context = statuses[0].getJobContext()
+            parent_job_id = context.getParentJobId() or ""
+        except Exception:
+            pass
+        
+        # Job ID (non-clickable)
+        ttk.Label(job_info_frame, text=f"Job ID: {job_id}").pack(side=tk.LEFT, padx=(0, 16))
+        
+        # Parent Job ID (clickable if exists and different from current job)
+        if parent_job_id and parent_job_id != job_id and parent_job_id in jobs_map:
+            parent_label = ttk.Label(job_info_frame, text=f"Parent Job: {parent_job_id}", 
+                                   foreground="#FF6B35", cursor="hand2")
+            parent_label.pack(side=tk.LEFT, padx=(0, 16))
+            parent_label.bind("<Button-1>", lambda e: populate_job_details(parent_job_id))
+        
+        # Workflow ID (clickable)
+        workflow_label = ttk.Label(job_info_frame, text=f"Workflow: {workflow_id}", 
+                                 foreground="#FF6B35", cursor="hand2")
+        workflow_label.pack(side=tk.LEFT, padx=(0, 16))
+        # Note: workflow click could open a new workflow dialog, but that might be confusing
+        
+        # Add Open Log button if log file exists
+        try:
+            log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+            log_path = os.path.join(log_dir, f"{job_id}.log")
+        except Exception:
+            log_path = ""
+        
+        def open_log():
+            if not log_path or not os.path.exists(log_path):
+                messagebox.showinfo("Log", "Log file not found.")
+                return
+            lw = tk.Toplevel(win)
+            lw.title(f"Log {job_id}")
+            lw.geometry("900x500")
+            txt = tk.Text(lw, wrap=tk.NONE)
+            xsb = ttk.Scrollbar(lw, orient=tk.HORIZONTAL, command=txt.xview)
+            ysb = ttk.Scrollbar(lw, orient=tk.VERTICAL, command=txt.yview)
+            txt.configure(xscrollcommand=xsb.set, yscrollcommand=ysb.set)
+            txt.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            ysb.pack(side=tk.RIGHT, fill=tk.Y)
+            xsb.pack(side=tk.BOTTOM, fill=tk.X)
+            try:
+                with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+                    txt.insert(tk.END, f.read())
+            except Exception as ex:
+                txt.insert(tk.END, f"Error reading log: {ex}")
+        
+        if log_path and os.path.exists(log_path):
+            ttk.Button(job_info_frame, text="Job Log", command=open_log).pack(side=tk.LEFT, padx=(0, 8))
+        
+        # Populate status history
+        info_by_iid = {}
+        for s in statuses:
+            t = s.getEmitTime()
+            time_str = datetime.fromtimestamp(t.timestamp()).strftime('%Y-%m-%d %H:%M:%S')
+            s_val = (s.getStatus() or "").upper()
+            if s_val in (JobStatus.FAILED, JobStatus.CANCELLED):
+                tag = "status-bad"
+            elif s_val == JobStatus.COMPLETE:
+                tag = "status-good"
+            elif s_val == JobStatus.INFO:
+                tag = "status-info"
+            else:
+                tag = ""
+            iid = tv_status.insert("", tk.END, values=(time_str, s.getStatus(), s.getNativeStatusStr() or ""),
+                                 tags=((tag,) if tag else ()))
+            info_by_iid[iid] = s.getNativeInfo() or ""
+        
+        # Auto-select the latest message to populate details immediately
+        last = tv_status.get_children()
+        if last:
+            last_iid = last[-1]
+            tv_status.selection_set(last_iid)
+            tv_status.see(last_iid)
+            details_text.insert(tk.END, info_by_iid.get(last_iid, ""))
+        
+        # Set up selection handler for status details
+        def on_status_select(_event):
+            sel = tv_status.selection()
+            if not sel:
+                return
+            iid = sel[0]
+            details_text.delete(1.0, tk.END)
+            details_text.insert(tk.END, info_by_iid.get(iid, ""))
+        
+        # Remove any existing bindings and add new one
+        tv_status.unbind("<<TreeviewSelect>>")
+        tv_status.bind("<<TreeviewSelect>>", on_status_select)
 
     def data_rebuild():
         tv_data.delete(*tv_data.get_children())
@@ -187,18 +366,21 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
                     gui.show_files(job_id)  # type: ignore[attr-defined]
             except Exception:
                 pass
-        elif cols[idx] == "actions":
-            try:
-                gui.show_job_status(job_id, workflow_id)  # type: ignore[attr-defined]
-            except Exception:
-                pass
         else:
-            # Any other column click opens job status popup
-            try:
-                gui.show_job_status(job_id, workflow_id)  # type: ignore[attr-defined]
-            except Exception:
-                pass
+            # Any other column click populates the job details pane
+            populate_job_details(job_id)
+    
     tv_jobs.bind("<Button-1>", on_jobs_click)
+    
+    # Also handle selection changes to populate details
+    def on_jobs_select(_event):
+        sel = tv_jobs.selection()
+        if sel:
+            vals = tv_jobs.item(sel[0], "values") or []
+            if vals:
+                populate_job_details(vals[0])
+    
+    tv_jobs.bind("<<TreeviewSelect>>", on_jobs_select)
 
     def on_data_dbl(_e):
         sel = tv_data.selection()
@@ -511,8 +693,17 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
             vx, vy = to_view(mx, my)
             if (vx - 60) <= px <= (vx + 60) and (vy - 18) <= py <= (vy + 18):
                 jid = nid[2:]
+                # Switch to Jobs tab and populate details for this job
                 try:
-                    gui.show_job_status(jid, workflow_id)  # type: ignore[attr-defined]
+                    nb.select(tab_jobs)  # Switch to Jobs tab
+                    populate_job_details(jid)
+                    # Also select the job in the list if it exists
+                    for item in tv_jobs.get_children():
+                        vals = tv_jobs.item(item, "values")
+                        if vals and vals[0] == jid:
+                            tv_jobs.selection_set(item)
+                            tv_jobs.see(item)
+                            break
                 except Exception:
                     pass
                 return
@@ -577,3 +768,19 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str):
     jobs_rebuild()
     data_rebuild()
     draw_graph()
+    
+    # If a specific job was requested, switch to Jobs tab and highlight it
+    if highlight_job_id:
+        try:
+            nb.select(tab_jobs)  # Switch to Jobs tab
+            # Find and select the job in the list
+            for item in tv_jobs.get_children():
+                vals = tv_jobs.item(item, "values")
+                if vals and vals[0] == highlight_job_id:
+                    tv_jobs.selection_set(item)
+                    tv_jobs.see(item)
+                    # Populate the details pane for this job
+                    populate_job_details(highlight_job_id)
+                    break
+        except Exception:
+            pass

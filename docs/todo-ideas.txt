@@ -4,6 +4,8 @@ Todo & misc notes
 
 ******************************************************************************
 
+
+
 + IBM site driver, quantum info
     - send terminal status in submit on error
     + run prov
@@ -19,8 +21,6 @@ Todo & misc notes
 
 
 + lwfm 2nd
-    - clearing out stale remote monitoring jobs - test the gui
-    - todo items (many are for log context - separate ticket)
     - normalize INFO logging data structure for job provenance, data provenance
     - lwfManager exec inline needs a way to handle runArgs for submit
     - lwfManager.dumpWorkflow() - all meta info of all kinds

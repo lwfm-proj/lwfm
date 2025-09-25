@@ -391,6 +391,7 @@ class _VenvSiteRunWrapper(SiteRun):
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"driver = ObjectSerializer.deserialize('{self._realRunDriver}'); " + \
+            f"driver.setSiteName('{self._siteName}'); " + \
             f"obj = driver.submit({self._siteConfigVenv.makeArgWrapper(jobDefn)}, " +\
             f"{self._siteConfigVenv.makeArgWrapper(parentContext)}, '{computeType}', " + \
             f"{self._siteConfigVenv.makeArgWrapper(runArgs)}); " + \
@@ -405,6 +406,7 @@ class _VenvSiteRunWrapper(SiteRun):
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"driver = ObjectSerializer.deserialize('{self._realRunDriver}'); " + \
+            f"driver.setSiteName('{self._siteName}'); " + \
             f"obj = driver.getStatus('{jobId}'); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
@@ -418,6 +420,7 @@ class _VenvSiteRunWrapper(SiteRun):
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"driver = ObjectSerializer.deserialize('{self._realRunDriver}'); " + \
+            f"driver.setSiteName('{self._siteName}'); " + \
             f"obj = driver.cancel({self._siteConfigVenv.makeArgWrapper(jobContext)}); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
@@ -471,6 +474,7 @@ class _VenvSiteRepoWrapper(SiteRepo):
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"driver = ObjectSerializer.deserialize('{self._realRepoDriver}'); " + \
+            f"driver.setSiteName('{self._siteName}'); " + \
             f"obj = driver.put('{localPath}', '{siteObjPath}', " + \
             f"{self._siteConfigVenv.makeArgWrapper(jobContext)}, " + \
             f"{self._siteConfigVenv.makeArgWrapper(metasheet)}); " + \
@@ -491,6 +495,7 @@ class _VenvSiteRepoWrapper(SiteRepo):
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"driver = ObjectSerializer.deserialize('{self._realRepoDriver}'); " + \
+            f"driver.setSiteName('{self._siteName}'); " + \
             f"obj = driver.get('{siteObjPath}', '{localPath}', " + \
             f"{self._siteConfigVenv.makeArgWrapper(jobContext)}, " + \
             f"{self._siteConfigVenv.makeArgWrapper(metasheet)}); " + \

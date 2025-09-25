@@ -131,8 +131,10 @@ class LocalSiteRun(SiteRun):
             # site (e.g. HPC scheduler, cloud, etc.)
             if isinstance(parentContext, JobContext):
                 useContext = parentContext
+                useContext.setSiteName(self.getSiteName())
             elif isinstance(parentContext, Workflow):
                 useContext = JobContext()
+                useContext.setSiteName(self.getSiteName())
                 useContext.setWorkflowId(parentContext.getWorkflowId())
                 useContext.setName(parentContext.getName() or "")
             else:
@@ -142,8 +144,11 @@ class LocalSiteRun(SiteRun):
                 if useContext is None:
                     # we still don't know our job id - create a new one
                     useContext = JobContext()
+                    useContext.setSiteName(self.getSiteName())
                     # assert readiness
                     lwfManager.emitStatus(useContext, JobStatus.READY)
+                else:
+                    useContext.setSiteName(self.getSiteName())
 
             # if we have runArgs, append them to the entryPoint space delimited
             jobDefn = cast(JobDefn, jobDefn)
@@ -346,7 +351,7 @@ class LocalSiteRepo(SiteRepo):
             if metasheet is None:
                 _metasheet = Metasheet(self.getSiteName(), localPath, siteObjPath, {})
             if isinstance(metasheet, dict):
-                _metasheet = Metasheet("local", localPath, siteObjPath, cast(dict, metasheet))
+                _metasheet = Metasheet(self.getSiteName(), localPath, siteObjPath, cast(dict, metasheet))
                 _metasheet.setJobId(context.getJobId())
             lwfManager._notateGet(self.getSiteName(), localPath, siteObjPath, context, _metasheet)
             if jobContext is None:

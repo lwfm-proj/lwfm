@@ -127,6 +127,10 @@ class LwfmGui(tk.Tk):
         self._all_rows = []  # Store unfiltered data
         self._last_status_counts: Optional[Tuple[int, int, bool]] = None  # (filtered, total, has_filter)
         
+        # Track open detail windows for replace-in-place behavior
+        self._current_status_window: Optional[tk.Toplevel] = None
+        self._current_files_window: Optional[tk.Toplevel] = None
+        
         # Keyboard shortcuts
         self.bind_all("<F5>", lambda e: self.refresh())
         self.bind_all("<Control-r>", lambda e: self.refresh())
@@ -472,8 +476,12 @@ class LwfmGui(tk.Tk):
         if col_index == 6:
             self.show_files(job_id)
             return
-        # Otherwise, show status details
-        self.show_job_status(job_id, workflow_id)
+        # Otherwise, open workflow dialog with this job highlighted
+        if workflow_id:
+            self.view_workflow(workflow_id, highlight_job_id=job_id)
+        else:
+            # Fallback to status popup if no workflow ID
+            self.show_job_status(job_id, workflow_id)
 
     def on_tree_motion(self, event):
         # Change cursor to hand over clickable cells
@@ -504,8 +512,8 @@ class LwfmGui(tk.Tk):
         # Small delay to show progress indicator
         self.after(100, lambda: threading.Thread(target=worker, daemon=True).start())
 
-    def view_workflow(self, workflow_id: str):
-        open_workflow_dialog(self, workflow_id)
+    def view_workflow(self, workflow_id: str, highlight_job_id: str = ""):
+        open_workflow_dialog(self, workflow_id, highlight_job_id)
 
     # --- Status history ---
     def show_job_status(self, job_id: str, workflow_id: str = ""):
@@ -538,10 +546,29 @@ class LwfmGui(tk.Tk):
         threading.Thread(target=worker, daemon=True).start()
 
     def _show_status_window(self, job_id: str, statuses: List[JobStatus]):
+        # Close existing status window if open
+        if self._current_status_window:
+            try:
+                if self._current_status_window.winfo_exists():
+                    self._current_status_window.destroy()
+            except tk.TclError:
+                # Window was already destroyed
+                pass
+            self._current_status_window = None
+        
         # Window with a list of all status messages; details pane wraps long info
         win = tk.Toplevel(self)
         win.title(f"Status history for {job_id}")
         win.geometry("900x500")
+        
+        # Track this window and clear reference when closed
+        self._current_status_window = win
+        
+        def on_window_close():
+            self._current_status_window = None
+            win.destroy()
+        
+        win.protocol("WM_DELETE_WINDOW", on_window_close)
 
         # Header with job info
         header = ttk.Frame(win)
@@ -745,9 +772,28 @@ class LwfmGui(tk.Tk):
         threading.Thread(target=worker, daemon=True).start()
 
     def _show_files_window(self, job_id: str, metas: List[Metasheet]):
+        # Close existing files window if open
+        if self._current_files_window:
+            try:
+                if self._current_files_window.winfo_exists():
+                    self._current_files_window.destroy()
+            except tk.TclError:
+                # Window was already destroyed
+                pass
+            self._current_files_window = None
+        
         win = tk.Toplevel(self)
         win.title(f"Files for {job_id}")
         win.geometry("900x500")
+        
+        # Track this window and clear reference when closed
+        self._current_files_window = win
+        
+        def on_window_close():
+            self._current_files_window = None
+            win.destroy()
+        
+        win.protocol("WM_DELETE_WINDOW", on_window_close)
 
         top = ttk.Frame(win)
         top.pack(side=tk.TOP, fill=tk.BOTH, expand=True)

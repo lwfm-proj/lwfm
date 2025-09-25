@@ -2,12 +2,16 @@
 print 'hello world' but as a Job on a local site within a virtual environment
 """
 
+import sys
 from lwfm.base.JobDefn import JobDefn
 from lwfm.midware.LwfManager import lwfManager, logger
 
 if __name__ == "__main__":
+    # Get site name from command line arg, default to "local-venv"
+    site_name = sys.argv[1] if len(sys.argv) > 1 else "local-venv"
+    
     # only using one site for this example - construct an interface to it
-    site = lwfManager.getSite("local-venv")
+    site = lwfManager.getSite(site_name)
 
     logger.info(f"site={site.getSiteName()} " + \
         f"toml={lwfManager.getSiteProperties(site.getSiteName())}")
