@@ -713,13 +713,13 @@ class LwfManager:
     # repo methods
 
 
-    def notatePut(self, localPath: str, workflowId: Optional[str] = None,
+    def notatePut(self, localPath: str, context: Union[Workflow, JobContext],
         _metasheet: Optional[Union[Metasheet, dict]] = None) -> Metasheet:
-        if workflowId is not None:
+        if isinstance(context, Workflow):
             jobContext = JobContext()
-            jobContext.setWorkflowId(workflowId)
+            jobContext.setWorkflowId(context.getWorkflowId())
         else:
-            jobContext = JobContext()
+            jobContext = context
         if _metasheet is None:
             _metasheet = Metasheet("local", localPath, "", {})
             _metasheet.setJobId(jobContext.getJobId())
@@ -729,13 +729,13 @@ class LwfManager:
         return self._notatePut("local", localPath, "", jobContext, _metasheet)
 
 
-    def notateGet(self, localPath: str, workflowId: Optional[str] = None,
+    def notateGet(self, localPath: str, context: Union[Workflow, JobContext],
                   metasheet_obj: Optional[Union[Metasheet, dict]] = None) -> Metasheet:
-        if workflowId is not None:
+        if isinstance(context, Workflow):
             jobContext = JobContext()
-            jobContext.setWorkflowId(workflowId)
+            jobContext.setWorkflowId(context.getWorkflowId())
         else:
-            jobContext = JobContext()
+            jobContext = context
         if metasheet_obj is None:
             metasheet_obj = Metasheet("local", localPath, "", {})
             metasheet_obj.setJobId(jobContext.getJobId())

@@ -88,7 +88,7 @@ if __name__ == "__main__":
     print(f"\n* out4: File stored in repo with metadata: {metasheet} - notice own job")
 
     # Do that again, but this time since the file is already local, just notate it.
-    metasheet = lwfManager.notatePut(temp_file, wf.getWorkflowId(), {
+    metasheet = lwfManager.notatePut(temp_file, wf, {
         "description": "Hello world output file",
         "file_type": "text",
         "created_by": "ex10_data_showcase",
