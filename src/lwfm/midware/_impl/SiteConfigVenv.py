@@ -64,12 +64,21 @@ class SiteConfigVenv():
                 modified_cmd = script_path_cmd.replace("print(obj)",
                     "import sys; sys.stdout.write('RESULT_MARKER: ' + obj)")
 
+            # Set up environment variables to activate the venv
+            env = os.environ.copy()
+            env['VIRTUAL_ENV'] = venv_path
+            bin_dir = os.path.join(venv_path, "bin")
+            current_path = env.get('PATH', '')
+            if bin_dir not in current_path.split(':'):
+                env['PATH'] = f"{bin_dir}:{current_path}" if current_path else bin_dir
+
             # execute a semicolon separated command in the virtual environment; this
             # includes an import statement and the method call
             process = subprocess.Popen([python_executable, "-c", modified_cmd],
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE,
-                                        text=True
+                                        text=True,
+                                        env=env
                                         )
             # read the output and error streams
             stdout, stderr = process.communicate()

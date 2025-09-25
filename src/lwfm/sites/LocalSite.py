@@ -76,6 +76,15 @@ class LocalSiteRun(SiteRun):
             env = os.environ.copy()
             env['_LWFM_JOB_ID'] = jobContext.getJobId()
 
+            # Check if we're running in a venv context and activate it
+            if 'VIRTUAL_ENV' in env:
+                venv_path = env['VIRTUAL_ENV']
+                bin_dir = os.path.join(venv_path, "bin")
+                # Prepend venv bin directory to PATH to activate the venv
+                current_path = env.get('PATH', '')
+                if bin_dir not in current_path.split(':'):
+                    env['PATH'] = f"{bin_dir}:{current_path}" if current_path else bin_dir
+
             # Modify to redirect all output to the file or /dev/null if no file is
             # specified.
             if hasattr(self, '_output_file') and self._output_file:
