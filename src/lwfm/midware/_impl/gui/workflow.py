@@ -54,19 +54,56 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
     
     # Properties viewer
     ttk.Label(tab_overview, text="Properties:").pack(side=tk.TOP, anchor=tk.W, padx=8)
-    props_text = tk.Text(tab_overview, height=10, wrap=tk.NONE)
-    px = ttk.Scrollbar(tab_overview, orient=tk.HORIZONTAL, command=props_text.xview)
-    py = ttk.Scrollbar(tab_overview, orient=tk.VERTICAL, command=props_text.yview)
-    props_text.configure(xscrollcommand=px.set, yscrollcommand=py.set)
     props_frame = ttk.Frame(tab_overview)
     props_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
-    props_text.pack(in_=props_frame, side=tk.LEFT, fill=tk.BOTH, expand=True)
-    py.pack(in_=props_frame, side=tk.RIGHT, fill=tk.Y)
-    px.pack(in_=props_frame, side=tk.BOTTOM, fill=tk.X)
     
-    # Insert properties
-    props_text.insert(tk.END, json.dumps(wf_props, indent=2, sort_keys=True))
-    props_text.configure(state=tk.DISABLED)
+    # Create sortable two-column treeview for properties
+    props_cols = ("name", "value")
+    props_tree = ttk.Treeview(props_frame, columns=props_cols, show="headings", height=10)
+    props_tree.heading("name", text="Name")
+    props_tree.heading("value", text="Value")
+    props_tree.column("name", width=200, anchor=tk.W)
+    props_tree.column("value", width=400, anchor=tk.W)
+    
+    # Add scrollbar for properties
+    props_scroll = ttk.Scrollbar(props_frame, orient=tk.VERTICAL, command=props_tree.yview)
+    props_tree.configure(yscrollcommand=props_scroll.set)
+    props_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    props_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+    
+    # Sorting state for properties
+    props_sort_reverse = {"name": False, "value": False}
+    
+    def sort_props_by_column(col):
+        """Sort properties by the specified column."""
+        items = [(props_tree.set(item, col), item) for item in props_tree.get_children('')]
+        items.sort(reverse=props_sort_reverse[col])
+        props_sort_reverse[col] = not props_sort_reverse[col]
+        
+        for index, (val, item) in enumerate(items):
+            props_tree.move(item, '', index)
+    
+    # Bind sorting to column headers
+    props_tree.heading("name", command=lambda: sort_props_by_column("name"))
+    props_tree.heading("value", command=lambda: sort_props_by_column("value"))
+    
+    # Populate properties table
+    def flatten_dict(d, parent_key='', sep='.'):
+        """Flatten nested dictionary for display."""
+        items = []
+        for k, v in d.items():
+            new_key = f"{parent_key}{sep}{k}" if parent_key else k
+            if isinstance(v, dict):
+                items.extend(flatten_dict(v, new_key, sep=sep).items())
+            else:
+                items.append((new_key, str(v)))
+        return dict(items)
+    
+    # Insert properties into the table
+    if wf_props:
+        flat_props = flatten_dict(wf_props)
+        for name, value in sorted(flat_props.items()):
+            props_tree.insert("", tk.END, values=(name, value))
 
     # --- Jobs tab ---
     tab_jobs = ttk.Frame(nb)
@@ -621,7 +658,25 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
                     # In-flight or no meaningful status
                     fill, outline = job_fill_default, job_outline_default
                 
-                label = jid[:10] + ("…" if len(jid) > 10 else "")
+                # Get job name if available
+                job_name = ""
+                if sts:
+                    try:
+                        latest = max(sts, key=lambda s: s.getEmitTime())
+                        job_name = latest.getJobContext().getName() or ""
+                    except Exception:
+                        pass
+                
+                # Create label with job name if available, otherwise just job ID
+                if job_name and job_name != jid:
+                    # Show both name and ID (truncated)
+                    short_name = job_name[:8] + ("…" if len(job_name) > 8 else "")
+                    short_id = jid[:8] + ("…" if len(jid) > 8 else "")
+                    label = f"{short_name}\n{short_id}"
+                else:
+                    # Show just job ID (truncated)
+                    label = jid[:10] + ("…" if len(jid) > 10 else "")
+                
                 canvas.create_rectangle(vx-60, vy-18, vx+60, vy+18, fill=fill, outline=outline, width=2)
                 canvas.create_text(vx, vy, text=label, fill=text)
             else:
