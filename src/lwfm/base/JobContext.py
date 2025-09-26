@@ -28,6 +28,14 @@ class JobContext:
         self._compute_type = "default"
         self._site_name = "local"
 
+    def initialize(self, name: str = "", workflow_id: str = "", site_name: str = "") -> None:
+        if name:
+            self._name = name
+        if workflow_id:
+            self._workflow_id = workflow_id
+        if site_name:
+            self._site_name = site_name
+
     def addParentContext(self, parentContext: "JobContext") -> None:
         if parentContext is not None:
             self._parent_job_id = parentContext.getJobId()
