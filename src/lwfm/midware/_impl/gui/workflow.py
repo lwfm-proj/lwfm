@@ -395,7 +395,11 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
     tv_data.bind("<Double-1>", on_data_dbl)
 
     def draw_graph():
-        canvas.delete("all")
+        try:
+            canvas.delete("all")
+        except tk.TclError:
+            # Canvas has been destroyed, nothing to draw
+            return
         # Colors
         grid = "#1e1e1e"
         text = "#e0e0e0"
@@ -404,11 +408,13 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
         edge_get = "#ffb74d"   # light orange
         edge_flow = "#bdbdbd"
         edge_root = "#81c784"   # greenish
-        job_fill_default = "#1e1e1e"
-        job_outline_default = "#90caf9"
-        # Special styling for jobs that have ONLY INFO messages (more distinct)
-        job_fill_info = "#004d40"      # dark teal
-        job_outline_info = "#00e5ff"   # bright cyan outline
+        # Job node colors based on terminal status
+        job_fill_default = "#1e1e1e"      # dark - for in-flight jobs
+        job_outline_default = "#90caf9"   # light blue - for in-flight jobs
+        job_fill_success = "#1b5e20"      # dark green - for successful terminal jobs
+        job_outline_success = "#4caf50"   # bright green - for successful terminal jobs  
+        job_fill_failed = "#b71c1c"       # dark red - for failed jobs
+        job_outline_failed = "#f44336"    # bright red - for failed jobs
         data_fill = "#2a1f14"
         data_outline = "#ef6c00"
         wf_fill = "#283593"      # indigo 800
@@ -592,12 +598,29 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
                 # intentionally no text label for workflow node
             elif nid.startswith("J:"):
                 jid = nid[2:]
-                # Style: highlight ONLY when all statuses are INFO, otherwise default
+                # Determine job coloring based on terminal status
                 sts = jobs_map.get(jid, [])
                 up_statuses = [((s.getStatus() or "").upper()) for s in sts]
-                has_only_info = (len(up_statuses) > 0 and all(s == getattr(JobStatus, 'INFO', 'INFO') for s in up_statuses))
-                fill = job_fill_info if has_only_info else job_fill_default
-                outline = job_outline_info if has_only_info else job_outline_default
+                
+                # Check for terminal states
+                terminal_states = {JobStatus.COMPLETE, JobStatus.FAILED, JobStatus.CANCELLED}
+                failed_states = {JobStatus.FAILED, JobStatus.CANCELLED}
+                success_states = {JobStatus.COMPLETE}
+                
+                has_terminal = any(status in terminal_states for status in up_statuses)
+                has_failed = any(status in failed_states for status in up_statuses)
+                has_success = any(status in success_states for status in up_statuses)
+                has_only_info = (len(up_statuses) > 0 and all(s == JobStatus.INFO for s in up_statuses))
+                
+                # Color logic: 1) Failed = red, 2) Success/INFO-only = green, 3) In-flight = default
+                if has_failed:
+                    fill, outline = job_fill_failed, job_outline_failed
+                elif has_success or has_only_info:
+                    fill, outline = job_fill_success, job_outline_success
+                else:
+                    # In-flight or no meaningful status
+                    fill, outline = job_fill_default, job_outline_default
+                
                 label = jid[:10] + ("…" if len(jid) > 10 else "")
                 canvas.create_rectangle(vx-60, vy-18, vx+60, vy+18, fill=fill, outline=outline, width=2)
                 canvas.create_text(vx, vy, text=label, fill=text)
@@ -630,18 +653,22 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
 
     # Pan/zoom handlers
     def _on_wheel(event):
-        # Zoom toward cursor
-        factor = 1.1 if (event.delta > 0 or getattr(event, 'num', 0) == 4) else 0.9
-        old = state["scale"]
-        new = max(0.3, min(3.5, old * factor))
-        if new == old:
-            return
-        cx = canvas.canvasx(event.x)
-        cy = canvas.canvasy(event.y)
-        state["ox"] = cx - (cx - state["ox"]) * (new / old)
-        state["oy"] = cy - (cy - state["oy"]) * (new / old)
-        state["scale"] = new
-        draw_graph()
+        try:
+            # Zoom toward cursor
+            factor = 1.1 if (event.delta > 0 or getattr(event, 'num', 0) == 4) else 0.9
+            old = state["scale"]
+            new = max(0.3, min(3.5, old * factor))
+            if new == old:
+                return
+            cx = canvas.canvasx(event.x)
+            cy = canvas.canvasy(event.y)
+            state["ox"] = cx - (cx - state["ox"]) * (new / old)
+            state["oy"] = cy - (cy - state["oy"]) * (new / old)
+            state["scale"] = new
+            draw_graph()
+        except tk.TclError:
+            # Canvas has been destroyed, ignore the event
+            pass
 
     def _on_press(e):
         state["drag"] = True
@@ -649,24 +676,32 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
         state["moved"] = 0.0
 
     def _on_release(e):
-        was_drag = state["drag"]
-        state["drag"] = False
-        # If this was a click (not a drag), perform hit-test
-        if state.get("moved", 0.0) < 5.0 and was_drag:
-            _handle_click(e.x, e.y)
+        try:
+            was_drag = state["drag"]
+            state["drag"] = False
+            # If this was a click (not a drag), perform hit-test
+            if state.get("moved", 0.0) < 5.0 and was_drag:
+                _handle_click(e.x, e.y)
+        except tk.TclError:
+            # Canvas has been destroyed, ignore the event
+            pass
 
     def _on_motion(e):
-        if not state["drag"]:
-            return
-        dx = e.x - state["sx"]; dy = e.y - state["sy"]
-        state["sx"], state["sy"] = e.x, e.y
-        state["ox"] += dx; state["oy"] += dy
         try:
-            import math as _math
-            state["moved"] += _math.hypot(dx, dy)
-        except Exception:
+            if not state["drag"]:
+                return
+            dx = e.x - state["sx"]; dy = e.y - state["sy"]
+            state["sx"], state["sy"] = e.x, e.y
+            state["ox"] += dx; state["oy"] += dy
+            try:
+                import math as _math
+                state["moved"] += _math.hypot(dx, dy)
+            except Exception:
+                pass
+            draw_graph()
+        except tk.TclError:
+            # Canvas has been destroyed, ignore the event
             pass
-        draw_graph()
 
     def _handle_click(x: int, y: int):
         # Convert screen x,y; our node positions are in model and converted via to_view for centers

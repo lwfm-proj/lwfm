@@ -356,12 +356,40 @@ class LwfmGui(tk.Tk):
             # Best effort; try again later with default
             self._timer_id = self.after(RefreshIntervalSecDefault * 1000, self._tick)
 
+    def _get_best_status_for_display(self, current: JobStatus, new: JobStatus) -> JobStatus:
+        """
+        Determine which JobStatus to display in the main jobs table.
+        Prioritizes terminal states over non-terminal ones, even if non-terminal is newer.
+        Treats INFO-only jobs as successful terminal state.
+        """
+        cur_status = (current.getStatus() or "").upper()
+        new_status = (new.getStatus() or "").upper()
+        
+        # Define terminal states
+        terminal_states = {JobStatus.COMPLETE, JobStatus.FAILED, JobStatus.CANCELLED}
+        
+        # If current is terminal and new is not, keep current
+        if cur_status in terminal_states and new_status not in terminal_states:
+            return current
+        
+        # If new is terminal and current is not, use new
+        if new_status in terminal_states and cur_status not in terminal_states:
+            return new
+        
+        # If both are terminal or both are non-terminal, use the newer one
+        if new.getEmitTime() > current.getEmitTime():
+            return new
+        else:
+            return current
+
     def fetch_job_rows(self) -> Tuple[List[Tuple[str, str, str, str, str, str]], Optional[str]]:
         """Return (rows, error_msg): rows are (job_id, workflow_id, status, native, site, last_update).
         Aggregates latest statuses per job across all workflows.
         Returns error message if connection fails.
         """
         latest_by_job: Dict[str, JobStatus] = {}
+        all_statuses_by_job: Dict[str, List[JobStatus]] = {}
+        
         try:
             workflows = lwfManager.getAllWorkflows() or []
             self._update_connection_status(True)
@@ -376,9 +404,19 @@ class LwfmGui(tk.Tk):
                 w_statuses = lwfManager.getJobStatusesForWorkflow(wid) or []
                 for s in w_statuses:
                     jid = s.getJobContext().getJobId()
+                    
+                    # Track all statuses for INFO-only detection
+                    if jid not in all_statuses_by_job:
+                        all_statuses_by_job[jid] = []
+                    all_statuses_by_job[jid].append(s)
+                    
+                    # Track best status for display
                     cur = latest_by_job.get(jid)
-                    if (cur is None) or (s.getEmitTime() > cur.getEmitTime()):
+                    if cur is None:
                         latest_by_job[jid] = s
+                    else:
+                        # Determine the best status to display
+                        latest_by_job[jid] = self._get_best_status_for_display(cur, s)
             except Exception as e:
                 # Quiet by default; enable with LWFM_GUI_DEBUG=1
                 if os.environ.get("LWFM_GUI_DEBUG"):
@@ -391,7 +429,18 @@ class LwfmGui(tk.Tk):
                 ctx = s.getJobContext()
                 jid = ctx.getJobId()
                 wid = ctx.getWorkflowId() or ""
-                stat = (s.getStatus() or "")
+                
+                # Check if this job has only INFO statuses
+                job_statuses = all_statuses_by_job.get(jid, [])
+                all_status_types = {(status.getStatus() or "").upper() for status in job_statuses}
+                is_info_only = len(all_status_types) > 0 and all_status_types == {JobStatus.INFO}
+                
+                # Display status - treat INFO-only jobs as COMPLETE
+                if is_info_only:
+                    stat = JobStatus.COMPLETE
+                else:
+                    stat = (s.getStatus() or "")
+                
                 nat = s.getNativeStatusStr() or ""
                 ts = s.getEmitTime().strftime('%Y-%m-%d %H:%M:%S') if s.getEmitTime() else ""
                 try:
