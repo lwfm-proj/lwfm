@@ -35,6 +35,7 @@ class JobContext:
             self._workflow_id = workflow_id
         if site_name:
             self._site_name = site_name
+        return self
 
     def addParentContext(self, parentContext: "JobContext") -> None:
         if parentContext is not None:
