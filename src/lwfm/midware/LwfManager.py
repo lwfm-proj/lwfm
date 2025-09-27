@@ -336,18 +336,21 @@ class LwfManager:
         except Exception as ex:
             logger.error(f"Unexpected error during uv sync in {project_dir}: {ex}")
 
-    def updateSite(self, site: str) -> None:
+    def updateSite(self, site: str = None) -> None:
         """Ensure site venv exists; if missing create it and sync, otherwise sync.
 
         This method performs the explicit action you requested: it ensures the
         venv for the named site exists (creating it if necessary) and always
         runs `uv sync` after ensuring the venv is present.
         """
-        props = SiteConfig.getSiteProperties(site) or {}
-        venv_path = props.get("venv")
-        if not venv_path:
-            logger.info("updateSite: no venv configured for site %s; nothing to do", site)
-            return
+        if site is None:
+            venv_path = "./.venv"
+        else:
+            props = SiteConfig.getSiteProperties(site) or {}
+            venv_path = props.get("venv")
+            if not venv_path:
+                logger.info("updateSite: no venv configured for site %s; nothing to do", site)
+                return
         venv_dir = os.path.abspath(os.path.expanduser(str(venv_path)))
         project_dir = os.path.dirname(venv_dir)
         if os.path.basename(venv_dir) != ".venv":
