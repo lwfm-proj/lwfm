@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import threading
 from datetime import datetime
 from typing import Any, Dict, List
@@ -481,7 +482,21 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
     tv_jobs.bind("<<TreeviewSelect>>", on_jobs_select)
 
     def show_file_content(file_path: str, title: str = "File Content"):
-        """Display file contents in a scrollable dialog."""
+        """Display file contents in a scrollable dialog or open with external viewer for images."""
+        # Check if it's an image file
+        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.webp', '.svg', '.ico'}
+        _, ext = os.path.splitext(file_path.lower())
+        
+        if ext in image_extensions:
+            # Open with eog (Eye of GNOME) image viewer
+            try:
+                subprocess.Popen(['eog', file_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return
+            except Exception as e:
+                # Fallback to text view if eog fails
+                messagebox.showwarning("Image Viewer", f"Could not open image with eog: {str(e)}\nShowing as text instead.")
+        
+        # Show as text content
         content_win = tk.Toplevel(win)
         content_win.title(title)
         content_win.geometry("800x600")

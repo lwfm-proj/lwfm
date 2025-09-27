@@ -956,7 +956,22 @@ class LwfmGui(tk.Tk):
         ttk.Button(win, text="Close", command=win.destroy).pack(side=tk.BOTTOM, pady=6)
 
     def _show_file_content(self, file_path: str, title: str = "File Content"):
-        """Display file contents in a scrollable dialog."""
+        """Display file contents in a scrollable dialog or open with external viewer for images."""
+        # Check if it's an image file
+        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.tif', '.webp', '.svg', '.ico'}
+        _, ext = os.path.splitext(file_path.lower())
+        
+        if ext in image_extensions:
+            # Open with eog (Eye of GNOME) image viewer
+            try:
+                import subprocess
+                subprocess.Popen(['eog', file_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return
+            except Exception as e:
+                # Fallback to text view if eog fails
+                messagebox.showwarning("Image Viewer", f"Could not open image with eog: {str(e)}\nShowing as text instead.")
+        
+        # Show as text content
         content_win = tk.Toplevel(self)
         content_win.title(title)
         content_win.geometry("800x600")
@@ -1169,6 +1184,10 @@ class LwfmGui(tk.Tk):
         ttk.Label(top, text="Filter:").pack(side=tk.LEFT)
         filt_entry = ttk.Entry(top, width=30)
         filt_entry.pack(side=tk.LEFT, padx=(4, 10))
+        
+        # Clear Pollers button (will be connected to refresh function after it's defined)
+        clear_button = ttk.Button(top, text="Clear All Pollers")
+        clear_button.pack(side=tk.RIGHT, padx=(10, 0))
 
         # Table
         table = ttk.Frame(win)
@@ -1312,6 +1331,21 @@ class LwfmGui(tk.Tk):
                 events = fetch()
                 rows = [describe_event(ev) for ev in events]
             rebuild()
+
+        def clear_pollers():
+            try:
+                count = lwfManager.clearAllPollers()
+                if count > 0:
+                    messagebox.showinfo("Clear Pollers", f"Cleared {count} active pollers and event handlers.")
+                    # Refresh the events display
+                    refresh(load=True)
+                else:
+                    messagebox.showinfo("Clear Pollers", "No active pollers or event handlers to clear.")
+            except Exception as e:
+                messagebox.showerror("Clear Pollers", f"Error clearing pollers: {str(e)}")
+
+        # Connect the clear button to the function
+        clear_button.configure(command=clear_pollers)
 
         def unset_selected():
             sel = tv.selection()

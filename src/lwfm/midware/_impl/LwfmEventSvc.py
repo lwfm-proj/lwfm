@@ -354,6 +354,25 @@ def listHandlers():
         return "", 500
 
 
+# clear all active pollers and event handlers
+@app.route("/clearAllPollers", methods=["POST"])
+def clearAllPollers():
+    try:
+        # Get all active events
+        events = EventStore().getAllWfEvents(None)
+        count = len(events) if events else 0
+
+        # Clear each event handler
+        if events:
+            for event in events:
+                wfProcessor.unsetEventHandler(event.getEventId())
+
+        return json.dumps({"cleared": count}), 200
+    except Exception as ex:
+        LoggingStore().putLogging("ERROR", f"clearAllPollers: {str(ex)}", "", "", "")
+        return "", 500
+
+
 #************************************************************************
 # data endpoints
 

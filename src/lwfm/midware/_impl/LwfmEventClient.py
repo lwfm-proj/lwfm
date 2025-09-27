@@ -223,6 +223,18 @@ class LwfmEventClient:
             return ObjectSerializer.deserialize(response.text)
         return None
 
+    def clearAllPollers(self) -> int:
+        """Clear all active pollers and event handlers. Returns count of cleared items."""
+        try:
+            response = requests.post(f"{self.getUrl()}/clearAllPollers", 
+                                   timeout=self._REST_TIMEOUT)
+            if response.ok and response.text:
+                result = json.loads(response.text)
+                return result.get("cleared", 0)
+            return 0
+        except Exception:
+            return 0
+
 
     #***********************************************************************
     # logging methods

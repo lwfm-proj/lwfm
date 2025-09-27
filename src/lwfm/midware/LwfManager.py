@@ -708,6 +708,17 @@ class LwfManager:
         """
         return self._client.getActiveWfEvents()
 
+    def clearAllPollers(self) -> int:
+        """
+        Clear all active pollers and event handlers.
+        Returns the number of items cleared.
+        """
+        try:
+            return self._client.clearAllPollers()
+        except Exception as e:
+            logger.error(f"Error in LwfManager.clearAllPollers: {e}")
+            return 0
+
 
     #***********************************************************************
     # repo methods
