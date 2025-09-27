@@ -28,7 +28,7 @@ class JobContext:
         self._compute_type = "default"
         self._site_name = "local"
 
-    def initialize(self, name: str = "", workflow_id: str = "", site_name: str = "") -> None:
+    def initialize(self, name: str = "", workflow_id: str = "", site_name: str = "local") -> None:
         if name:
             self._name = name
         if workflow_id:

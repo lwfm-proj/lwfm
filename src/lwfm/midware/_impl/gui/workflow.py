@@ -195,18 +195,37 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
     # --- Data tab ---
     tab_data = ttk.Frame(nb)
     nb.add(tab_data, text="Data")
-    data_cols = ("direction", "local", "siteobj")
-    tv_data = ttk.Treeview(tab_data, columns=data_cols, show="headings")
+    
+    # Top frame for data table
+    data_top_frame = ttk.Frame(tab_data)
+    data_top_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=8, pady=(8, 4))
+    
+    data_cols = ("job_id", "direction", "local", "siteobj")
+    tv_data = ttk.Treeview(data_top_frame, columns=data_cols, show="headings")
+    tv_data.heading("job_id", text="Job ID")
     tv_data.heading("direction", text="Dir")
     tv_data.heading("local", text="Local Path")
     tv_data.heading("siteobj", text="Site Object")
+    tv_data.column("job_id", width=180)
     tv_data.column("direction", width=80)
-    tv_data.column("local", width=460)
-    tv_data.column("siteobj", width=460)
-    tv_data.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(8, 0), pady=8)
-    ysb_data = ttk.Scrollbar(tab_data, orient=tk.VERTICAL, command=tv_data.yview)
+    tv_data.column("local", width=380)
+    tv_data.column("siteobj", width=380)
+    tv_data.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    ysb_data = ttk.Scrollbar(data_top_frame, orient=tk.VERTICAL, command=tv_data.yview)
     tv_data.configure(yscrollcommand=ysb_data.set)
-    ysb_data.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 8), pady=8)
+    ysb_data.pack(side=tk.RIGHT, fill=tk.Y)
+    
+    # Bottom frame for metadata details
+    data_details_frame = ttk.Frame(tab_data)
+    data_details_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=False, padx=8, pady=(4, 8))
+    ttk.Label(data_details_frame, text="Metasheet Details:").pack(side=tk.TOP, anchor=tk.W)
+    data_details_text = tk.Text(data_details_frame, height=10, wrap=tk.NONE)
+    data_xsb = ttk.Scrollbar(data_details_frame, orient=tk.HORIZONTAL, command=data_details_text.xview)
+    data_ysb = ttk.Scrollbar(data_details_frame, orient=tk.VERTICAL, command=data_details_text.yview)
+    data_details_text.configure(xscrollcommand=data_xsb.set, yscrollcommand=data_ysb.set)
+    data_details_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    data_ysb.pack(side=tk.RIGHT, fill=tk.Y)
+    data_xsb.pack(side=tk.BOTTOM, fill=tk.X)
 
     # --- Graph tab ---
     tab_graph = ttk.Frame(nb)
@@ -220,6 +239,21 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
         "Hierarchy", "Left-right", "Circle"
     ], state="readonly", width=14)
     layout_box.pack(side=tk.LEFT, padx=(0, 8), pady=4)
+    
+    # Data node label mode cycling
+    data_label_modes = ["Full", "None", "Extension"]
+    data_label_mode_index = 2  # Start with "Extension" mode
+    
+    def cycle_data_labels():
+        nonlocal data_label_mode_index
+        data_label_mode_index = (data_label_mode_index + 1) % len(data_label_modes)
+        current_mode = data_label_modes[data_label_mode_index]
+        data_label_button.configure(text=f"Data Labels: {current_mode}")
+        draw_graph()
+    
+    data_label_button = ttk.Button(ctrl, text=f"Data Labels: {data_label_modes[data_label_mode_index]}", 
+                                   command=cycle_data_labels)
+    data_label_button.pack(side=tk.LEFT, padx=(0, 8), pady=4)
     # Dark mode canvas
     canvas = tk.Canvas(tab_graph, background="#121212", highlightthickness=0)
     canvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -308,19 +342,20 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
         workflow_label.pack(side=tk.LEFT, padx=(0, 16))
         # Note: workflow click could open a new workflow dialog, but that might be confusing
         
-        # Add Open Log button if log file exists
+        # Add Job Log button (always visible, disabled if no log file)
         try:
             log_dir = os.path.expanduser(SiteConfig.getLogFilename())
             log_path = os.path.join(log_dir, f"{job_id}.log")
         except Exception:
             log_path = ""
         
+        log_exists = log_path and os.path.exists(log_path)
+        
         def open_log():
-            if not log_path or not os.path.exists(log_path):
-                messagebox.showinfo("Log", "Log file not found.")
-                return
+            if not log_exists:
+                return  # Should not be called when disabled, but just in case
             lw = tk.Toplevel(win)
-            lw.title(f"Log {job_id}")
+            lw.title(f"Job Log - {job_id}")
             lw.geometry("900x500")
             txt = tk.Text(lw, wrap=tk.NONE)
             xsb = ttk.Scrollbar(lw, orient=tk.HORIZONTAL, command=txt.xview)
@@ -331,12 +366,19 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
             xsb.pack(side=tk.BOTTOM, fill=tk.X)
             try:
                 with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
-                    txt.insert(tk.END, f.read())
+                    content = f.read()
+                    if content.strip():
+                        txt.insert(tk.END, content)
+                    else:
+                        txt.insert(tk.END, f"Log file is empty: {log_path}")
             except Exception as ex:
-                txt.insert(tk.END, f"Error reading log: {ex}")
+                txt.insert(tk.END, f"Error reading log file {log_path}: {ex}")
         
-        if log_path and os.path.exists(log_path):
-            ttk.Button(job_info_frame, text="Job Log", command=open_log).pack(side=tk.LEFT, padx=(0, 8))
+        # Always show the Job Log button, but disable if no log file
+        log_button = ttk.Button(job_info_frame, text="Job Log", command=open_log)
+        log_button.pack(side=tk.LEFT, padx=(0, 8))
+        if not log_exists:
+            log_button.configure(state="disabled")
         
         # Populate status history
         info_by_iid = {}
@@ -377,11 +419,30 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
         tv_status.unbind("<<TreeviewSelect>>")
         tv_status.bind("<<TreeviewSelect>>", on_status_select)
 
+    # Store metadata info by tree item ID for the details panel
+    data_info_by_iid = {}
+    
     def data_rebuild():
         tv_data.delete(*tv_data.get_children())
+        data_info_by_iid.clear()
         for ms in metas:
             p = ms.getProps() or {}
-            tv_data.insert("", tk.END, values=(p.get("_direction", ""), p.get("_localPath", ""), p.get("_siteObjPath", "")))
+            job_id = p.get("_jobId", "")
+            iid = tv_data.insert("", tk.END, values=(job_id, p.get("_direction", ""), p.get("_localPath", ""), p.get("_siteObjPath", "")))
+            try:
+                data_info_by_iid[iid] = json.dumps(p, indent=2, sort_keys=True)
+            except Exception:
+                data_info_by_iid[iid] = str(p)
+
+    def on_data_select(_event):
+        """Handle selection changes in the data table to show metadata details."""
+        sel = tv_data.selection()
+        if not sel:
+            data_details_text.delete(1.0, tk.END)
+            return
+        iid = sel[0]
+        data_details_text.delete(1.0, tk.END)
+        data_details_text.insert(tk.END, data_info_by_iid.get(iid, ""))
 
     def on_jobs_click(event):
         region = tv_jobs.identify("region", event.x, event.y)
@@ -419,6 +480,82 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
     
     tv_jobs.bind("<<TreeviewSelect>>", on_jobs_select)
 
+    def show_file_content(file_path: str, title: str = "File Content"):
+        """Display file contents in a scrollable dialog."""
+        content_win = tk.Toplevel(win)
+        content_win.title(title)
+        content_win.geometry("800x600")
+        
+        # Create text widget with scrollbars
+        text_frame = ttk.Frame(content_win)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        
+        text_widget = tk.Text(text_frame, wrap=tk.NONE, font=("Menlo", 10))
+        
+        # Scrollbars
+        v_scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=text_widget.yview)
+        h_scrollbar = ttk.Scrollbar(text_frame, orient=tk.HORIZONTAL, command=text_widget.xview)
+        text_widget.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        
+        # Pack widgets
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # Load file content
+        try:
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    content = f.read()
+                text_widget.insert(tk.END, content)
+            else:
+                text_widget.insert(tk.END, f"File not found: {file_path}")
+        except Exception as e:
+            text_widget.insert(tk.END, f"Error reading file: {str(e)}")
+        
+        # Make text read-only
+        text_widget.configure(state=tk.DISABLED)
+        
+        # Close button
+        ttk.Button(content_win, text="Close", command=content_win.destroy).pack(side=tk.BOTTOM, pady=6)
+
+    def on_data_click(event):
+        region = tv_data.identify("region", event.x, event.y)
+        if region != "cell":
+            return
+        row_id = tv_data.identify_row(event.y)
+        col_id = tv_data.identify_column(event.x)
+        if not row_id or not col_id:
+            return
+        col_index = int(col_id.replace('#', '')) - 1
+        vals = tv_data.item(row_id, "values") or []
+        if not vals:
+            return
+        
+        if col_index == 0 and vals[0]:  # Job ID column
+            job_id = vals[0]
+            # Switch to Jobs tab and populate details for this job
+            try:
+                nb.select(tab_jobs)  # Switch to Jobs tab
+                populate_job_details(job_id)
+                # Also select the job in the list if it exists
+                for item in tv_jobs.get_children():
+                    job_vals = tv_jobs.item(item, "values")
+                    if job_vals and job_vals[0] == job_id:
+                        tv_jobs.selection_set(item)
+                        tv_jobs.see(item)
+                        break
+            except Exception:
+                pass
+        elif col_index == 2 and vals[2]:  # Local Path column
+            file_path = vals[2]
+            title = f"File Content - {os.path.basename(file_path)}"
+            show_file_content(file_path, title)
+        elif col_index == 3 and vals[3]:  # Site Object column
+            file_path = vals[3]
+            title = f"File Content - {os.path.basename(file_path)}"
+            show_file_content(file_path, title)
+    
     def on_data_dbl(_e):
         sel = tv_data.selection()
         if not sel:
@@ -429,7 +566,25 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
                 gui._show_metasheet_window(metas[idx])  # type: ignore[attr-defined]
             except Exception:
                 pass
+    
+    def on_data_motion(event):
+        # Change cursor to hand over clickable cells (Job ID, Local Path, Site Object)
+        row_id = tv_data.identify_row(event.y)
+        col_id = tv_data.identify_column(event.x)
+        if row_id and col_id in ('#1', '#3', '#4'):  # Job ID, Local Path, or Site Object columns
+            vals = tv_data.item(row_id, "values") or []
+            col_index = int(col_id.replace('#', '')) - 1
+            if vals and vals[col_index]:  # Has content in that column
+                tv_data.configure(cursor="hand2")
+            else:
+                tv_data.configure(cursor="")
+        else:
+            tv_data.configure(cursor="")
+    
+    tv_data.bind("<Button-1>", on_data_click)
     tv_data.bind("<Double-1>", on_data_dbl)
+    tv_data.bind("<Motion>", on_data_motion)
+    tv_data.bind("<<TreeviewSelect>>", on_data_select)
 
     def draw_graph():
         try:
@@ -682,12 +837,26 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
             else:
                 key = nid[2:]
                 info = data_nodes.get(key, {})
-                label = (info.get("path") or key)
-                short = str(label)
-                if len(short) > 22:
-                    short = "…" + short[-21:]
                 canvas.create_oval(vx-14, vy-14, vx+14, vy+14, fill=data_fill, outline=data_outline, width=2)
-                canvas.create_text(vx, vy-24, text=short, anchor=tk.S, fill=text)
+                
+                # Handle different data label modes
+                current_mode = data_label_modes[data_label_mode_index]
+                if current_mode == "None":
+                    # No label
+                    pass
+                elif current_mode == "Extension":
+                    # Show only file extension
+                    full_path = (info.get("path") or key)
+                    _, ext = os.path.splitext(full_path)
+                    if ext:
+                        canvas.create_text(vx, vy-24, text=ext, anchor=tk.S, fill=text)
+                else:  # "Full" mode
+                    # Show full path (truncated if needed)
+                    label = (info.get("path") or key)
+                    short = str(label)
+                    if len(short) > 22:
+                        short = "…" + short[-21:]
+                    canvas.create_text(vx, vy-24, text=short, anchor=tk.S, fill=text)
         # Optional: legend
         canvas.create_rectangle(10, 10, 320, 120, fill="#1c1c1c", outline="#2a2a2a")
         # Edge legend

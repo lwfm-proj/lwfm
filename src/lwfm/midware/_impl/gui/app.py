@@ -58,6 +58,7 @@ class LwfmGui(tk.Tk):
         self.time_combo.bind('<<ComboboxSelected>>', lambda _e: self._apply_filter_and_sort())
         ttk.Button(toolbar, text="Metasheets", command=self.view_metasheets).pack(side=tk.LEFT)
         ttk.Button(toolbar, text="Events", command=self.view_events).pack(side=tk.LEFT)
+        ttk.Button(toolbar, text="Server Log", command=self.view_server_log).pack(side=tk.LEFT)
 
         # Jobs table with scrollbar in a frame
         table_frame = ttk.Frame(self)
@@ -313,7 +314,7 @@ class LwfmGui(tk.Tk):
         """Check if a row matches the current filter text."""
         if not self._filter_text:
             # still apply time-range check even if no text filter
-            return self._in_time_range(row[5])
+            return self._in_time_range(row[6] if len(row) > 6 else "")
         
         # Search across key columns
         search_text = " ".join([
@@ -327,7 +328,7 @@ class LwfmGui(tk.Tk):
         ]).lower()
         
         if self._filter_text in search_text:
-            return self._in_time_range(row[5])
+            return self._in_time_range(row[6] if len(row) > 6 else "")
         return False
 
     def _in_time_range(self, ts: str) -> bool:
@@ -771,19 +772,20 @@ class LwfmGui(tk.Tk):
                 self.cancel_job(job_id, site_name)
             ttk.Button(btns, text="Cancel", command=do_cancel).pack(side=tk.LEFT, padx=6, pady=6)
 
-        # Show Open Log button if ~/.lwfm/logs/<jobId>.log exists
+        # Show Job Log button (always visible, disabled if no log file)
         try:
             log_dir = os.path.expanduser(SiteConfig.getLogFilename())
             log_path = os.path.join(log_dir, f"{job_id}.log")
         except Exception:
             log_path = ""
 
+        log_exists = log_path and os.path.exists(log_path)
+
         def open_log():
-            if not log_path or not os.path.exists(log_path):
-                messagebox.showinfo("Log", "Log file not found.")
-                return
+            if not log_exists:
+                return  # Should not be called when disabled, but just in case
             lw = tk.Toplevel(win)
-            lw.title(f"Log {job_id}")
+            lw.title(f"Job Log - {job_id}")
             lw.geometry("900x500")
             txt = tk.Text(lw, wrap=tk.NONE)
             xsb = ttk.Scrollbar(lw, orient=tk.HORIZONTAL, command=txt.xview)
@@ -794,12 +796,19 @@ class LwfmGui(tk.Tk):
             xsb.pack(side=tk.BOTTOM, fill=tk.X)
             try:
                 with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
-                    txt.insert(tk.END, f.read())
+                    content = f.read()
+                    if content.strip():
+                        txt.insert(tk.END, content)
+                    else:
+                        txt.insert(tk.END, f"Log file is empty: {log_path}")
             except Exception as ex:
-                txt.insert(tk.END, f"Error reading log: {ex}")
+                txt.insert(tk.END, f"Error reading log file {log_path}: {ex}")
 
-        if log_path and os.path.exists(log_path):
-            ttk.Button(btns, text="Open Log", command=open_log).pack(side=tk.LEFT, padx=6, pady=6)
+        # Always show the Job Log button, but disable if no log file
+        log_button = ttk.Button(btns, text="Job Log", command=open_log)
+        log_button.pack(side=tk.LEFT, padx=6, pady=6)
+        if not log_exists:
+            log_button.configure(state="disabled")
 
     def cancel_job(self, job_id: str, site: str):
         def worker():
@@ -904,8 +913,86 @@ class LwfmGui(tk.Tk):
             text.delete(1.0, tk.END)
             text.insert(tk.END, info_by_iid.get(iid, ""))
 
+        def on_files_click(event):
+            region = tv.identify("region", event.x, event.y)
+            if region != "cell":
+                return
+            row_id = tv.identify_row(event.y)
+            col_id = tv.identify_column(event.x)
+            if not row_id or not col_id:
+                return
+            col_index = int(col_id.replace('#', '')) - 1
+            vals = tv.item(row_id, "values") or []
+            if not vals:
+                return
+            
+            # Check if clicking on Local Path or Site Object columns
+            if col_index == 1 and vals[1]:  # Local Path column
+                file_path = vals[1]
+                title = f"File Content - {os.path.basename(file_path)}"
+                self._show_file_content(file_path, title)
+            elif col_index == 2 and vals[2]:  # Site Object column
+                file_path = vals[2]
+                title = f"File Content - {os.path.basename(file_path)}"
+                self._show_file_content(file_path, title)
+
+        def on_files_motion(event):
+            # Change cursor to hand over clickable file path cells
+            row_id = tv.identify_row(event.y)
+            col_id = tv.identify_column(event.x)
+            if row_id and col_id in ('#2', '#3'):  # Local Path or Site Object columns
+                vals = tv.item(row_id, "values") or []
+                col_index = int(col_id.replace('#', '')) - 1
+                if vals and vals[col_index]:  # Has file path
+                    tv.configure(cursor="hand2")
+                else:
+                    tv.configure(cursor="")
+            else:
+                tv.configure(cursor="")
+
         tv.bind("<<TreeviewSelect>>", on_select)
+        tv.bind("<Button-1>", on_files_click)
+        tv.bind("<Motion>", on_files_motion)
         ttk.Button(win, text="Close", command=win.destroy).pack(side=tk.BOTTOM, pady=6)
+
+    def _show_file_content(self, file_path: str, title: str = "File Content"):
+        """Display file contents in a scrollable dialog."""
+        content_win = tk.Toplevel(self)
+        content_win.title(title)
+        content_win.geometry("800x600")
+        
+        # Create text widget with scrollbars
+        text_frame = ttk.Frame(content_win)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        
+        text_widget = tk.Text(text_frame, wrap=tk.NONE, font=("Menlo", 10))
+        
+        # Scrollbars
+        v_scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=text_widget.yview)
+        h_scrollbar = ttk.Scrollbar(text_frame, orient=tk.HORIZONTAL, command=text_widget.xview)
+        text_widget.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        
+        # Pack widgets
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # Load file content
+        try:
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    content = f.read()
+                text_widget.insert(tk.END, content)
+            else:
+                text_widget.insert(tk.END, f"File not found: {file_path}")
+        except Exception as e:
+            text_widget.insert(tk.END, f"Error reading file: {str(e)}")
+        
+        # Make text read-only
+        text_widget.configure(state=tk.DISABLED)
+        
+        # Close button
+        ttk.Button(content_win, text="Close", command=content_win.destroy).pack(side=tk.BOTTOM, pady=6)
 
     def _show_metasheet_window(self, metasheet: Metasheet):
         """Display a single metasheet's properties in a simple viewer."""
