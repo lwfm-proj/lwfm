@@ -551,15 +551,23 @@ class LwfManager:
             w_sum = 1
             w_max = 60
             maxMax = 6000
-            doneWaiting = False
-            while not doneWaiting:
+            max_wait_time = 3600  # Maximum 1 hour wait time
+            start_time = time.time()
+            
+            while True:
                 time.sleep(w_sum)
+                # Check if we've exceeded maximum wait time
+                if time.time() - start_time > max_wait_time:
+                    logger.warning(f"Job {jobId} wait timeout after {max_wait_time} seconds")
+                    break
+                    
                 # progressive: keep increasing the sleep time until we hit max,
                 # then keep sleeping max
                 if w_sum < w_max:
                     w_sum += increment
                 elif w_sum < maxMax:
                     w_sum += w_max
+                    
                 _status = self.getStatus(jobId)
                 if _status is not None and _status.isTerminal():
                     return _status

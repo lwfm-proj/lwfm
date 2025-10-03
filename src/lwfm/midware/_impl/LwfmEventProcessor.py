@@ -49,9 +49,9 @@ class LwfmEventProcessor:
 
     _infoQueue: List[JobStatus] = []
 
-    STATUS_CHECK_INTERVAL_SECONDS_MIN = 1
+    STATUS_CHECK_INTERVAL_SECONDS_MIN = 5
     STATUS_CHECK_INTERVAL_SECONDS_MAX = 5*60
-    STATUS_CHECK_INTERVAL_SECONDS_STEP = 5
+    STATUS_CHECK_INTERVAL_SECONDS_STEP = 10
     _statusCheckIntervalSeconds = STATUS_CHECK_INTERVAL_SECONDS_MIN
 
 
@@ -445,7 +445,9 @@ class LwfmEventProcessor:
         """
         with self._timer_lock:
             now = time.time()
-            if (now - getattr(self, "_last_wake", 0.0)) < 15.0:
+            # Prevent excessive wake calls - require at least 30 seconds between wakes
+            # unless there's been significant idle time
+            if (now - getattr(self, "_last_wake", 0.0)) < 30.0:
                 return
             self._last_wake = now
             # Reset interval first so the next scheduled run uses the min
