@@ -22,7 +22,7 @@ qc.cx(0, 1)
 qc.measure_all()
 """
 
-lwfm_site_name = "ibm-quantum-venv"   # the site driver code is in a venv
+lwfm_site_name = "ibm-quantum"   # the site driver code is in a venv
 
 if __name__ == "__main__":
     # get the site auth/run/repo/spin drivers for IBM Quantum Cloud
