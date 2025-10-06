@@ -13,6 +13,7 @@ import sys
 from typing import List
 
 from flask import Flask, request
+import os
 from lwfm.midware._impl.LwfmEventProcessor import LwfmEventProcessor, RemoteJobEvent
 from lwfm.midware._impl.Store import JobStatusStore, LoggingStore, WorkflowStore, MetasheetStore
 from lwfm.base.Workflow import Workflow
@@ -31,7 +32,7 @@ log = logging.getLogger("werkzeug")
 log.setLevel(logging.ERROR)
 
 # Get the singleton instance of the event processor
-wfProcessor = LwfmEventProcessor()
+wfProcessor = LwfmEventProcessor.get_instance()
 
 
 def halt():
@@ -66,8 +67,22 @@ def isRunning():
 # curl http://host:port/shutdown
 @app.route("/shutdown")
 def shutdown():
-    halt()
-    sys.exit(0)
+    """Attempt a clean shutdown of the development server."""
+    try:
+        # Preferred way for Werkzeug dev server
+        func = request.environ.get('werkzeug.server.shutdown')
+        if func is not None:
+            func()
+        else:
+            # Fallback: signal ourselves to terminate
+            os.kill(os.getpid(), signal.SIGTERM)
+        return "shutting down", 200
+    except Exception:
+        try:
+            os.kill(os.getpid(), signal.SIGTERM)
+        except Exception:
+            pass
+        return "shutdown attempted", 200
 
 
 #************************************************************************
@@ -101,11 +116,12 @@ def putWorkflow():
 def getWorkflows():
     try:
         workflows = WorkflowStore().getAllWorkflows()
-        if workflows is not None:
-            # Serialize each workflow for transport
-            serialized_workflows = ObjectSerializer.serialize(workflows)
-            return serialized_workflows, 200
-        return "", 404
+        if workflows is None:
+            # First-run empty DB: return an empty list (200) to avoid client error spam
+            return ObjectSerializer.serialize([]), 200
+        # Serialize each workflow for transport
+        serialized_workflows = ObjectSerializer.serialize(workflows)
+        return serialized_workflows, 200
     except Exception as ex:
         LoggingStore().putLogging("ERROR", "getWorkflows: " + str(ex),
                                   "", "", "") # TODO context
@@ -124,6 +140,19 @@ def getWorkflowStatuses(workflow_id: str):
         LoggingStore().putLogging("ERROR", "getWorkflowStatuses: " + str(ex),
                                   "", "", "") # TODO context
         return "", 500
+
+
+
+@app.route("/workflow/find", methods=["POST"])
+def findWorkflow():
+    try:
+        searchDict = json.loads(request.form["searchDict"])
+        workflows: List[Workflow] = WorkflowStore().findWorkflows(searchDict)
+        return ObjectSerializer.serialize(workflows), 200
+    except Exception as ex:
+        LoggingStore().putLogging("ERROR", "findWorkflow: " + str(ex),
+                                  "", "", "") # TODO context
+        return "", 400
 
 
 #************************************************************************
@@ -188,6 +217,12 @@ def emitStatus():
                 LoggingStore().putLogging("INFO",
                     f"Data trigger event(s) processed for job {statusObj.getJobId()}",
                     "", "", "") # TODO context
+
+        # Wake the event processor so it reacts immediately to newly emitted status
+        try:
+            wfProcessor.wake()
+        except Exception as ex:
+            LoggingStore().putLogging("ERROR", f"wake() failed: {ex}", "", "", "")
 
         return "", 200
     except Exception as ex:
@@ -257,11 +292,24 @@ def getLogsByJob(job_id: str):
     try:
         logs = LoggingStore().getLogsByJob(job_id)
         if logs is not None:
+            print("*** got logs")
             return ObjectSerializer.serialize(logs), 200
         return "", 200
     except Exception as ex:
         LoggingStore().putLogging("ERROR", "getLogsByJob: " + str(ex),
                                     "", "", job_id) # TODO context
+        return "", 500
+
+@app.route("/logs/all")
+def getAllLogs():
+    try:
+        logs = LoggingStore().getAllLogs()
+        if logs is not None:
+            return ObjectSerializer.serialize(logs), 200
+        return "", 200
+    except Exception as ex:
+        LoggingStore().putLogging("ERROR", "getAllLogs: " + str(ex),
+                                    "", "", "") # TODO context
         return "", 500
 
 
@@ -303,6 +351,25 @@ def listHandlers():
         print(ex)
         LoggingStore().putLogging("ERROR", "listHandlers: " + str(ex),
                                   "", "", "") # TODO context
+        return "", 500
+
+
+# clear all active pollers and event handlers
+@app.route("/clearAllPollers", methods=["POST"])
+def clearAllPollers():
+    try:
+        # Get all active events
+        events = EventStore().getAllWfEvents(None)
+        count = len(events) if events else 0
+
+        # Clear each event handler
+        if events:
+            for event in events:
+                wfProcessor.unsetEventHandler(event.getEventId())
+
+        return json.dumps({"cleared": count}), 200
+    except Exception as ex:
+        LoggingStore().putLogging("ERROR", f"clearAllPollers: {str(ex)}", "", "", "")
         return "", 500
 
 

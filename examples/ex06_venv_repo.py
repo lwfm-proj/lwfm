@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     ts = lwfManager.generateId()
     metadata = {"foo": "bar", "hello": "world", "sampleId": ts}
-    site.getRepoDriver().put("ex1_date.out", "/tmp/someFile.dat",
+    site.getRepoDriver().put("/tmp/ex1_date.out", "/tmp/someFile.dat",
         None, # autogen a new job for this repo activity if no JobContext provided
         metadata)
 

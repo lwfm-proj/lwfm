@@ -45,7 +45,14 @@ class SiteConfigBuilder:
             f"pillarInst.setSiteName('{siteName}'); " + \
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"{venvHelper.makeSerializeReturnString('pillarInst')}"
-        return venvHelper.executeInProjectVenv(siteName, builderStr)
+        try:
+            return venvHelper.executeInProjectVenv(siteName, builderStr)
+        except Exception as ex:
+            venv_path = venvHelper.makeVenvPath(siteName)
+            raise RuntimeError(
+                f"No '{pillar_class}' for site '{siteName}' in venv '{venv_path}'. "
+                "Ensure the venv exists and required packages are installed in that venv."
+            ) from ex
 
 
     @staticmethod
@@ -68,18 +75,30 @@ class SiteConfigBuilder:
                 # the venv
                 # a regular Site object will be returned, and it will be marked
                 # as being for venv wrapper use
-                auth_driver = \
-                    SiteConfigBuilder.getVenvPillarInstance(site,
-                    siteObj.get("auth"))
-                run_driver = \
-                    SiteConfigBuilder.getVenvPillarInstance(site,
-                    siteObj.get("run"))
-                repo_driver = \
-                    SiteConfigBuilder.getVenvPillarInstance(site,
-                    siteObj.get("repo"))
-                spin_driver = \
-                    SiteConfigBuilder.getVenvPillarInstance(site,
-                    siteObj.get("spin"))
+                try:
+                    auth_driver = \
+                        SiteConfigBuilder.getVenvPillarInstance(site,
+                        siteObj.get("auth"))
+                except Exception as ex:
+                    raise RuntimeError(f"Error creating 'auth' pillar for '{site}': {ex}") from ex
+                try:
+                    run_driver = \
+                        SiteConfigBuilder.getVenvPillarInstance(site,
+                        siteObj.get("run"))
+                except Exception as ex:
+                    raise RuntimeError(f"Error creating 'run' pillar for '{site}': {ex}") from ex
+                try:
+                    repo_driver = \
+                        SiteConfigBuilder.getVenvPillarInstance(site,
+                        siteObj.get("repo"))
+                except Exception as ex:
+                    raise RuntimeError(f"Error creating 'repo' pillar for '{site}': {ex}") from ex
+                try:
+                    spin_driver = \
+                        SiteConfigBuilder.getVenvPillarInstance(site,
+                        siteObj.get("spin"))
+                except Exception as ex:
+                    raise RuntimeError(f"Error creating 'spin' pillar for '{site}': {ex}") from ex
                 siteInst = Site(site, auth_driver, run_driver, repo_driver, spin_driver)
                 siteInst.setVenv(True)
             else:

@@ -234,7 +234,8 @@ class SiteRepo(SitePillar):
         self,
         siteObjPath: str,
         localPath: str,
-        jobContext: Optional[Union[JobContext, str]] = None
+        jobContext: Optional[Union[JobContext, str]] = None,
+        metasheet: Optional[Union[Metasheet, dict, str]] = None
     ) -> Optional[str]:
         pass
 
@@ -390,6 +391,7 @@ class _VenvSiteRunWrapper(SiteRun):
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"driver = ObjectSerializer.deserialize('{self._realRunDriver}'); " + \
+            f"driver.setSiteName('{self._siteName}'); " + \
             f"obj = driver.submit({self._siteConfigVenv.makeArgWrapper(jobDefn)}, " +\
             f"{self._siteConfigVenv.makeArgWrapper(parentContext)}, '{computeType}', " + \
             f"{self._siteConfigVenv.makeArgWrapper(runArgs)}); " + \
@@ -404,6 +406,7 @@ class _VenvSiteRunWrapper(SiteRun):
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"driver = ObjectSerializer.deserialize('{self._realRunDriver}'); " + \
+            f"driver.setSiteName('{self._siteName}'); " + \
             f"obj = driver.getStatus('{jobId}'); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
@@ -417,6 +420,7 @@ class _VenvSiteRunWrapper(SiteRun):
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"driver = ObjectSerializer.deserialize('{self._realRunDriver}'); " + \
+            f"driver.setSiteName('{self._siteName}'); " + \
             f"obj = driver.cancel({self._siteConfigVenv.makeArgWrapper(jobContext)}); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
@@ -463,13 +467,14 @@ class _VenvSiteRepoWrapper(SiteRepo):
         self,
         localPath: str,
         siteObjPath: str,
-        jobContext: Optional[Union[JobContext, str]] = None,
+        jobContext: Optional[Union[JobContext, Workflow, str]] = None,
         metasheet: Optional[Union[Metasheet, dict, str]] = None
     ) -> Optional[Metasheet]:
         retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"driver = ObjectSerializer.deserialize('{self._realRepoDriver}'); " + \
+            f"driver.setSiteName('{self._siteName}'); " + \
             f"obj = driver.put('{localPath}', '{siteObjPath}', " + \
             f"{self._siteConfigVenv.makeArgWrapper(jobContext)}, " + \
             f"{self._siteConfigVenv.makeArgWrapper(metasheet)}); " + \
@@ -483,14 +488,17 @@ class _VenvSiteRepoWrapper(SiteRepo):
         self,
         siteObjPath: str,
         localPath: str,
-        jobContext: Optional[Union[JobContext, str]] = None
+        jobContext: Optional[Union[JobContext, Workflow, str]] = None,
+        metasheet: Optional[Union[Metasheet, dict, str]] = None
     ) -> Optional[str]:
         retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
             f"driver = ObjectSerializer.deserialize('{self._realRepoDriver}'); " + \
+            f"driver.setSiteName('{self._siteName}'); " + \
             f"obj = driver.get('{siteObjPath}', '{localPath}', " + \
-            f"{self._siteConfigVenv.makeArgWrapper(jobContext)}); " + \
+            f"{self._siteConfigVenv.makeArgWrapper(jobContext)}, " + \
+            f"{self._siteConfigVenv.makeArgWrapper(metasheet)}); " + \
             f"{self._siteConfigVenv.makeSerializeReturnString()}"
         )
         if retVal is not None:
@@ -512,7 +520,7 @@ class _NoopSiteRepoWrapper(SiteRepo):
     def put(self, localPath, siteObjPath, jobContext=None, metasheet=None):
         return None
 
-    def get(self, siteObjPath, localPath, jobContext=None):
+    def get(self, siteObjPath, localPath, jobContext=None, metasheet=None):
         return None
 
 # *********************************************************************************

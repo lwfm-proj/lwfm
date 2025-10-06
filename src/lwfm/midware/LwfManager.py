@@ -8,10 +8,15 @@ event handlers, and notating provenancial metadata.
 #pylint: disable = broad-exception-caught, protected-access
 
 import time
+import threading
 import os
 import argparse
+import subprocess
+import shutil
 
-from typing import List, Optional, Union, Any
+from typing import List, Optional, Union, Any, cast
+
+import requests
 
 from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.JobContext import JobContext
@@ -25,8 +30,7 @@ from lwfm.midware._impl.LwfmEventClient import LwfmEventClient
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 from lwfm.midware._impl.SiteConfig import SiteConfig
 from lwfm.midware._impl.SiteConfigBuilder import SiteConfigBuilder
-from lwfm.midware._impl.Logger import Logger
-
+from lwfm.midware._impl.Logger import Logger  # see below where we instantiate little-l logger
 
 # ***************************************************************************
 class LwfManager:
@@ -34,6 +38,11 @@ class LwfManager:
     def __init__(self):
         self._client = LwfmEventClient()
         self._context = None
+        # Auto-start middleware eagerly on construction (unless disabled)
+        try:
+            self._ensure_midware_running("init")
+        except Exception:
+            pass
 
 
     #***********************************************************************
@@ -46,7 +55,55 @@ class LwfManager:
         Gets the client class which is a thin set of methods for invoking 
         REST services.
         """
+        try:
+            self._ensure_midware_running("getClient")
+        except Exception:
+            pass
         return self._client
+
+    def getServiceUrl(self) -> str:
+        """
+        Public helper to expose the service URL used by the client.
+        """
+        return self._client.getUrl()
+
+    # ---------------- internal: auto-start ----------------
+    _autostart_lock = threading.Lock()
+
+    def _ensure_midware_running(self, reason: str = "") -> None:
+        _ = reason  # avoid unused-arg warnings; available for future logging
+        # Avoid auto-start from within the server process or if disabled
+        if os.getenv("LWFM_SERVER", "0") == "1":
+            return
+        if (os.getenv("LWFM_AUTOSTART", "1") != "1"):
+            return
+        try:
+            if self._client.isMidwareRunning():
+                return
+        except Exception:
+            pass
+        with LwfManager._autostart_lock:
+            # Re-check inside lock to avoid stampede
+            try:
+                if self._client.isMidwareRunning():
+                    return
+            except Exception:
+                pass
+            # Launch detached
+            try:
+                from lwfm.midware._impl.SvcLauncher import SvcLauncher
+                SvcLauncher()._startMidware()
+            except Exception:
+                return
+            # Wait briefly for readiness
+            deadline = time.time() + int(os.getenv("LWFM_AUTOSTART_TIMEOUT", "20"))
+            while time.time() < deadline:
+                try:
+                    if self._client.isMidwareRunning():
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.5)
 
 
     def _serialize(self, obj) -> str:
@@ -56,11 +113,25 @@ class LwfManager:
         return ObjectSerializer.serialize(obj)
 
 
+    def serialize(self, obj) -> str:
+        """
+        Serialize an object to string.
+        """
+        return self._serialize(obj)
+
+
     def _deserialize(self, s: str):
         """
         Deserialize a string to an object.
         """
         return ObjectSerializer.deserialize(s)
+
+
+    def deserialize(self, s: str):
+        """
+        Deserialize a string to an object.
+        """
+        return self._deserialize(s)
 
 
     def _getJobContextFromEnv(self) -> Optional[JobContext]:
@@ -100,11 +171,11 @@ class LwfManager:
         if jobContext is None:
             jCtx: JobContext = JobContext()
         elif isinstance(jobContext, str):
-            jCtx: JobContext = self._deserialize(jobContext)
+            jCtx = self.deserialize(jobContext)
             if jCtx is None:
                 jCtx = JobContext()
         else:
-            jCtx: JobContext = jobContext
+            jCtx = jobContext
 
         _metasheet.setJobId(jCtx.getJobId())
         # now do the metadata notate
@@ -119,7 +190,7 @@ class LwfManager:
         _metasheet.setProps(props)
         # persist
         self._client.notate(_metasheet)
-        # TODO technically the above notate() might be None if the notate fails - conisder
+        # Note: above notate() could return None on failure; ignore for now
         # now emit an INFO job status
         self._emitRepoInfo(jCtx, _metasheet)
         return _metasheet
@@ -132,9 +203,12 @@ class LwfManager:
         return self._notate(siteName, localPath, siteObjPath, jobContext, _metasheet, True)
 
     def _notateGet(self, siteName: str, localPath: str, siteObjPath: str,
-        jobContext: JobContext) -> Metasheet:
-        _metasheet = Metasheet(siteName, localPath, siteObjPath)
+        jobContext: JobContext,
+        _metasheet: Optional[Metasheet]) -> Metasheet:
+        if _metasheet is None:
+            _metasheet = Metasheet(siteName, localPath, siteObjPath)
         return self._notate(siteName, localPath, siteObjPath, jobContext, _metasheet, False)
+
 
 
     #***********************************************************************
@@ -152,24 +226,6 @@ class LwfManager:
         Generate a unique ID for a job or workflow, or any other purpose.
         """
         return IdGenerator().generateId()
-
-
-    def setContext(self, context: JobContext) -> None:
-        """
-        Set the context for the lwfManager, which can be used to include job-related
-        information in log messages and status updates.
-        """
-        self._context = context # TODO are we using this everywhere correctly?
-
-
-    def getContext(self) -> Optional[JobContext]:
-        """
-        Get the current context of the lwfManager.
-        """
-        if self._context is None:
-            # try to get it from the environment
-            self._context = self._getJobContextFromEnv()
-        return self._context
 
 
     def getLogFilename(self, context: JobContext) -> str:
@@ -206,18 +262,140 @@ class LwfManager:
         """
         if site is None or site == "":
             site = "local"
-        return SiteConfigBuilder.getSite(site)
+        # Ensure venv for sites that declare one (opt-out via LWFM_VENV_AUTOSETUP=0)
+        try:
+            if os.getenv("LWFM_VENV_AUTOSETUP", "1") == "1":
+                self._ensure_site_venv(site)
+        except Exception as _ex:
+            # Non-fatal: continue to build the site even if venv setup fails
+            logger.info(f"Venv autosetup skipped or failed for site '{site}': {_ex}")
+        try:
+            return SiteConfigBuilder.getSite(site)
+        except Exception as ex:
+            logger.error(f"Error getting site '{site}': {ex} - returning none")
+            return None # type: ignore
+
+    # ---------------- internal: venv ensure via uv ----------------
+    def _ensure_site_venv(self, site: str) -> None:
+        props = SiteConfig.getSiteProperties(site) or {}
+        venv_path = props.get("venv")
+        if not venv_path:
+            return
+        venv_dir = os.path.abspath(os.path.expanduser(str(venv_path)))
+        project_dir = os.path.dirname(venv_dir)
+        # Only act if .venv is direct child (as per guidance)
+        if os.path.basename(venv_dir) != ".venv":
+            # Respect custom venv path but still attempt sync from its parent
+            project_dir = os.path.dirname(venv_dir)
+
+        # If uv isn't present, log and stop (avoid guessing installs)
+        uv_bin = shutil.which("uv")
+        if uv_bin is None:
+            logger.info("uv not found on PATH; skipping venv auto-setup for site '%s'", site)
+            return
+
+        # Create venv if missing
+        venv_created = False
+        if not os.path.isdir(venv_dir):
+            try:
+                logger.info(f"Creating venv at {venv_dir} using uv venv (cwd={project_dir})")
+                subprocess.run([uv_bin, "venv"], cwd=project_dir, check=True)
+                venv_created = True
+            except subprocess.CalledProcessError as ex:
+                logger.error(f"uv venv failed in {project_dir}: {ex}")
+                return
+
+        # Prepare an environment that mirrors 'source .venv/bin/activate'
+        env_vars = os.environ.copy()
+        env_vars["VIRTUAL_ENV"] = venv_dir
+        bin_dir = os.path.join(venv_dir, "bin")
+        env_path = env_vars.get("PATH", "")
+        if bin_dir not in env_path.split(":"):
+            env_vars["PATH"] = f"{bin_dir}:{env_path}" if env_path else bin_dir
+
+        # Sync only if we created the venv during this call (avoid frequent syncs)
+        if venv_created:
+            try:
+                logger.info(f"Syncing dependencies via uv sync --upgrade (cwd={project_dir})")
+                subprocess.run([uv_bin, "sync", "--upgrade"], cwd=project_dir, check=True, env=env_vars)
+            except subprocess.CalledProcessError as ex:
+                logger.error(f"uv sync failed in {project_dir}: {ex}")
+                # proceed; site may still work if already satisfied
+
+    def _run_uv_sync(self, project_dir: str, env_vars: dict) -> None:
+        """Helper to run uv sync with logging; expects uv on PATH."""
+        uv_bin = shutil.which("uv")
+        if uv_bin is None:
+            logger.info("uv not found on PATH; skipping uv sync for %s", project_dir)
+            return
+        try:
+            logger.info(f"Syncing dependencies via uv sync --upgrade (cwd={project_dir})")
+            subprocess.run([uv_bin, "sync", "--upgrade"], cwd=project_dir, check=True, env=env_vars)
+        except subprocess.CalledProcessError as ex:
+            logger.error(f"uv sync failed in {project_dir}: {ex}")
+        except Exception as ex:
+            logger.error(f"Unexpected error during uv sync in {project_dir}: {ex}")
+
+    def updateSite(self, site: str = None) -> None:
+        """Ensure site venv exists; if missing create it and sync, otherwise sync.
+
+        This method performs the explicit action you requested: it ensures the
+        venv for the named site exists (creating it if necessary) and always
+        runs `uv sync` after ensuring the venv is present.
+        """
+        if site is None:
+            venv_path = "./.venv"
+        else:
+            props = SiteConfig.getSiteProperties(site) or {}
+            venv_path = props.get("venv")
+            if not venv_path:
+                logger.info("updateSite: no venv configured for site %s; nothing to do", site)
+                return
+        venv_dir = os.path.abspath(os.path.expanduser(str(venv_path)))
+        project_dir = os.path.dirname(venv_dir)
+        if os.path.basename(venv_dir) != ".venv":
+            project_dir = os.path.dirname(venv_dir)
+
+        # Prepare environment for sync (use same logic as _ensure_site_venv)
+        env_vars = os.environ.copy()
+        env_vars["VIRTUAL_ENV"] = venv_dir
+        bin_dir = os.path.join(venv_dir, "bin")
+        env_path = env_vars.get("PATH", "")
+        if bin_dir not in env_path.split(":"):
+            env_vars["PATH"] = f"{bin_dir}:{env_path}" if env_path else bin_dir
+
+        # If venv exists, just sync; otherwise create then sync
+        if os.path.isdir(venv_dir):
+            self._run_uv_sync(project_dir, env_vars)
+            return
+
+        # Create venv then sync
+        uv_bin = shutil.which("uv")
+        if uv_bin is None:
+            logger.info("uv not found on PATH; cannot create venv for site '%s'", site)
+            return
+        try:
+            logger.info(f"Creating venv at {venv_dir} using uv venv (cwd={project_dir})")
+            subprocess.run([uv_bin, "venv"], cwd=project_dir, check=True)
+        except subprocess.CalledProcessError as ex:
+            logger.error(f"uv venv failed in {project_dir}: {ex}")
+            return
+
+        # Run sync after successful creation
+        self._run_uv_sync(project_dir, env_vars)
 
 
     #***********************************************************************
     # public workflow methods
 
-    def putWorkflow(self, wflow: Workflow) -> Optional[str]:
+    def putWorkflow(self, wflow: Workflow) -> Optional[Workflow]:
         """
         Write a workflow object to store. Get back a workflow id.
         """
-        return self._client.putWorkflow(wflow)
-
+        workflowId = self._client.putWorkflow(wflow)
+        if workflowId is None:
+            return None
+        return self.getWorkflow(workflowId)
 
     def getWorkflow(self, workflow_id: str) -> Optional[Workflow]:
         """
@@ -241,6 +419,40 @@ class LwfManager:
             logger.error(f"Error in LwfManager.getAllWorkflows: {e}")
             return None
 
+    def getJobStatusesForWorkflow(self, workflow_id: str) -> Optional[List[JobStatus]]:
+        """
+        Get the final (or current) job status messages for all jobs in a workflow, ordered by
+        timestamp (newest first).
+        This is useful for getting the final state of all jobs in a workflow or latest status
+        of a workflow in flight.
+        """
+        if workflow_id is None:
+            return None
+        try:
+            # Get all job statuses for the workflow
+            all_statuses = self._client.getAllJobStatusesForWorkflow(workflow_id)
+            if all_statuses is None:
+                return None
+
+            # Group statuses by job ID and keep only the latest (newest) for each job
+            latest_statuses = {}
+            for job_status in all_statuses:
+                job_id = job_status.getJobContext().getJobId()
+                if job_id not in latest_statuses:
+                    latest_statuses[job_id] = job_status
+                else:
+                    # Compare timestamps and keep the newer one
+                    if job_status.getEmitTime() > latest_statuses[job_id].getEmitTime():
+                        latest_statuses[job_id] = job_status
+
+            # Return the latest statuses as a list, sorted by timestamp (newest first)
+            result = list(latest_statuses.values())
+            result.sort(key=lambda x: x.getEmitTime(), reverse=True)
+            return result
+        except Exception as e:
+            logger.error(f"Error in LwfManager.getFinalJobStatusesForWorkflow: {e}")
+            return None
+
 
     def getAllJobStatusesForWorkflow(self, workflow_id: str) -> Optional[List[JobStatus]]:
         """
@@ -254,6 +466,35 @@ class LwfManager:
         except Exception as e:
             logger.error(f"Error in LwfManager.getAllJobStatusesForWorkflow: {e}")
             return None
+
+
+    def dumpWorkflow(self, workflow_id: str) -> Optional[dict]:
+        """
+        Dump the workflow and its jobs, including their statuses, to a dictionary.
+        This is useful for debugging and understanding the state of a workflow.
+        """
+        if workflow_id is None:
+            return None
+        try:
+            wf_obj = self.getWorkflow(workflow_id)
+            if wf_obj is None:
+                return None
+            jobs = self.getJobStatusesForWorkflow(workflow_id)
+            metasheets_list = self.find({"_workflowId": workflow_id}) or []
+            return {
+                "workflow": str(wf_obj),
+                "jobs": jobs,
+                "metasheets": metasheets_list
+            }
+        except Exception as e:
+            logger.error(f"Error in LwfManager.dumpWorkflow: {e}")
+            return None
+
+
+    def findWorkflows(self, queryRegExs: dict) -> Optional[List[Workflow]]:
+        return self._client.findWorkflows(queryRegExs)
+
+
 
 
     #***********************************************************************
@@ -310,15 +551,23 @@ class LwfManager:
             w_sum = 1
             w_max = 60
             maxMax = 6000
-            doneWaiting = False
-            while not doneWaiting:
+            max_wait_time = 3600  # Maximum 1 hour wait time
+            start_time = time.time()
+            
+            while True:
                 time.sleep(w_sum)
+                # Check if we've exceeded maximum wait time
+                if time.time() - start_time > max_wait_time:
+                    logger.warning(f"Job {jobId} wait timeout after {max_wait_time} seconds")
+                    break
+                    
                 # progressive: keep increasing the sleep time until we hit max,
                 # then keep sleeping max
                 if w_sum < w_max:
                     w_sum += increment
                 elif w_sum < maxMax:
                     w_sum += w_max
+                    
                 _status = self.getStatus(jobId)
                 if _status is not None and _status.isTerminal():
                     return _status
@@ -351,10 +600,13 @@ class LwfManager:
         if jobContext is None:
             jobContext = JobContext()
 
-        logger.info(f"lwfManager: exec site endpoint {entry_point} job {jobContext.getJobId()}")
+        logger.info(f"lwfManager: exec site endpoint {entry_point} job {jobContext.getJobId()}",
+            context=jobContext)
 
         if emitStatus:
             self.emitStatus(jobContext, JobStatus.PENDING)
+            self.emitStatus(jobContext, JobStatus.INFO, None,
+                str({"jobDefn": str(jDefn), "jobContext": str(jobContext)}))
 
         siteName = jDefn.getSiteName()
         site_pillar, site_method = entry_point.split('.', 1)
@@ -371,7 +623,8 @@ class LwfManager:
                 site_pillar = site.getSpinDriver()
             method = getattr(site_pillar, site_method, None)
             if not callable(method):
-                logger.error(f"lwfManager: method {site_method} not found or not callable")
+                logger.error(f"lwfManager: method {site_method} not found or not callable",
+                    context=jobContext)
                 if emitStatus:
                     self.emitStatus(jobContext, JobStatus.FAILED)
                 return None
@@ -380,7 +633,8 @@ class LwfManager:
             _args = jDefn.getJobArgs()
             if site_method == "submit":
                 newJobDefn = JobDefn(_args[0], JobDefn.ENTRY_TYPE_STRING, _args[1:])
-                _args = [newJobDefn, jobContext, jDefn.getComputeType(), _args[1:]]
+                runArgs = _args[1:] if len(_args) > 1 else None
+                _args = [newJobDefn, jobContext, jDefn.getComputeType(), runArgs]
             elif site_method in ["get"]:
                 if len(_args) == 2:
                     _args = [_args[0], _args[1], jobContext]
@@ -399,7 +653,7 @@ class LwfManager:
             if emitStatus:
                 self.emitStatus(jobContext, JobStatus.FAILED)
             logger.error("lwfManager: error executing site endpoint " + \
-                f"{jDefn.getEntryPoint()}: {str(ex)}")
+                f"{jDefn.getEntryPoint()}: {str(ex)}", context=jobContext)
             return None
 
 
@@ -429,6 +683,17 @@ class LwfManager:
             return None
 
 
+    def getAllLogging(self) -> Optional[List[str]]:
+        """
+        Retrieve all logging entries from the system.
+        """
+        try:
+            return self._client.getAllLogging()
+        except Exception as e:
+            logger.error(f"Error in LwfManager.getAllLogging: {e}")
+            return None
+
+
     #***********************************************************************
     # public event methods
 
@@ -454,12 +719,94 @@ class LwfManager:
         """
         return self._client.getActiveWfEvents()
 
+    def clearAllPollers(self) -> int:
+        """
+        Clear all active pollers and event handlers.
+        Returns the number of items cleared.
+        """
+        try:
+            return self._client.clearAllPollers()
+        except Exception as e:
+            logger.error(f"Error in LwfManager.clearAllPollers: {e}")
+            return 0
+
 
     #***********************************************************************
     # repo methods
 
+
+    def notatePut(self, localPath: str, context: Union[Workflow, JobContext],
+        _metasheet: Optional[Union[Metasheet, dict]] = None) -> Metasheet:
+        if isinstance(context, Workflow):
+            jobContext = JobContext()
+            jobContext.setWorkflowId(context.getWorkflowId())
+        else:
+            jobContext = context
+        if _metasheet is None:
+            _metasheet = Metasheet("local", localPath, "", {})
+            _metasheet.setJobId(jobContext.getJobId())
+        if isinstance(_metasheet, dict):
+            _metasheet = Metasheet("local", localPath, "", cast(dict, _metasheet))
+            _metasheet.setJobId(jobContext.getJobId())
+        return self._notatePut("local", localPath, "", jobContext, _metasheet)
+
+
+    def notateGet(self, localPath: str, context: Union[Workflow, JobContext],
+                  metasheet_obj: Optional[Union[Metasheet, dict]] = None) -> Metasheet:
+        if isinstance(context, Workflow):
+            jobContext = JobContext()
+            jobContext.setWorkflowId(context.getWorkflowId())
+        else:
+            jobContext = context
+        if metasheet_obj is None:
+            metasheet_obj = Metasheet("local", localPath, "", {})
+            metasheet_obj.setJobId(jobContext.getJobId())
+        if isinstance(metasheet_obj, dict):
+            metasheet_obj = Metasheet("local", localPath, "", cast(dict, metasheet_obj))
+            metasheet_obj.setJobId(jobContext.getJobId())
+        return self._notateGet("local", localPath, "", jobContext, metasheet_obj)
+
+
     def find(self, queryRegExs: dict) -> Optional[List[Metasheet]]:
         return self._client.find(queryRegExs)
+
+
+
+    #***********************************************************************
+    # misc methods
+
+    def sendEmail(self, subject: str, body: str, to: str) -> bool:
+        """
+        Send an email with the given subject and body. This is a convenience method
+        for sending emails from workflows. 
+        TODO this is not end-state, a demo hack
+        """
+        logger.info(f"Sending email to {to} with subject: {subject}")
+        logger.info(f"api key: {SiteConfig.getSiteProperties('lwfm').get('emailKey')}")
+        try:
+            session = requests.Session()
+            session.verify = False  # Use system certificate store
+            session.post(
+                "https://api.mailgun.net/v3/sandbox884a84ded0f443569fd09c93dcc28aa2.mailgun.org/messages",
+                auth=("api", SiteConfig.getSiteProperties("lwfm").get("emailKey") or ""),
+                data={"from": "Mailgun Sandbox <postmaster@sandbox884a84ded0f443569fd09c93dcc28aa2.mailgun.org>",
+                    "to": to,
+                    "subject": subject,
+                    "text": body},
+                timeout=30  # 30 second timeout
+            )
+            return True
+        except requests.exceptions.Timeout:
+            logger.error("Email request timed out after 30 seconds")
+            return False
+        except requests.exceptions.SSLError as e:
+            logger.error(f"SSL Error (corporate firewall?): {e}")
+            return False
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            return False
+
+
 
 
 #***********************************************************************
@@ -486,6 +833,8 @@ if __name__ == "__main__":
                         help="Get logs by workflow ID")
     parser.add_argument("--logs-by-job", metavar="JOB_ID", type=str,
                         help="Get logs by job ID")
+    parser.add_argument("--all-logs", action="store_true",
+                        help="Dump all logs from the system")
     parser.add_argument("--active-events", action="store_true",
                         help="Return all active workflow events")
     parser.add_argument("--metasheets", metavar="WORKFLOW_ID", type=str,
@@ -544,6 +893,13 @@ if __name__ == "__main__":
                 print(log)
         else:
             print(f"No logs found for job {args.logs_by_job}")
+    elif args.all_logs:
+        logs = lwfManager.getAllLogging()
+        if logs:
+            for log in logs:
+                print(log)
+        else:
+            print("No logs found in the system")
     elif args.active_events:
         events = lwfManager.getActiveWfEvents()
         if events:

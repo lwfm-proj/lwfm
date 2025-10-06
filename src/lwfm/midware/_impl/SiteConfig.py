@@ -18,7 +18,11 @@ class SiteConfig:
 
     @staticmethod
     def _getSiteToml() -> dict:
-        """Load the default and user site configurations from TOML."""
+        """
+        Load the default and user site configurations from TOML.
+        These hardcoded default values (below) can be overriden and extended by 
+        using a ~/.lwfm/sites.toml.
+        """
         siteToml = """
         [lwfm]
         host = "127.0.0.1"

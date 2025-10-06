@@ -1,0 +1,76 @@
+
+Todo & misc notes
+=================
+
+******************************************************************************
+
+
+
++ IBM site driver, quantum info
+    - send terminal status in submit on error
+    + run prov
+        - capture of current machine state
+        - noise model, from backend, etc.
+        - set logger context, submit/put/get
+        - other qiskit run options, compiler passes
+    + data prov
+        - notating get from IBM by doing a local put?
+        - metadata on get(), Workflow on get()/put()
+        - get without a file involved - just a string return
+        - unpacking qiskit results - show in qtsuite cfd
+
+
++ lwfm 2nd
+    - normalize INFO logging data structure for job provenance, data provenance
+    - lwfManager exec inline needs a way to handle runArgs for submit
+    - lwfManager.dumpWorkflow() - all meta info of all kinds
+    - test: do we handle jobDefn.getJobArgs() correctly for both data types? 
+    - do we need submit() to take a list[str] in addition to dict for args?
+    - utility functions for site drivers which takes objects of different types 
+        which are potentially serialized and returns them in a set form - submit,get,put
+    - more granular "find event" method in lwfm and get IBM driver submit() to use it
+
+
+******************************************************************************
+Design: (map to IBM 4-step process)
+
++ Author
+    - describe circuit in language of choice (e.g. QASM, OpenQASM, etc.)
+    - writes to descriptor format?
+
++ Pre 
+
++ Build (circuit_HHL.py)
+    - construct circuit from description (likely Python Qiskit or matrix)
+    - write to interchange format (Qpy)
+
++ Optimize
+
++ Transpile 
+
++ Run (solver.py)
+    - reads in circuit in interchange format (Qpy)
+    - transpiles / optimizes circuit (to ISA)  - is this two steps? what are ins/outs?
+    - runs circuit 
+    - returns results 
+    + backend plugins
+        - credentials (Auth)
+        - libraries (Run)
+        - execution (Run)
+        - monitor execution (Run)
+        - return results (Run)
+
++ Post 
+
+
+******************************************************************************
+installation notes for lwfm-agent
+
+python
+uv
+node, npm, npx 
+<my project> 
+fast-agent, API key in fastagent.secrets.yaml, servers in fastagent.config.yaml 
+
+
+******************************************************************************

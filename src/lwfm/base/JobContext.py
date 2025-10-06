@@ -16,14 +16,26 @@ class JobContext:
     and then augment it with updated job status information.
     """
 
-    def __init__(self):
+    def __init__(self, name: str = ""):
         self._job_id = IdGenerator().generateId()
         self._native_id = self._job_id      # important: can be set later
         self._parent_job_id = None
         self._workflow_id = self._job_id    # important: can be set later
-        self._name = self._job_id           # important: can be set later
+        if name:
+            self._name = name
+        else:
+            self._name = self._job_id           # important: can be set later
         self._compute_type = "default"
         self._site_name = "local"
+
+    def initialize(self, name: str = "", workflow_id: str = "", site_name: str = "local") -> None:
+        if name:
+            self._name = name
+        if workflow_id:
+            self._workflow_id = workflow_id
+        if site_name:
+            self._site_name = site_name
+        return self
 
     def addParentContext(self, parentContext: "JobContext") -> None:
         if parentContext is not None:

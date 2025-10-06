@@ -1,6 +1,91 @@
 # lwfm
 
-lwfm: "Lightweight WorkFlow Manager"
+lwfm: lightweight workflow manager
+
+the "yet another workflow tool the world doesn't need"
+
+
+### quick start
+
+
+
+
+
+### history
+
+* ~2018: a project to orchestrate long-running workflows is 
+
+
+
+
+
+
+
+
+propose training surrogate models from HPC data; Gallo writes Python prototype; contract dev team builds "DT4D" - Digital Thread for Design, still in production; allows authoring of workflows across HPC and non-HPC computes, tracking all data usage and job interdependencies, support long running workflows, on-prem & cloud; patented, presented at Sandia; Gallo begins communicating on workflow topics with national lab staff, participates in workshops, etc.
+
+    - 2021: capability to drive in-situ workflows developed for steering of HPC apps (e.g. Genesis CFD) within the allocation from outside (e.g. from DT4D)
+
+    - 2022: NERSC releases Superfacility API to permit external control of HPC jobs
+
+    - 2023: Gallo presents 3-type workflow model & 4-pillar site architecture at NAFEMS & lwfm reference implementation
+
+    - 2025: lwfm revisited for use in quantum computing applications
+
+
+why yet another workflow tool?
+    - workflow tooling landscape is full of similar-to tools, many liked by specific scientific or business domains
+    - many do not address interoperability
+    - most do not address data provenance using FAIR principles
+
+
+3 workflow types:
+    - 1: in-situ (e.g. Genesis)
+    - 2: enterprise (e.g. DT4D)
+    - 3: intra-enterprise (e.g. lwfm) <-- lwfm can be used for all 3 types
+
+    <figure>
+
+
+4 pillars of an interoperable site: <-- a very limited set of verbs --> LLM potential
+    - auth: login
+    - run: execute job, check status, cancel
+    - repo: put, get, notate, find
+    - spin: list resources, (de)provision
+
+    <figure>
+    a site implementation is ~200-300 lines of Python code, with reuse via object inheritance (e.g. extension of a "LocalSite" driver) 
+        - LocalSite - run anything local as a first class "job" with tracking
+        - LocalSiteVenv - local with virtualenv / sandboxing support
+        - IBMQuantumSite - run jobs on IBM quantum cloud, IBM simulators 
+        - (DT4D)
+        - (AWS)
+
+
+interoperability goals:
+    - normalize site differences into a common set of verbs
+    - write workflows which run on any site with a similar compute architecture (i.e. this is *not* a portability framework, it is a tool for interoperability)
+    - track all job dependencies and data usage no matter where run ("digital thread") to aid reproducibility, data reuse, data provenance
+    - insulate (via the site abstraction) 3rd party dependencies (e.g. different qiskit library versions for different quantum vendors); circuits are portable between these site sandboxes via industry-standard QASM circuit format
+
+
+Example use cases:
+    1. run circuit construction, then target transpilation and execution on a set of quantum backends for benchmarking, then post-process results
+    2. same as above, but handling the case where various backends have their own 3rd party dependencies (e.g. different qiskit versions) by running each backend in its own site sandbox
+    3. populate data sets by running batches of circuits, feed results (data & metadata) to classical ML models, assess the results
+    4. run a set of workflows / experiments on a remote allocation (e.g. ORNL) capturing the run & data flow digital threads, then haul back all the results to a local system for analysis / workflows related back to the original experiments
+    5. in-situ workflows for iterative / variational quantum algorithms
+
+
+Future work:
+    - fix data / metadata import / export (use case #4 above)
+    - reinstate / author site drivers as needed
+    - other misc. bugs
+
+
+Examples:
+
+
 
 A lightweight implementation of a 4-part framework for locally-managed inter-site workflow interoperability.
 
@@ -36,5 +121,4 @@ Setup:
 3. Write multi-site Python workflows in terms of lwfm verbs.
 
 You can then author your own Site drivers based on the examples provided.  
-
 

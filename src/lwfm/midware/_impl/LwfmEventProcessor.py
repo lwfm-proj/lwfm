@@ -9,6 +9,7 @@ to a Site when an event of interest occurs.
 #pylint: disable = eval-used
 
 import re
+import time
 import threading
 from typing import List, Optional, cast
 import atexit
@@ -17,10 +18,11 @@ from lwfm.base.JobStatus import JobStatus
 from lwfm.base.JobContext import JobContext
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.Site import SiteRun
-from lwfm.base.WorkflowEvent import WorkflowEvent, JobEvent, MetadataEvent
+from lwfm.base.WorkflowEvent import WorkflowEvent, JobEvent, MetadataEvent, NotificationEvent
 from lwfm.midware._impl.Store import EventStore, JobStatusStore, LoggingStore
 from lwfm.midware._impl.SiteConfig import SiteConfig
 from lwfm.midware._impl.IdGenerator import IdGenerator
+from lwfm.midware.LwfManager import lwfManager
 
 # ***************************************************************************
 
@@ -42,22 +44,40 @@ class RemoteJobEvent(WorkflowEvent):
 class LwfmEventProcessor:
     _timer = None
     _eventHandlerMap = dict()
+    _instance = None
+    _instance_lock = threading.Lock()
 
     _infoQueue: List[JobStatus] = []
 
-    STATUS_CHECK_INTERVAL_SECONDS_MIN = 1
+    STATUS_CHECK_INTERVAL_SECONDS_MIN = 5
     STATUS_CHECK_INTERVAL_SECONDS_MAX = 5*60
-    STATUS_CHECK_INTERVAL_SECONDS_STEP = 5
+    STATUS_CHECK_INTERVAL_SECONDS_STEP = 10
     _statusCheckIntervalSeconds = STATUS_CHECK_INTERVAL_SECONDS_MIN
 
 
+    def __new__(cls, *args, **kwargs):
+        # Ensure only one instance exists
+        with cls._instance_lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+            return cls._instance
+
+    @classmethod
+    def get_instance(cls) -> "LwfmEventProcessor":
+        # Prefer explicit accessor for clarity at call sites
+        return cls()
+
     def __init__(self):
+        # Idempotent init: guard against re-initialization if constructor is called again
+        if getattr(self, "_initialized", False):
+            return
         # Initialize instance variables
         self._timer_lock = threading.Lock()
         self._timer = None
         self._eventHandlerMap = {}
         self._infoQueue = []
         self._statusCheckIntervalSeconds = self.STATUS_CHECK_INTERVAL_SECONDS_MIN
+        self._last_wake: float = 0.0
 
         # Register cleanup to happen at exit
         atexit.register(self.exit)
@@ -70,6 +90,7 @@ class LwfmEventProcessor:
             (self,),
         )
         self._timer.start()
+        self._initialized = True
 
 
     def exit(self):
@@ -111,11 +132,24 @@ class LwfmEventProcessor:
                     "lwfManager.execSiteEndpoint(job_defn, context, True)"
                 # Execute in the venv
                 site_venv = SiteConfigVenv()
-                self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}", siteName,
+                venv_path = site_venv.makeVenvPath(siteName)
+                self._loggingStore.putLogging("INFO",
+                                              f"Executing in venv at '{venv_path}': {cmd}",
+                                              siteName,
                                               context.getWorkflowId(),
                                               context.getJobId())
-                # TODO result
-                result = site_venv.executeInProjectVenv(siteName, cmd)
+                try:
+                    # TODO result
+                    result = site_venv.executeInProjectVenv(siteName, cmd)
+                except Exception as ex:
+                    self._loggingStore.putLogging(
+                        "ERROR",
+                        f"Venv execution failed for site '{siteName}' at '{venv_path}': {ex}",
+                        siteName,
+                        context.getWorkflowId(),
+                        context.getJobId()
+                    )
+                    raise
             else:
                 # venv Site - use SiteConfigVenv to execute in the venv
                 from lwfm.midware._impl.SiteConfigVenv import SiteConfigVenv
@@ -136,12 +170,24 @@ class LwfmEventProcessor:
                     "run_driver.submit(job_defn, context)"
                 # Execute in the venv
                 site_venv = SiteConfigVenv()
-                self._loggingStore.putLogging("INFO", f"Executing in venv: {cmd}",
+                venv_path = site_venv.makeVenvPath(siteName)
+                self._loggingStore.putLogging("INFO",
+                                              f"Executing in venv at '{venv_path}': {cmd}",
                                               siteName,
                                               context.getWorkflowId(),
                                               context.getJobId())
-                # TODO result
-                result = site_venv.executeInProjectVenv(siteName, cmd)
+                try:
+                    # TODO result
+                    result = site_venv.executeInProjectVenv(siteName, cmd)
+                except Exception as ex:
+                    self._loggingStore.putLogging(
+                        "ERROR",
+                        f"Venv execution failed for site '{siteName}' at '{venv_path}': {ex}",
+                        siteName,
+                        context.getWorkflowId(),
+                        context.getJobId()
+                    )
+                    raise
         else:
             if entryPointType == JobDefn.ENTRY_TYPE_SITE:
                 # Non-venv Site - use the run driver directly
@@ -169,11 +215,17 @@ class LwfmEventProcessor:
 
     def _makeJobContext(self, trigger: JobEvent, parentContext: JobContext) -> JobContext:
         newContext = JobContext()
+        # Inherit all relevant ancestry first
         newContext.addParentContext(parentContext)
+        # Target site as requested by the event
         newContext.setSiteName(trigger.getFireSite())
-        newContext.setJobId(trigger.getFireJobId() or IdGenerator().generateId())
-        newContext.setNativeId(trigger.getFireJobId() or newContext.getJobId())
-        newContext.setWorkflowId(trigger.getWorkflowId() or parentContext.getWorkflowId())
+        # Preserve the preassigned job id (from setEventHandler) if provided
+        assigned_job_id = trigger.getFireJobId() or IdGenerator().generateId()
+        newContext.setJobId(assigned_job_id)
+        newContext.setNativeId(assigned_job_id)
+        # Always inherit the parent's workflow id; do NOT take workflow from the event
+        newContext.setWorkflowId(parentContext.getWorkflowId())
+        # Parent linkage: prefer rule job id from the event if present
         newContext.setParentJobId(trigger.getRuleJobId() or parentContext.getJobId())
         return newContext
 
@@ -244,8 +296,8 @@ class LwfmEventProcessor:
             return None
         except Exception as ex:
             self._loggingStore.putLogging("ERROR",
-                "Exception checking job event: " + jobEvent.getRuleJobId() + " " + str(ex),
-                "", "", "") # TODO: add context info
+                "Exception checking job event: " + str(ex),
+                "", "", "") # TODO add context info
 
 
     def checkJobEvents(self) -> bool:
@@ -267,7 +319,10 @@ class LwfmEventProcessor:
                 return False
             for e in events:
                 try:
-                    cast_e = cast(JobEvent, e)
+                    if isinstance(e, NotificationEvent):
+                        cast_e = cast(NotificationEvent, e)
+                    else:
+                        cast_e = cast(JobEvent, e)
                     status = self.checkJobEvent(cast_e)
                     if status:
                         self._loggingStore.putLogging("INFO",
@@ -287,7 +342,12 @@ class LwfmEventProcessor:
                         jobContext = self._makeJobContext(cast_e, status.getJobContext())
                         self._loggingStore.putLogging("INFO", f"*** {cast_e} {status} {jobContext}",
                                                       "", "", "")
-                        self._runAsyncOnSite(cast_e, jobContext)
+                        # treat NotificationEvent differently
+                        if isinstance(cast_e, NotificationEvent):
+                            lwfManager.sendEmail(cast_e.getSubject(), cast_e.getBody(),
+                                                 cast_e.getTo())
+                        else:
+                            self._runAsyncOnSite(cast_e, jobContext)
                         gotOne = True
                 except Exception as ex1:
                     self._loggingStore.putLogging("ERROR",
@@ -372,6 +432,31 @@ class LwfmEventProcessor:
             # Timers only run once, so re-trigger it
             self._timer = threading.Timer(
                 self._statusCheckIntervalSeconds,
+                LwfmEventProcessor.checkEventHandlers,
+                (self,),
+            )
+            self._timer.start()
+
+
+    def wake(self) -> None:
+        """
+        Wake the processor immediately and reset the sleep interval
+        to the minimum so subsequent loops stay fast for a bit.
+        """
+        with self._timer_lock:
+            now = time.time()
+            # Prevent excessive wake calls - require at least 30 seconds between wakes
+            # unless there's been significant idle time
+            if (now - getattr(self, "_last_wake", 0.0)) < 30.0:
+                return
+            self._last_wake = now
+            # Reset interval first so the next scheduled run uses the min
+            self._statusCheckIntervalSeconds = self.STATUS_CHECK_INTERVAL_SECONDS_MIN
+            # Cancel any pending timer and trigger a near-immediate check
+            if self._timer:
+                self._timer.cancel()
+            self._timer = threading.Timer(
+                0.01,  # wake almost immediately
                 LwfmEventProcessor.checkEventHandlers,
                 (self,),
             )

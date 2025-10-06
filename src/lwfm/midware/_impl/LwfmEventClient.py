@@ -112,6 +112,26 @@ class LwfmEventClient:
             return None
 
 
+
+    def findWorkflows(self, queryRegExs: dict) -> Optional[List[Workflow]]:
+        # call to the service to find workflows
+        try:
+            data = {"searchDict": json.dumps(queryRegExs)}
+            response = requests.post(f"{self.getUrl()}/workflow/find", data,
+                timeout=self._REST_TIMEOUT)
+            if response.ok:
+                workflows: List[Workflow] = ObjectSerializer.deserialize(response.text)
+                return workflows
+            # use the plain logger when logging logging errors
+            logging.error(f"find error: {response.text}")
+        except Exception as ex:
+            # use the plain logger when logging logging errors
+            logging.error("error finding: " + str(ex))
+        return None
+
+
+
+
     #***********************************************************************
     # status methods
 
@@ -203,6 +223,18 @@ class LwfmEventClient:
             return ObjectSerializer.deserialize(response.text)
         return None
 
+    def clearAllPollers(self) -> int:
+        """Clear all active pollers and event handlers. Returns count of cleared items."""
+        try:
+            response = requests.post(f"{self.getUrl()}/clearAllPollers", 
+                                   timeout=self._REST_TIMEOUT)
+            if response.ok and response.text:
+                result = json.loads(response.text)
+                return result.get("cleared", 0)
+            return 0
+        except Exception:
+            return 0
+
 
     #***********************************************************************
     # logging methods
@@ -221,12 +253,14 @@ class LwfmEventClient:
                 timeout=self._REST_TIMEOUT)
             if response.ok:
                 return
-            # use the plain logger when logging logging errors
-            logging.error(f"emitLogging error: {response.text}")
+            # Only log when debug mode is enabled
+            if os.environ.get("LWFM_GUI_DEBUG"):
+                logging.error(f"emitLogging error: {response.text}")
             return
         except Exception as ex:
-            # use the plain logger when logging logging errors
-            logging.error("error emitting logging: " + str(ex))
+            # Only log connection errors when debug mode is enabled
+            if os.environ.get("LWFM_GUI_DEBUG"):
+                logging.error("error emitting logging: " + str(ex))
 
 
     def getLoggingByWorkflowId(self, workflowId: str) -> Optional[List[str]]:
@@ -260,6 +294,23 @@ class LwfmEventClient:
             return None
         except Exception as ex:
             self.emitLogging("ERROR", f"getLoggingByJobId exception: {str(ex)}")
+        return None
+
+
+    def getAllLogging(self) -> Optional[List[str]]:
+        """
+        Retrieve all logging entries from the system.
+        """
+        try:
+            response = requests.get(f"{self.getUrl()}/logs/all",
+                                    timeout=self._REST_TIMEOUT)
+            if response.ok and response.text:
+                return cast(List[str], ObjectSerializer.deserialize(response.text))
+            if response.status_code == 404:
+                self.emitLogging("ERROR", f"getAllLogging error: {response.text}")
+            return None
+        except Exception as ex:
+            self.emitLogging("ERROR", f"getAllLogging exception: {str(ex)}")
         return None
 
 

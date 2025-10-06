@@ -34,7 +34,6 @@ from lwfm.base.WorkflowEvent import WorkflowEvent
 from lwfm.base.Workflow import Workflow
 from lwfm.base.Metasheet import Metasheet
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
-from lwfm.midware._impl.IdGenerator import IdGenerator
 
 
 # ****************************************************************************
@@ -45,8 +44,14 @@ class Store:
     def __init__(self):
         global _SCHEMA_CREATED
         if not _SCHEMA_CREATED:
-            self.createSchema()
-            _SCHEMA_CREATED = True
+            # Be resilient on first run: ensure DB dir exists and handle errors gracefully
+            try:
+                self.createSchema()
+                _SCHEMA_CREATED = True
+            except Exception as ex:
+                # Don't raise here to avoid spamming logs on periodic GUI refresh.
+                # We'll retry schema creation on the next Store instantiation.
+                print(f"Error creating schema: {ex}")
 
     def getDBFilePath(self) -> str:
         """
@@ -58,6 +63,15 @@ class Store:
         """
         Create the database schema if it does not exist.
         """
+        # Ensure parent directory exists on first run (e.g., ~/.lwfm)
+        db_dir = os.path.dirname(_DB_FILE)
+        try:
+            if db_dir and not os.path.isdir(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+        except Exception as ex:
+            # If we cannot create the directory, surface a clear message and bail early
+            raise RuntimeError(f"Unable to create DB directory '{db_dir}': {ex}") from ex
+
         db = sqlite3.connect(_DB_FILE)
         cur = db.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS WorkflowStore ( " \
@@ -121,10 +135,10 @@ class Store:
         max_retries = 5
         delay = 0.1  # seconds
         ts = _time.perf_counter_ns()
-        if (key is None) or (key == ""):
+        if (key is None) or (key == "") or not key:
             key = str(ts)
         if workflowId is None:
-            workflowId = IdGenerator().generateId()
+            workflowId = "" # Default to empty string if no workflowId provided
         if data is None:
             data = ""
         db = None
@@ -164,8 +178,8 @@ class WorkflowStore(Store):
         try:
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
-            results = cur.execute(f"SELECT data FROM WorkflowStore WHERE pillar='run.wf' and " \
-                f"key='{workflow_id}' order by ts desc")
+            results = cur.execute("SELECT data FROM WorkflowStore WHERE pillar='run.wf' and " \
+                "workflowId=? order by ts desc", (workflow_id,))
             result = results.fetchone()
             if result is not None:
                 result = ObjectSerializer.deserialize(result[0])
@@ -211,7 +225,58 @@ class WorkflowStore(Store):
         if workflow is None:
             return
         self._put("WorkflowStore", "local", "run.wf", workflow.getWorkflowId(),
-                workflow.getWorkflowId(), ObjectSerializer.serialize(workflow))
+                json.dumps(workflow.getProps()), ObjectSerializer.serialize(workflow))
+
+
+
+    def findWorkflows(self, queryRegExs: dict) -> List[Workflow]:
+        db = None
+        try:
+            db = sqlite3.connect(_DB_FILE)
+            db.create_function("REGEXP", 2, lambda expr,
+                val: re.search(expr, val or "") is not None)
+            cur = db.cursor()
+
+            # Build SQL WHERE clause
+            where_clauses = []
+            params = []
+            pattern = ""
+            for k, regex in queryRegExs.items():
+                # This pattern matches the JSON key and value as a substring
+                # e.g. "jobId": "abc123"
+                pattern = f'"{k}"\\s*:\\s*"[^"]*{regex}[^"]*"'
+                where_clauses.append('key REGEXP ?')
+                params.append(pattern)
+
+            # Use a subquery to get only the most recent version of each workflow
+            # by grouping by workflowId and selecting MAX(ts)
+            sql = """SELECT w1.workflowId, w1.data 
+                     FROM WorkflowStore w1 
+                     INNER JOIN (
+                         SELECT workflowId, MAX(ts) as max_ts 
+                         FROM WorkflowStore 
+                         WHERE pillar='run.wf'
+                         GROUP BY workflowId
+                     ) w2 ON w1.workflowId = w2.workflowId AND w1.ts = w2.max_ts
+                     WHERE w1.pillar='run.wf'"""
+
+            if where_clauses:
+                sql += " AND " + " AND ".join([f"w1.{clause}" for clause in where_clauses])
+
+            cur.execute(sql, params)
+            results = []
+            for _, data in cur.fetchall():
+                # Deserialize the workflow object
+                wf = ObjectSerializer.deserialize(data)
+                results.append(wf)
+            return results
+        except Exception as e:
+            LoggingStore().putLogging("ERROR", f"Error in findWorkflows: {e}",
+                                      "", "", "")
+            return []
+        finally:
+            if db:
+                db.close()
 
 
 
@@ -233,8 +298,23 @@ class LoggingStore(Store):
         :return: None
         """
         if self._ECHO_STDIO:
-            print(f"{datetime.datetime.now()} {level} {mydoc}")
+            print(f"{datetime.datetime.now()} {site} {jobId} {level} {mydoc}")
         self._put("LoggingStore", site, "run.log." + level, workflowId, jobId, mydoc)
+        
+        # Also append to job log file if jobId is present
+        if jobId:
+            try:
+                from lwfm.midware._impl.SiteConfig import SiteConfig
+                log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+                os.makedirs(log_dir, exist_ok=True)
+                log_path = os.path.join(log_dir, f"{jobId}.log")
+                with open(log_path, 'a', encoding='utf-8') as f:
+                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                    f.write(f"[{timestamp}] [{level}] {mydoc}\n")
+            except Exception as ex:
+                # Don't fail the logging operation if file write fails
+                if self._ECHO_STDIO:
+                    print(f"Warning: Could not write to job log file: {ex}")
 
 
     def getLogsByWorkflow(self, workflowId: Optional[str] = None) -> Optional[List[str]]:
@@ -277,7 +357,7 @@ class LoggingStore(Store):
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
             results = cur.execute(
-                "SELECT data FROM LoggingStore WHERE pillar='run.log' AND key=? ORDER BY ts DESC",
+                "SELECT data FROM LoggingStore WHERE key=? ORDER BY ts DESC",
                 (jobId,)
             )
             rows = results.fetchall()
@@ -289,6 +369,39 @@ class LoggingStore(Store):
             return result
         except Exception as e:
             print(f"Error in getAllLogsByJob: {e}")
+            return None
+        finally:
+            if db:
+                db.close()
+
+
+    def getAllLogs(self) -> Optional[List[str]]:
+        """
+        Get all log messages from the system, ordered by timestamp (newest first).
+        :return: List of all log messages or None if no logs found
+        """
+        db = None
+        try:
+            db = sqlite3.connect(_DB_FILE)
+            cur = db.cursor()
+            results = cur.execute(
+                "SELECT ts, site, pillar, workflowId, key, data FROM LoggingStore ORDER BY ts DESC"
+            )
+            rows = results.fetchall()
+            if rows:
+                result = []
+                for row in rows:
+                    ts, site, pillar, workflowId, key, data = row
+                    # Convert timestamp to readable format
+                    readable_time = datetime.datetime.fromtimestamp(ts / 1e9).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                    log_entry = f"{readable_time} | {site} | {pillar} | WF:{workflowId} | Job:{key} | {data}"
+                    result.append(log_entry)
+            else:
+                result = None
+            db.close()
+            return result
+        except Exception as e:
+            print(f"Error in getAllLogs: {e}")
             return None
         finally:
             if db:
@@ -390,6 +503,25 @@ class JobStatusStore(Store):
         self._put("JobStatusStore", datum.getJobContext().getSiteName(),
                   "run.status", datum.getJobContext().getWorkflowId(), jobId, 
                   ObjectSerializer.serialize(datum))
+        
+        # Also append to job log file
+        try:
+            from lwfm.midware._impl.SiteConfig import SiteConfig
+            log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+            os.makedirs(log_dir, exist_ok=True)
+            log_path = os.path.join(log_dir, f"{jobId}.log")
+            with open(log_path, 'a', encoding='utf-8') as f:
+                timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                status_line = f"[{timestamp}] [STATUS] {datum.getStatus()}"
+                if datum.getNativeStatusStr():
+                    status_line += f" (native: {datum.getNativeStatusStr()})"
+                f.write(status_line + "\n")
+                if datum.getNativeInfo():
+                    # Indent native info for readability
+                    f.write(f"  Details: {datum.getNativeInfo()}\n")
+        except Exception as ex:
+            # Don't fail the status operation if file write fails
+            print(f"Warning: Could not write status to job log file: {ex}")
 
 
     def _getAllJobStatuses(self) -> Optional[List[JobStatus]]:
@@ -527,7 +659,6 @@ class MetasheetStore(Store):
         if keys is None:
             keys = {}
         keys["_sheetId"] = datum.getSheetId()
-        print(f"MetasheetStore.putMetasheet: {keys}")
         self._put("MetasheetStore", datum.getSiteName(), "repo.meta",
             datum.getProps().get("_workflowId", ""),
             json.dumps(keys), ObjectSerializer.serialize(datum))
@@ -573,11 +704,11 @@ class MetasheetStore(Store):
 
 
 
-# if __name__ == "__main__":
-#     store = JobStatusStore()
-#     statuses = store._getAllJobStatuses()
-#     if statuses:
-#         for status in statuses:
-#             print(status)
-#     else:
-#         print("No job statuses found.")
+if __name__ == "__main__":
+    store = JobStatusStore()
+    statuses = store._getAllJobStatuses()
+    if statuses:
+        for status in statuses:
+            print(status)
+    else:
+        print("No job statuses found.")

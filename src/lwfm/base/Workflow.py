@@ -12,11 +12,15 @@ class Workflow:
     A collection of jobs and their associated (meta)information.
     """
 
-    def __init__(self, name: Optional[str] = None, description: Optional[str] = None):
+    def __init__(self, name: Optional[str] = None, description: Optional[str] = None,
+                 props: Optional[dict] = None):
         self._workflow_id = IdGenerator().generateId()
         self._name = name
         self._description = description
-        self._props = {}
+        if props is not None:
+            self._props = props
+        else:
+            self._props = {}
 
     def _setWorkflowId(self, idValue: str) -> None:
         self._workflow_id = idValue
