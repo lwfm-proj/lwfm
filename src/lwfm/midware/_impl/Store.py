@@ -300,6 +300,21 @@ class LoggingStore(Store):
         if self._ECHO_STDIO:
             print(f"{datetime.datetime.now()} {site} {jobId} {level} {mydoc}")
         self._put("LoggingStore", site, "run.log." + level, workflowId, jobId, mydoc)
+        
+        # Also append to job log file if jobId is present
+        if jobId:
+            try:
+                from lwfm.midware._impl.SiteConfig import SiteConfig
+                log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+                os.makedirs(log_dir, exist_ok=True)
+                log_path = os.path.join(log_dir, f"{jobId}.log")
+                with open(log_path, 'a', encoding='utf-8') as f:
+                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                    f.write(f"[{timestamp}] [{level}] {mydoc}\n")
+            except Exception as ex:
+                # Don't fail the logging operation if file write fails
+                if self._ECHO_STDIO:
+                    print(f"Warning: Could not write to job log file: {ex}")
 
 
     def getLogsByWorkflow(self, workflowId: Optional[str] = None) -> Optional[List[str]]:
@@ -488,6 +503,25 @@ class JobStatusStore(Store):
         self._put("JobStatusStore", datum.getJobContext().getSiteName(),
                   "run.status", datum.getJobContext().getWorkflowId(), jobId, 
                   ObjectSerializer.serialize(datum))
+        
+        # Also append to job log file
+        try:
+            from lwfm.midware._impl.SiteConfig import SiteConfig
+            log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+            os.makedirs(log_dir, exist_ok=True)
+            log_path = os.path.join(log_dir, f"{jobId}.log")
+            with open(log_path, 'a', encoding='utf-8') as f:
+                timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                status_line = f"[{timestamp}] [STATUS] {datum.getStatus()}"
+                if datum.getNativeStatusStr():
+                    status_line += f" (native: {datum.getNativeStatusStr()})"
+                f.write(status_line + "\n")
+                if datum.getNativeInfo():
+                    # Indent native info for readability
+                    f.write(f"  Details: {datum.getNativeInfo()}\n")
+        except Exception as ex:
+            # Don't fail the status operation if file write fails
+            print(f"Warning: Could not write status to job log file: {ex}")
 
 
     def _getAllJobStatuses(self) -> Optional[List[JobStatus]]:

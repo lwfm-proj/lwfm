@@ -59,7 +59,7 @@ class LocalSiteRun(SiteRun):
             cmd = jDefn.getEntryPoint()
             if cmd is None:
                 lwfManager.emitStatus(jobContext, JobStatus.FAILED)
-                logger.error("ERROR: Job definition has no entry point")
+                logger.error("ERROR: Job definition has no entry point", context=jobContext)
                 return
             if jDefn.getEntryPointType() == JobDefn.ENTRY_TYPE_SHELL or \
                 jDefn.getEntryPointType() == JobDefn.ENTRY_TYPE_STRING:
