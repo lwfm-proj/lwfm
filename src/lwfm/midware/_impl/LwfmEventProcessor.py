@@ -19,6 +19,7 @@ from lwfm.base.JobContext import JobContext
 from lwfm.base.JobDefn import JobDefn
 from lwfm.base.Site import SiteRun
 from lwfm.base.WorkflowEvent import WorkflowEvent, JobEvent, MetadataEvent, NotificationEvent
+from lwfm.base.Exceptions import JobNotFoundException
 from lwfm.midware._impl.Store import EventStore, JobStatusStore, LoggingStore
 from lwfm.midware._impl.SiteConfig import SiteConfig
 from lwfm.midware._impl.IdGenerator import IdGenerator
@@ -271,10 +272,27 @@ class LwfmEventProcessor:
                         # remote job is done
                         self.unsetEventHandler(e.getEventId())
                     gotOne = True
+                except JobNotFoundException as ex1:
+                    # Job is not found on remote site - it has likely completed and been purged
+                    # Remove the event handler to stop polling
+                    self._loggingStore.putLogging("INFO",
+                        f"Remote job {e.getFireJobId()} not found on {e.getFireSite()}, " + \
+                        "assuming terminal state and removing event handler",
+                        "", "", "")
+                    self.unsetEventHandler(e.getEventId())
                 except Exception as ex1:
-                    self._loggingStore.putLogging("ERROR",
-                    "Exception checking remote job event: " + str(ex1),
-                    "", "", "") # TODO: add context info
+                    # For other exceptions, check if it's a job not found error by string matching
+                    # (for backward compatibility with sites that don't use JobNotFoundException)
+                    if "Job not found" in str(ex1) or "not found" in str(ex1).lower():
+                        self._loggingStore.putLogging("INFO",
+                            f"Remote job {e.getFireJobId()} not found on {e.getFireSite()}, " + \
+                            "assuming terminal state and removing event handler",
+                            "", "", "")
+                        self.unsetEventHandler(e.getEventId())
+                    else:
+                        self._loggingStore.putLogging("ERROR",
+                        "Exception checking remote job event: " + str(ex1),
+                        "", "", "") # TODO: add context info
         except Exception as ex:
             self._loggingStore.putLogging("ERROR", "Exception checking remote pollers: " + str(ex),
                                           "", "", "") # TODO: add context info

@@ -182,6 +182,10 @@ class SiteRun(SitePillar):
                 job id
         Returns:
             JobStatus - the current known status of the job
+        
+        Raises:
+            JobNotFoundException - if the job cannot be found on the site (typically
+                because it has completed and been purged). Import from lwfm.base.Exceptions.
         """
 
     @abstractmethod
