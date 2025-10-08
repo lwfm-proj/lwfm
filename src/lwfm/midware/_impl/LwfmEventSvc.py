@@ -189,6 +189,10 @@ def emitStatus():
                 isRemote = props.get("remote", False)
             else:
                 isRemote = False
+            # Check if this is a local job (native ID starts with "local_")
+            native_id = statusObj.getJobContext().getNativeId()
+            if native_id and native_id.startswith("local_"):
+                isRemote = False
             if isRemote:
                 # check if a remote job event is pending
                 events = EventStore().getAllWfEvents("run.event.REMOTE")
