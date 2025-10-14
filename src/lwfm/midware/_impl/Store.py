@@ -587,20 +587,38 @@ class JobStatusStore(Store):
     def getJobStatus(self, jobId: str) -> Optional[JobStatus]:
         """
         Get the most recent job status for a specific job.
+        If a terminal status exists, return the most recent terminal status.
+        Otherwise, return the most recent status of any kind.
+        This ensures that INFO statuses emitted after terminal statuses don't
+        hide the fact that the job has completed.
         """
         db = None
         try:
             db = sqlite3.connect(_DB_FILE)
             cur = db.cursor()
+
+            # First, try to get all statuses for this job
             results = cur.execute(
-                "SELECT data FROM JobStatusStore WHERE pillar=? AND key=? ORDER BY ts DESC LIMIT 1",
+                "SELECT data FROM JobStatusStore WHERE pillar=? AND key=? ORDER BY ts DESC",
                 ("run.status", jobId)
             )
-            row = results.fetchone()
-            if row:
-                result = ObjectSerializer.deserialize(row[0])
-            else:
-                result = None
+            rows = results.fetchall()
+
+            if not rows:
+                db.close()
+                return None
+
+            # Deserialize all statuses
+            statuses = [ObjectSerializer.deserialize(row[0]) for row in rows]
+
+            # Look for the most recent terminal status
+            for status in statuses:
+                if status.isTerminal():
+                    db.close()
+                    return status
+
+            # No terminal status found, return the most recent status
+            result = statuses[0]
             db.close()
             return result
         except Exception as e:
