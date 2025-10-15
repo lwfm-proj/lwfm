@@ -540,12 +540,19 @@ class LwfManager:
         are short. This is not recommended for long-running jobs - use job triggers
         instead.
         """
-        _status: JobStatus = self.getStatus(jobId)
-        if _status is None:
+        # Get all statuses and look for the most recent terminal status
+        # This handles the case where INFO statuses are emitted after terminal statuses
+        all_statuses = self.getAllStatus(jobId)
+        if all_statuses is None or len(all_statuses) == 0:
             return None
-        if _status.isTerminal():
-            # we're done waiting
-            return _status
+        
+        # Look for the most recent terminal status
+        for status in all_statuses:
+            if status.isTerminal():
+                return status
+        
+        # No terminal status found yet, use the most recent status
+        _status = all_statuses[0]
         try:
             increment = 3
             w_sum = 1
@@ -568,9 +575,13 @@ class LwfManager:
                 elif w_sum < maxMax:
                     w_sum += w_max
                     
-                _status = self.getStatus(jobId)
-                if _status is not None and _status.isTerminal():
-                    return _status
+                # Get all statuses and look for terminal status
+                all_statuses = self.getAllStatus(jobId)
+                if all_statuses:
+                    for status in all_statuses:
+                        if status.isTerminal():
+                            return status
+                    _status = all_statuses[0]
         except Exception as ex:
             if _status is None:
                 return None
