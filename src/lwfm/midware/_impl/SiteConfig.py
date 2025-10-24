@@ -69,6 +69,16 @@ class SiteConfig:
         Get the properties for a named site.
         """
         siteSet = SiteConfig._getSiteToml()
+        if site == ".":
+            values = {
+                "venv": "./.venv",
+                "auth": "lwfm.sites.LocalSite.LocalSiteAuth",
+                "run": "lwfm.sites.LocalSite.LocalSiteRun",
+                "repo": "lwfm.sites.LocalSite.LocalSiteRepo",
+                "spin": "lwfm.sites.LocalSite.LocalSiteSpin",
+                "remote": False
+            }
+            return values
         return siteSet.get(site) or {}
 
 

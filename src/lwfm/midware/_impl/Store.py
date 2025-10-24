@@ -305,7 +305,14 @@ class LoggingStore(Store):
         if jobId:
             try:
                 from lwfm.midware._impl.SiteConfig import SiteConfig
-                log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+                base_log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+                
+                # Create workflow-specific subdirectory if workflowId is present
+                if workflowId:
+                    log_dir = os.path.join(base_log_dir, workflowId)
+                else:
+                    log_dir = base_log_dir
+                
                 os.makedirs(log_dir, exist_ok=True)
                 log_path = os.path.join(log_dir, f"{jobId}.log")
                 with open(log_path, 'a', encoding='utf-8') as f:
@@ -507,7 +514,15 @@ class JobStatusStore(Store):
         # Also append to job log file
         try:
             from lwfm.midware._impl.SiteConfig import SiteConfig
-            log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+            base_log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+            
+            # Create workflow-specific subdirectory if workflowId is present
+            workflow_id = datum.getJobContext().getWorkflowId()
+            if workflow_id:
+                log_dir = os.path.join(base_log_dir, workflow_id)
+            else:
+                log_dir = base_log_dir
+            
             os.makedirs(log_dir, exist_ok=True)
             log_path = os.path.join(log_dir, f"{jobId}.log")
             with open(log_path, 'a', encoding='utf-8') as f:

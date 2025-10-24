@@ -13,8 +13,11 @@ import os
 import argparse
 import subprocess
 import shutil
+from itertools import product
+from pathlib import Path
+import tomllib
 
-from typing import List, Optional, Union, Any, cast
+from typing import List, Optional, Union, Any, cast, Tuple
 
 import requests
 
@@ -232,10 +235,163 @@ class LwfManager:
         """
         Construct and return a log file name for a job context.
         """
-        basename = SiteConfig.getLogFilename()
-        logDir = os.path.expanduser(basename)
+        base_log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+        workflow_id = context.getWorkflowId()
+        job_id = context.getJobId()
+        
+        if workflow_id:
+            logDir = os.path.join(base_log_dir, workflow_id)
+        else:
+            logDir = base_log_dir
+
         os.makedirs(logDir, exist_ok=True)
-        return os.path.join(logDir, f"{context.getJobId()}.log")
+        return os.path.join(logDir, f"{job_id}.log")
+
+
+    def _expandCaseLists(self, caseId: str, caseParams: dict) -> List[Tuple[str, dict]]:
+        """
+        Expand a case with list-valued parameters into multiple subcases.
+        
+        For example, if a case has:
+            qc_shots = [100, 1000, 10000]
+            NQ_MATRIX = 2
+        
+        This will expand into 3 subcases:
+            caseId_0: qc_shots=100, NQ_MATRIX=2
+            caseId_1: qc_shots=1000, NQ_MATRIX=2
+            caseId_2: qc_shots=10000, NQ_MATRIX=2
+        
+        Parameters
+        ----------
+        caseId : str
+            The original case ID
+        caseParams : dict
+            The case parameters (may contain lists)
+        
+        Returns
+        -------
+        list of tuples
+            List of (expandedCaseId, expandedParams, metadata) tuples
+            where metadata contains info about which params were lists
+        """
+        # Find which parameters are lists
+        listParams = {}
+        scalarParams = {}
+        
+        for key, value in caseParams.items():
+            if isinstance(value, list):
+                listParams[key] = value
+            else:
+                scalarParams[key] = value
+        
+        # If no lists, return the original case with empty metadata
+        if not listParams:
+            metadata = {
+                "_originalCaseId": caseId,
+                "_listParams": [],
+                "_scalarParams": list(scalarParams.keys())
+            }
+            paramsWithMeta = caseParams.copy()
+            paramsWithMeta["_metadata"] = metadata
+            return [(caseId, paramsWithMeta)]
+        
+        # Generate all combinations of list values
+        paramNames = list(listParams.keys())
+        paramValues = [listParams[name] for name in paramNames]
+        
+        expandedCases = []
+        for i, combination in enumerate(product(*paramValues)):
+            # Create new case ID
+            expandedId = f"{caseId}_{i}"
+            
+            # Create new params dict with this combination
+            expandedParams = scalarParams.copy()
+            for paramName, paramValue in zip(paramNames, combination):
+                expandedParams[paramName] = paramValue
+            
+            # Add metadata about the expansion
+            metadata = {
+                "_originalCaseId": caseId,
+                "_listParams": paramNames,  # Which params were lists
+                "_scalarParams": list(scalarParams.keys()),
+                "_combinationIndex": i
+            }
+            expandedParams["_metadata"] = metadata
+            
+            expandedCases.append((expandedId, expandedParams))
+        
+        return expandedCases
+
+
+    def getParamsFromToml(self, tomlFilename: str) -> Tuple[dict, dict]:
+        """
+        Load workflow parameters from a TOML file and expand cases with list-valued parameters.
+        
+        The TOML file should have a "global" section for shared parameters, and additional
+        sections for individual cases. Cases with list-valued parameters will be automatically
+        expanded into multiple subcases using Cartesian product.
+        
+        For example, a TOML file with:
+            [global]
+            common_param = "value"
+            
+            [case1]
+            qc_shots = [100, 1000]
+            NQ_MATRIX = 2
+        
+        Will return:
+            globals: {"common_param": "value"}
+            cases: {
+                "case1_0": {"qc_shots": 100, "NQ_MATRIX": 2, "_metadata": {...}},
+                "case1_1": {"qc_shots": 1000, "NQ_MATRIX": 2, "_metadata": {...}}
+            }
+        
+        Parameters
+        ----------
+        tomlFilename : str
+            Path to the TOML file containing workflow parameters
+        
+        Returns
+        -------
+        tuple of (dict, dict)
+            First dict contains global parameters
+            Second dict contains expanded case parameters (dict of dicts)
+        
+        Raises
+        ------
+        FileNotFoundError
+            If the TOML file does not exist
+        Exception
+            If there is an error parsing the TOML file
+        """
+        tomlPath = Path(tomlFilename)
+        if not tomlPath.is_file():
+            raise FileNotFoundError(f"TOML file not found: {tomlFilename}")
+
+        # Load the TOML file
+        try:
+            with open(tomlPath, "rb") as f:
+                data = tomllib.load(f)
+        except Exception as e:
+            raise Exception(f"Error decoding TOML file {tomlFilename}: {e}") from e
+
+        # Separate global parameters from cases
+        globalParams = data.get("global", {})
+        casesDict = {}
+
+        # Expand each case that has list-valued parameters
+        for key in data:
+            if key == "global":
+                continue
+
+            # Expand this case (returns list of tuples)
+            expanded = self._expandCaseLists(key, data[key])
+
+            # Add all expanded subcases to the dict
+            for expandedId, expandedParams in expanded:
+                casesDict[expandedId] = expandedParams
+
+        return (globalParams, casesDict)
 
 
     #***********************************************************************
@@ -261,7 +417,7 @@ class LwfManager:
         overriding its default Site Pillars with provided drivers.
         """
         if site is None or site == "":
-            site = "local"
+            site = "."
         # Ensure venv for sites that declare one (opt-out via LWFM_VENV_AUTOSETUP=0)
         try:
             if os.getenv("LWFM_VENV_AUTOSETUP", "1") == "1":

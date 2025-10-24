@@ -345,8 +345,12 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
         
         # Add Job Log button (always visible, disabled if no log file)
         try:
-            log_dir = os.path.expanduser(SiteConfig.getLogFilename())
-            log_path = os.path.join(log_dir, f"{job_id}.log")
+            base_log_dir = os.path.expanduser(SiteConfig.getLogFilename())
+            # Check workflow-specific subdirectory first
+            log_path = os.path.join(base_log_dir, workflow_id, f"{job_id}.log")
+            # Fallback to flat structure if workflow subdirectory doesn't exist
+            if not os.path.exists(log_path):
+                log_path = os.path.join(base_log_dir, f"{job_id}.log")
         except Exception:
             log_path = ""
         

@@ -9,7 +9,8 @@ It persists to the lwfm store.
 
 import logging
 import datetime
-from typing import Optional, Union
+import time
+from typing import Optional, Union, List
 
 from lwfm.base.JobContext import JobContext
 from lwfm.base.Workflow import Workflow
@@ -92,6 +93,77 @@ class Logger:
             msg = msg % args
         out = self._generateLog("INFO", msg, context)
         self._logger.info(out)
+
+    def infoWithSplits(self, msg: str, baseTimes: List[float], *args,
+        context: Optional[Union[JobContext, Workflow]] = None, **kwargs) -> None:
+        """
+        Log an info message with timing splits prepended.
+
+        Prepends timing information in the format:
+        [HH:MM:SS] [T+X.XXs] [C+Y.YYs] [ΔZ.ZZs] message
+
+        Where:
+        - HH:MM:SS: Current time
+        - T+X.XXs: Time elapsed since baseTimes[0] (e.g., workflow start)
+        - C+Y.YYs: Time elapsed since baseTimes[1] (e.g., case start) - optional
+        - ΔZ.ZZs: Time elapsed since baseTimes[-1] (delta from last checkpoint)
+
+        Parameters
+        ----------
+        msg : str
+            The message to log (supports % formatting with *args)
+        baseTimes : List[float]
+            List of baseline times (from time.time()). Typically:
+            - baseTimes[0]: workflow start time
+            - baseTimes[1]: case start time (optional)
+            - baseTimes[-1]: last checkpoint time
+        *args
+            Arguments for % formatting of msg
+        context : Optional[Union[JobContext, Workflow]]
+            Optional context for the log message
+        **kwargs
+            Additional keyword arguments (for compatibility)
+
+        Example
+        -------
+        >>> import time
+        >>> workflow_start = time.time()
+        >>> case_start = time.time()
+        >>> time.sleep(1)
+        >>> last_time = time.time()
+        >>> logger.infoWithSplits("Processing complete", [workflow_start, case_start, last_time])
+        # Logs: [14:30:45] [T+5.23s] [C+1.15s] [Δ1.00s] Processing complete
+        """
+        if args:
+            msg = msg % args
+
+        currentTime = time.time()
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+
+        # Build timing prefix based on number of base times provided
+        if len(baseTimes) == 0:
+            # No base times, just log normally
+            self.info(msg, context=context)
+            return
+
+        # Always calculate cumulative time from first base time (workflow start)
+        cumulative = currentTime - baseTimes[0]
+        timingPrefix = f"[{timestamp}] [T+{cumulative:.2f}s]"
+
+        # If we have a second base time (case start), add case cumulative
+        if len(baseTimes) >= 2:
+            caseCumulative = currentTime - baseTimes[1]
+            timingPrefix += f" [C+{caseCumulative:.2f}s]"
+
+        # Always calculate delta from last time in the list
+        delta = currentTime - baseTimes[-1]
+        timingPrefix += f" [Δ{delta:.2f}s]"
+
+        # Prepend timing info to message
+        enhancedMsg = f"{timingPrefix} {msg}"
+
+        # Use the existing info method
+        self.info(enhancedMsg, context=context)
 
     def warning(self, msg: str, *args, context: Optional[Union[JobContext, Workflow]] = None,
         **kwargs) -> None:

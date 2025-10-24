@@ -15,6 +15,7 @@ import signal
 import subprocess
 import multiprocessing
 import time
+import atexit
 
 from lwfm.base.Site import SiteAuth, SiteRun, SiteRepo, SiteSpin
 from lwfm.base.JobDefn import JobDefn
@@ -42,6 +43,17 @@ class LocalSiteAuth(SiteAuth):
 
 class LocalSiteRun(SiteRun):
     _pendingJobs = {}
+    _cleanup_registered = False
+
+    @classmethod
+    def _cleanup_pending_jobs(cls):
+        """Kill all pending jobs on exit"""
+        for job_id, pid in list(cls._pendingJobs.items()):
+            try:
+                pgid = os.getpgid(pid)
+                os.killpg(pgid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                pass
 
     def getStatus(self, jobId: str) -> JobStatus:
         return lwfManager.getStatus(jobId) # type: ignore
@@ -88,8 +100,8 @@ class LocalSiteRun(SiteRun):
             # Modify to redirect all output to the file or /dev/null if no file is
             # specified.
             if hasattr(self, '_output_file') and self._output_file:
-                # Redirect all output to the file
-                cmd = f"{cmd} > {self._output_file} 2>&1"
+                # Redirect all output to the file (append to preserve status msgs)
+                cmd = f"{cmd} >> {self._output_file} 2>&1"
 
             subprocess.run(cmd, shell=True, env=env, check=True)
             # Emit success statuses
@@ -177,6 +189,11 @@ class LocalSiteRun(SiteRun):
 
             # create a log file for this job
             logFilename = lwfManager.getLogFilename(useContext)
+
+            # Register cleanup handler on first job submission
+            if not LocalSiteRun._cleanup_registered:
+                atexit.register(LocalSiteRun._cleanup_pending_jobs)
+                LocalSiteRun._cleanup_registered = True
 
             # Run the job in a new thread so we can wrap it in a bit more code
             # this will kick the status the rest of the way to a terminal state
