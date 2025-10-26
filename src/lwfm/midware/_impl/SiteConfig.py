@@ -71,7 +71,7 @@ class SiteConfig:
         siteSet = SiteConfig._getSiteToml()
         if site == ".":
             values = {
-                "venv": "./.venv",
+                # not a venv site, even though "." might be in a venv
                 "auth": "lwfm.sites.LocalSite.LocalSiteAuth",
                 "run": "lwfm.sites.LocalSite.LocalSiteRun",
                 "repo": "lwfm.sites.LocalSite.LocalSiteRepo",

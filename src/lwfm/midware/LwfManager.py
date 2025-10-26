@@ -687,7 +687,7 @@ class LwfManager:
             nativeStatusStr, nativeInfo or "", False)
 
 
-    def wait(self, jobId: str) -> JobStatus:  # type: ignore
+    def wait(self, jobId: str, poll_callback=None) -> JobStatus:  # type: ignore
         """
         Wait synchronously until the job reaches a terminal state, then return
         that state. Uses a progressive sleep time to avoid polling too frequently.
@@ -695,6 +695,14 @@ class LwfManager:
         some user workflows might wish to wait synchronously if they know the runtimes 
         are short. This is not recommended for long-running jobs - use job triggers
         instead.
+        
+        Parameters
+        ----------
+        jobId : str
+            The job ID to wait for
+        poll_callback : callable, optional
+            Function called on each poll iteration. Receives (jobId, log_file_path, last_position)
+            and should return new_position. If None, defaults to printing new log content to console.
         """
         # Get all statuses and look for the most recent terminal status
         # This handles the case where INFO statuses are emitted after terminal statuses
@@ -709,6 +717,30 @@ class LwfManager:
         
         # No terminal status found yet, use the most recent status
         _status = all_statuses[0]
+        
+        # Setup default callback if none provided - tail log file to console
+        if poll_callback is None:
+            log_file = Path(self.getLogFilename(_status.getJobContext()))
+            last_log_position = 0
+            
+            def default_callback(job_id, log_path, last_pos):
+                nonlocal last_log_position
+                if log_path.exists():
+                    try:
+                        with open(log_path, 'r', encoding='utf-8') as f:
+                            f.seek(last_pos)
+                            new_content = f.read()
+                            if new_content:
+                                print(new_content, end='', flush=True)
+                            last_log_position = f.tell()
+                    except Exception:
+                        pass
+                return last_log_position
+            
+            poll_callback = default_callback
+        else:
+            log_file = Path(self.getLogFilename(_status.getJobContext()))
+            last_log_position = 0
         try:
             increment = 3
             w_sum = 1
@@ -723,6 +755,12 @@ class LwfManager:
                 if time.time() - start_time > max_wait_time:
                     logger.warning(f"Job {jobId} wait timeout after {max_wait_time} seconds")
                     break
+                    
+                # Call poll callback to handle log tailing or custom behavior
+                try:
+                    last_log_position = poll_callback(jobId, log_file, last_log_position)
+                except Exception as ex:
+                    logger.warning(f"Poll callback error for job {jobId}: {ex}")
                     
                 # progressive: keep increasing the sleep time until we hit max,
                 # then keep sleeping max

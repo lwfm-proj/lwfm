@@ -59,6 +59,7 @@ class LwfmGui(tk.Tk):
         ttk.Button(toolbar, text="Metasheets", command=self.view_metasheets).pack(side=tk.LEFT)
         ttk.Button(toolbar, text="Events", command=self.view_events).pack(side=tk.LEFT)
         ttk.Button(toolbar, text="Server Log", command=self.view_server_log).pack(side=tk.LEFT)
+        ttk.Button(toolbar, text="Close All Windows", command=self.close_all_windows).pack(side=tk.LEFT, padx=(16, 0))
 
         # Jobs table with scrollbar in a frame
         table_frame = ttk.Frame(self)
@@ -133,6 +134,9 @@ class LwfmGui(tk.Tk):
         self._current_status_window: Optional[tk.Toplevel] = None
         self._current_files_window: Optional[tk.Toplevel] = None
         
+        # Track all child windows for bulk operations
+        self._child_windows: List[tk.Toplevel] = []
+        
         # Keyboard shortcuts
         self.bind_all("<F5>", lambda e: self.refresh())
         self.bind_all("<Control-r>", lambda e: self.refresh())
@@ -167,6 +171,30 @@ class LwfmGui(tk.Tk):
         progress_bar.start()
         
         return progress_win, progress_bar
+
+    def _register_child_window(self, window: tk.Toplevel):
+        """Register a child window for tracking and cleanup."""
+        self._child_windows.append(window)
+        # Remove from list when window is closed
+        def on_close():
+            if window in self._child_windows:
+                self._child_windows.remove(window)
+            window.destroy()
+        window.protocol("WM_DELETE_WINDOW", on_close)
+
+    def close_all_windows(self):
+        """Close all child windows, leaving only the main window open."""
+        # Create a copy of the list since we'll be modifying it during iteration
+        windows_to_close = self._child_windows.copy()
+        for window in windows_to_close:
+            try:
+                window.destroy()
+            except Exception:
+                pass  # Window may already be destroyed
+        self._child_windows.clear()
+        # Clear tracked special windows
+        self._current_status_window = None
+        self._current_files_window = None
 
     def _update_connection_status(self, connected: bool):
         """Update the connection status indicator."""
@@ -624,6 +652,7 @@ class LwfmGui(tk.Tk):
         win = tk.Toplevel(self)
         win.title(f"Status history for {job_id}")
         win.geometry("900x500")
+        self._register_child_window(win)
         
         # Track this window and clear reference when closed
         self._current_status_window = win
@@ -787,6 +816,7 @@ class LwfmGui(tk.Tk):
             lw = tk.Toplevel(win)
             lw.title(f"Job Log - {job_id}")
             lw.geometry("900x500")
+            self._register_child_window(lw)
             txt = tk.Text(lw, wrap=tk.NONE)
             xsb = ttk.Scrollbar(lw, orient=tk.HORIZONTAL, command=txt.xview)
             ysb = ttk.Scrollbar(lw, orient=tk.VERTICAL, command=txt.yview)
@@ -857,6 +887,7 @@ class LwfmGui(tk.Tk):
         win = tk.Toplevel(self)
         win.title(f"Files for {job_id}")
         win.geometry("900x500")
+        self._register_child_window(win)
         
         # Track this window and clear reference when closed
         self._current_files_window = win
@@ -975,6 +1006,7 @@ class LwfmGui(tk.Tk):
         content_win = tk.Toplevel(self)
         content_win.title(title)
         content_win.geometry("800x600")
+        self._register_child_window(content_win)
         
         # Create text widget with scrollbars
         text_frame = ttk.Frame(content_win)
@@ -1012,6 +1044,7 @@ class LwfmGui(tk.Tk):
     def _show_metasheet_window(self, metasheet: Metasheet):
         """Display a single metasheet's properties in a simple viewer."""
         win = tk.Toplevel(self)
+        self._register_child_window(win)
         ms_id = ""
         try:
             ms_id = metasheet.getSheetId() or ""
@@ -1043,6 +1076,7 @@ class LwfmGui(tk.Tk):
         win = tk.Toplevel(self)
         win.title("lwfm Server Log")
         win.geometry("900x500")
+        self._register_child_window(win)
 
         frm = ttk.Frame(win)
         frm.pack(fill=tk.BOTH, expand=True)
@@ -1170,6 +1204,7 @@ class LwfmGui(tk.Tk):
         win = tk.Toplevel(self)
         win.title("Pending Events")
         win.geometry("1000x560")
+        self._register_child_window(win)
 
         # State
         events: List[WorkflowEvent] = initial_events

@@ -18,6 +18,10 @@ def open_metasheets_dialog(parent: tk.Misc):
         win.minsize(1100, 720)
     except Exception:
         pass
+    
+    # Register window with parent GUI if it has the method
+    if hasattr(parent, '_register_child_window'):
+        parent._register_child_window(win)  # type: ignore[attr-defined]
 
     # Local state
     all_sheets: List[Metasheet] = []

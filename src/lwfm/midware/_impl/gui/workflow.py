@@ -20,6 +20,10 @@ def open_workflow_dialog(gui: tk.Misc, workflow_id: str, highlight_job_id: str =
     win = tk.Toplevel(gui)
     win.title(f"Workflow {workflow_id}")
     win.geometry("1100x680")
+    
+    # Register window with parent GUI if it has the method
+    if hasattr(gui, '_register_child_window'):
+        gui._register_child_window(win)  # type: ignore[attr-defined]
 
     # Load workflow data immediately
     try:
