@@ -5,6 +5,8 @@ Helper for venv handling
 
 import os
 import subprocess
+import time
+from pathlib import Path
 from typing import Optional
 
 from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
@@ -16,6 +18,47 @@ class SiteConfigVenv():
     Helper for venv handling 
     """
 
+    def _communicate_with_log_tail(self, process, log_file_path):
+        """
+        Poll subprocess while tailing log file to console.
+        Returns (stdout, stderr) when process completes.
+        """
+        log_path = Path(log_file_path)
+        last_position = 0
+        poll_interval = 0.5
+        
+        while True:
+            # Check if process finished
+            retcode = process.poll()
+            if retcode is not None:
+                # Process done, read final output
+                stdout, stderr = process.communicate()
+                # Tail any remaining log content
+                if log_path.exists():
+                    try:
+                        with open(log_path, 'r', encoding='utf-8') as f:
+                            f.seek(last_position)
+                            remaining = f.read()
+                            if remaining:
+                                print(remaining, end='', flush=True)
+                    except Exception:
+                        pass
+                return stdout, stderr
+            
+            # Tail new log content
+            if log_path.exists():
+                try:
+                    with open(log_path, 'r', encoding='utf-8') as f:
+                        f.seek(last_position)
+                        new_content = f.read()
+                        if new_content:
+                            print(new_content, end='', flush=True)
+                        last_position = f.tell()
+                except Exception:
+                    pass
+            
+            time.sleep(poll_interval)
+
     def makeVenvPath(self, siteName: str) -> str:
         """
         Construct the path to the virtual environment used to run the Site driver.
@@ -26,10 +69,20 @@ class SiteConfigVenv():
         return os.path.join(os.getcwd(), ".venv")
 
 
-    def executeInProjectVenv(self, siteName: str, script_path_cmd: str) -> Optional[str]:
+    def executeInProjectVenv(self, siteName: str, script_path_cmd: str,
+                             log_file_path: Optional[str] = None) -> Optional[str]:
         """
         Run a command in a virtual environment, used to run canonical Site methods.
         Arbitrary scripts can subsequently be run via Site.Run.submit().
+        
+        Parameters
+        ----------
+        siteName : str
+            Name of the site
+        script_path_cmd : str
+            Python command to execute
+        log_file_path : str, optional
+            If provided, tail this log file to console while process runs
         """
         if script_path_cmd is None:
             raise ValueError("script_path_cmd is required")
@@ -80,8 +133,15 @@ class SiteConfigVenv():
                                         text=True,
                                         env=env
                                         )
-            # read the output and error streams
-            stdout, stderr = process.communicate()
+            
+            # If log tailing requested, poll process while tailing log
+            if log_file_path:
+                stdout, stderr = self._communicate_with_log_tail(
+                    process, log_file_path
+                )
+            else:
+                # read the output and error streams
+                stdout, stderr = process.communicate()
 
             if process.returncode != 0:
                 # something bad happened in the subprocess; surface context and stderr

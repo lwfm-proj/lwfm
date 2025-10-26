@@ -391,6 +391,38 @@ class _VenvSiteRunWrapper(SiteRun):
     def submit(self, jobDefn: Union['JobDefn', str],
         parentContext: Optional[Union[JobContext, Workflow, str]] = None,
         computeType: Optional[str] = None, runArgs: Optional[Union[dict, str]] = None) -> JobStatus:
+        # Check if log streaming requested
+        from lwfm.base.JobDefn import JobDefn as JobDefnClass
+        stream_logs = False
+        if isinstance(jobDefn, JobDefnClass):
+            stream_logs = jobDefn.getStreamLogsToConsole()
+        elif isinstance(jobDefn, str):
+            try:
+                deserialized = ObjectSerializer.deserialize(jobDefn)
+                if isinstance(deserialized, JobDefnClass):
+                    stream_logs = deserialized.getStreamLogsToConsole()
+            except Exception:
+                pass
+        
+        # If streaming requested, need to establish job context and log path first
+        log_file_path = None
+        if stream_logs:
+            # Import here to avoid circular dependency
+            from lwfm.midware.LwfManager import lwfManager
+            # Ensure we have a JobContext with a job ID
+            if parentContext is None or isinstance(parentContext, Workflow):
+                # Create JobContext so we have a job ID
+                use_context = JobContext()
+                use_context.setSiteName(self._siteName)
+                if isinstance(parentContext, Workflow):
+                    use_context.setWorkflowId(parentContext.getWorkflowId())
+                parentContext = use_context
+            elif isinstance(parentContext, str):
+                parentContext = ObjectSerializer.deserialize(parentContext)
+            
+            if isinstance(parentContext, JobContext):
+                log_file_path = lwfManager.getLogFilename(parentContext)
+        
         retVal = self._siteConfigVenv.executeInProjectVenv(
             self._siteName,
             "from lwfm.midware._impl.ObjectSerializer import ObjectSerializer; " + \
@@ -399,7 +431,8 @@ class _VenvSiteRunWrapper(SiteRun):
             f"obj = driver.submit({self._siteConfigVenv.makeArgWrapper(jobDefn)}, " +\
             f"{self._siteConfigVenv.makeArgWrapper(parentContext)}, '{computeType}', " + \
             f"{self._siteConfigVenv.makeArgWrapper(runArgs)}); " + \
-            f"{self._siteConfigVenv.makeSerializeReturnString()}"
+            f"{self._siteConfigVenv.makeSerializeReturnString()}",
+            log_file_path
         )
         if retVal is not None:
             return ObjectSerializer.deserialize(retVal)

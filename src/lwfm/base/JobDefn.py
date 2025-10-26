@@ -56,6 +56,7 @@ class JobDefn:
         self.setJobArgs(args)
         self.setSiteName(None)
         self.setComputeType(None)
+        self.setStreamLogsToConsole(False)
 
     def getDefnId(self) -> str:
         return self._defn_id
@@ -95,6 +96,12 @@ class JobDefn:
 
     def getComputeType(self) -> Optional[str]:
         return self._computeType
+
+    def setStreamLogsToConsole(self, stream: bool) -> None:
+        self._streamLogsToConsole = stream
+
+    def getStreamLogsToConsole(self) -> bool:
+        return self._streamLogsToConsole
 
     def __str__(self) -> str:
         return f"[name:{self.getName()} " + \
