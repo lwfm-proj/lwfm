@@ -30,7 +30,8 @@ import pathlib
 # Clean up PID file on GUI exit if present
 def _cleanup_pid():
     try:
-        logs = os.path.expanduser("~/.lwfm/logs")
+        lwfm_home = os.getenv("LWFM_HOME", os.path.join(os.path.expanduser("~"), ".lwfm"))
+        logs = os.path.join(lwfm_home, "logs")
         pid_path = pathlib.Path(logs) / "gui.pid"
         if pid_path.exists():
             pid_path.unlink(missing_ok=True)  # type: ignore[arg-type]

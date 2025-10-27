@@ -5,12 +5,16 @@
 # Resolve script directory for robust relative paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ~/.lwfm will contain config files and logs
-# create if it doesn't exist
-mkdir -p ~/.lwfm
-mkdir -p ~/.lwfm/logs
+# Use LWFM_HOME if set, otherwise default to ~/.lwfm
+: "${LWFM_HOME:=$HOME/.lwfm}"
+export LWFM_HOME
 
-touch ~/.lwfm/logs/midware.log ~/.lwfm/logs/launcher.log
+# LWFM_HOME will contain config files and logs
+# create if it doesn't exist
+mkdir -p "$LWFM_HOME"
+mkdir -p "$LWFM_HOME/logs"
+
+touch "$LWFM_HOME/logs/midware.log" "$LWFM_HOME/logs/launcher.log"
 
 export PYTHONUNBUFFERED=1
 
