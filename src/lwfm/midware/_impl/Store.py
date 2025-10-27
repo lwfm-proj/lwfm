@@ -38,8 +38,16 @@ from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 
 # ****************************************************************************
 # Respect LWFM_HOME environment variable, default to ~/.lwfm
-_LWFM_HOME = os.getenv("LWFM_HOME", os.path.join(os.path.expanduser("~"), ".lwfm"))
-_DB_FILE = os.path.join(_LWFM_HOME, "lwfm.db")
+# Use functions instead of module-level variables to ensure LWFM_HOME is read
+# at runtime, not at import time
+def _get_lwfm_home() -> str:
+    """Get LWFM home directory, respecting LWFM_HOME env var."""
+    return os.getenv("LWFM_HOME", os.path.join(os.path.expanduser("~"), ".lwfm"))
+
+def _get_db_file() -> str:
+    """Get database file path."""
+    return os.path.join(_get_lwfm_home(), "lwfm.db")
+
 _SCHEMA_CREATED = False
 
 class Store:
@@ -59,14 +67,15 @@ class Store:
         """
         Get the path to the database file.
         """
-        return _DB_FILE
+        return _get_db_file()
 
     def createSchema(self) -> None:
         """
         Create the database schema if it does not exist.
         """
         # Ensure parent directory exists on first run (e.g., ~/.lwfm)
-        db_dir = os.path.dirname(_DB_FILE)
+        db_file = _get_db_file()
+        db_dir = os.path.dirname(db_file)
         try:
             if db_dir and not os.path.isdir(db_dir):
                 os.makedirs(db_dir, exist_ok=True)
@@ -74,7 +83,7 @@ class Store:
             # If we cannot create the directory, surface a clear message and bail early
             raise RuntimeError(f"Unable to create DB directory '{db_dir}': {ex}") from ex
 
-        db = sqlite3.connect(_DB_FILE)
+        db = sqlite3.connect(db_file)
         cur = db.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS WorkflowStore ( " \
             # pk is generated id
@@ -146,7 +155,7 @@ class Store:
         db = None
         for attempt in range(max_retries):
             try:
-                db = sqlite3.connect(_DB_FILE)
+                db = sqlite3.connect(_get_db_file())
                 db.cursor().execute(
                     "INSERT INTO " + store + \
                     " (ts, site, pillar, workflowId, key, data) VALUES (?, ?, ?, ?, ?, ?)",
@@ -178,7 +187,7 @@ class WorkflowStore(Store):
     def getWorkflow(self, workflow_id: str) -> Optional[Workflow]:
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             cur = db.cursor()
             results = cur.execute("SELECT data FROM WorkflowStore WHERE pillar='run.wf' and " \
                 "workflowId=? order by ts desc", (workflow_id,))
@@ -203,7 +212,7 @@ class WorkflowStore(Store):
         """
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             cur = db.cursor()
             results = cur.execute("SELECT data FROM WorkflowStore WHERE " \
                                   "pillar='run.wf' " \
@@ -234,7 +243,7 @@ class WorkflowStore(Store):
     def findWorkflows(self, queryRegExs: dict) -> List[Workflow]:
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             db.create_function("REGEXP", 2, lambda expr,
                 val: re.search(expr, val or "") is not None)
             cur = db.cursor()
@@ -332,7 +341,7 @@ class LoggingStore(Store):
         """
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             cur = db.cursor()
             if workflowId is not None:
                 results = cur.execute(
@@ -363,7 +372,7 @@ class LoggingStore(Store):
         """
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             cur = db.cursor()
             results = cur.execute(
                 "SELECT data FROM LoggingStore WHERE key=? ORDER BY ts DESC",
@@ -391,7 +400,7 @@ class LoggingStore(Store):
         """
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             cur = db.cursor()
             results = cur.execute(
                 "SELECT ts, site, pillar, workflowId, key, data FROM LoggingStore ORDER BY ts DESC"
@@ -429,7 +438,7 @@ class EventStore(Store):
     def getAllWfEvents(self, typeT: Optional[str]) -> Optional[List[WorkflowEvent]]:
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             cur = db.cursor()
             if typeT is not None:
                 results = cur.execute(
@@ -460,7 +469,7 @@ class EventStore(Store):
         db = None
         for attempt in range(max_retries):
             try:
-                db = sqlite3.connect(_DB_FILE)
+                db = sqlite3.connect(_get_db_file())
                 cur = db.cursor()
                 cur.execute(
                     "DELETE FROM EventStore WHERE key=? AND pillar LIKE 'run.event.%'",
@@ -548,7 +557,7 @@ class JobStatusStore(Store):
         """
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             cur = db.cursor()
             results = cur.execute(
                 "SELECT data FROM JobStatusStore WHERE pillar=? ORDER BY ts DESC",
@@ -579,7 +588,7 @@ class JobStatusStore(Store):
             return None
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             cur = db.cursor()
             results = cur.execute(
                 "SELECT data FROM JobStatusStore WHERE pillar=? AND key=? ORDER BY ts DESC",
@@ -611,7 +620,7 @@ class JobStatusStore(Store):
         """
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             cur = db.cursor()
 
             # First, try to get all statuses for this job
@@ -658,7 +667,7 @@ class JobStatusStore(Store):
         db = None
         try:
             # Build SQL query to get all job statuses for these job IDs
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             cur = db.cursor()
 
             results = cur.execute(
@@ -702,7 +711,7 @@ class MetasheetStore(Store):
     def findMetasheets(self, queryRegExs: dict) -> List[Metasheet]:
         db = None
         try:
-            db = sqlite3.connect(_DB_FILE)
+            db = sqlite3.connect(_get_db_file())
             db.create_function("REGEXP", 2, lambda expr,
                 val: re.search(expr, val or "") is not None)
             cur = db.cursor()
