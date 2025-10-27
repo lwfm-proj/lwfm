@@ -21,7 +21,7 @@ class SiteConfig:
         """
         Load the default and user site configurations from TOML.
         These hardcoded default values (below) can be overriden and extended by 
-        using a ~/.lwfm/sites.toml.
+        using a $LWFM_HOME/sites.toml (or ~/.lwfm/sites.toml if LWFM_HOME not set).
         """
         siteToml = """
         [lwfm]
@@ -44,7 +44,8 @@ class SiteConfig:
         remote = false
         """
 
-        USER_TOML = os.path.expanduser("~") + "/.lwfm/sites.toml"
+        lwfm_home = os.getenv("LWFM_HOME", os.path.join(os.path.expanduser("~"), ".lwfm"))
+        USER_TOML = os.path.join(lwfm_home, "sites.toml")
 
         siteSet = tomllib.loads(siteToml)
         # is there a local site config? it can define any custom site, or override
@@ -84,5 +85,6 @@ class SiteConfig:
 
     @staticmethod
     def getLogFilename() -> str:
-        """ Get path to the log files. """
-        return "~/.lwfm/logs"
+        """ Get path to the log files (respects LWFM_HOME env var). """
+        lwfm_home = os.getenv("LWFM_HOME", os.path.join(os.path.expanduser("~"), ".lwfm"))
+        return os.path.join(lwfm_home, "logs")

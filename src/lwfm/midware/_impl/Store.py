@@ -37,7 +37,9 @@ from lwfm.midware._impl.ObjectSerializer import ObjectSerializer
 
 
 # ****************************************************************************
-_DB_FILE = os.path.join(os.path.expanduser("~"), ".lwfm", "lwfm.db")
+# Respect LWFM_HOME environment variable, default to ~/.lwfm
+_LWFM_HOME = os.getenv("LWFM_HOME", os.path.join(os.path.expanduser("~"), ".lwfm"))
+_DB_FILE = os.path.join(_LWFM_HOME, "lwfm.db")
 _SCHEMA_CREATED = False
 
 class Store:

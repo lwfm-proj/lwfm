@@ -27,7 +27,7 @@ check_flask_running() {
 # Function to launch GUI
 launch_gui() {
     echo "Launching GUI..."   
-    python ./src/lwfm/midware/_impl/gui/run_gui.py # >> ~/.lwfm/logs/gui.log 2>&1 &
+    python ./src/lwfm/midware/_impl/gui/run_gui.py # >> "$LWFM_HOME/logs/gui.log" 2>&1 &
 }
 
 # function to clean up background processes
@@ -42,8 +42,8 @@ cleanup() {
         fi
     fi
     # belt-and-suspenders: if middleware pid file exists, kill that session too
-    if [ -f ~/.lwfm/logs/midware.PID ]; then
-        MPID=$(cat ~/.lwfm/logs/midware.PID 2>/dev/null)
+    if [ -f "$LWFM_HOME/logs/midware.PID" ]; then
+        MPID=$(cat "$LWFM_HOME/logs/midware.PID" 2>/dev/null)
         if [ -n "$MPID" ]; then
             kill -TERM -- -$MPID 2>/dev/null
             sleep 2
@@ -55,10 +55,10 @@ cleanup() {
 
     # rotate the log files for safe keeping using a timestamp suffix (not PIDs)
     ts=$(date +"%Y%m%d-%H%M%S")
-    mv ~/.lwfm/logs/midware.log ~/.lwfm/logs/midware-$ts.log
-    mv ~/.lwfm/logs/launcher.log ~/.lwfm/logs/launcher-$ts.log
-    if [ -f ~/.lwfm/logs/gui.log ]; then
-        mv ~/.lwfm/logs/gui.log ~/.lwfm/logs/gui-$ts.log
+    mv "$LWFM_HOME/logs/midware.log" "$LWFM_HOME/logs/midware-$ts.log"
+    mv "$LWFM_HOME/logs/launcher.log" "$LWFM_HOME/logs/launcher-$ts.log"
+    if [ -f "$LWFM_HOME/logs/gui.log" ]; then
+        mv "$LWFM_HOME/logs/gui.log" "$LWFM_HOME/logs/gui-$ts.log"
     fi
     echo " * DONE"
     exit 0
@@ -102,17 +102,17 @@ if check_flask_running; then
     echo "Flask server is already running on port 3000"
     FLASK_PID=$(pgrep -f "SvcLauncher.py" | head -1)
     if [ -n "$FLASK_PID" ]; then
-        echo "$FLASK_PID" > ~/.lwfm/logs/midware.PID
+        echo "$FLASK_PID" > "$LWFM_HOME/logs/midware.PID"
     fi
 else
     echo "Starting Flask server..."
     # start with a clean log only when starting a new server session
-    : > ~/.lwfm/logs/midware.log
-    : > ~/.lwfm/logs/launcher.log
+    : > "$LWFM_HOME/logs/midware.log"
+    : > "$LWFM_HOME/logs/launcher.log"
     # launch the middleware in the background and route stdout and stderr to a log file
-    python "$SCRIPT_DIR/src/lwfm/midware/_impl/SvcLauncher.py" > ~/.lwfm/logs/launcher.log 2>&1 &
+    python "$SCRIPT_DIR/src/lwfm/midware/_impl/SvcLauncher.py" > "$LWFM_HOME/logs/launcher.log" 2>&1 &
     FLASK_PID=$!
-    echo "$FLASK_PID" > ~/.lwfm/logs/midware.PID
+    echo "$FLASK_PID" > "$LWFM_HOME/logs/midware.PID"
     echo "lwfm service PID = $FLASK_PID"
     
     # Wait a moment for server to start
