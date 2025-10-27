@@ -8,4 +8,5 @@ hello*.txt
 lwfm.egg-info
 *.out
 .venv/
+uv.lock
 
